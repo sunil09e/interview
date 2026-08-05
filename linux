@@ -89,5 +89,101 @@ $0	Entire line
 NR	Current line number
 NF	Number of fields in the current line
 
+grep	                                     awk
+Searches for matching lines             	Searches, filters, and processes text
+Cannot easily print specific columns	          Can print any column using $1, $2, etc.
+Mainly used for pattern matching                	Used for pattern matching, calculations, and formatting
+--------------------------------------------------------------
+
+adduser
+Definition
+
+adduser is a high-level, interactive command that creates a new user account and automatically performs tasks such as creating the home directory and prompting for a password.
+
+useradd is a low-level command used to create a user. It does not prompt for additional information and requires you to specify options.  sudo useradd [options] username
+
+Create a user with a home directory: sudo useradd -m siva    Without -m, a home directory may not be created.
+Set a password: sudo passwd siva
+Common useradd Options
+Option	Description
+-m	Create home directory
+-d	Specify home directory
+-s	Specify login shell
+-u	Specify user ID (UID)
+-g	Specify primary group
+
+Example: sudo useradd -m -s /bin/bash siva
+Verify the User
+id siva
+
+or
+
+cat /etc/passwd | grep siva
+------------------------------------------------------------------------------------
+sudo usermod [options] username
+usermod (User Modify) is a Linux command used to modify an existing user account. It allows you to change a user's login name,
+home directory, user ID (UID), primary group, secondary groups, login shell, and other account settings.
+Why do we use usermod?
+Change a username.
+Add a user to a group.
+Change the home directory.
+Change the login shell.
+Change the User ID (UID).
+Lock or unlock a user account.
+
+Option	Description
+-aG	Add user to a supplementary group
+-g	Change primary group
+-l	Change username (login name)
+-d	Change home directory
+-m	Move contents to the new home directory (used with -d)
+-s	Change login shell
+-u	Change User ID (UID)
+-L	Lock the user account
+-U	Unlock the user account
+
+sudo usermod -aG docker siva
+sudo usermod -l sivakumar siva  Changes username from siva to sivakumar.
+sudo usermod -d /home/sivakumar -m sivakumar
+-d = New home directory
+-m = Move existing files to the new home directory
+sudo usermod -s /bin/bash siva  Sets the default shell to Bash.
+sudo usermod -u 1050 siva  Changes the user's UID to 1050.
+sudo usermod -L siva       The user cannot log in until the account is unlocked.
+sudo usermod -U siva       Unlock a user account
+----------------------------------------------
+passwd [options] username
+passwd (Password) is a Linux command used to set, change, or manage a user's password.
+Option                    	Description
+passwd username	         Set/change another user's password (root)
+passwd                	Change your own password
+-l	Lock a user account
+-u	Unlock a user account
+-e	Expire the password (change required at next login)
+-S	Display password status
+  
+passwd                Change your own password
+sudo passwd siva      Change another user's password
+sudo passwd -l siva   Lock a user account 
+sudo passwd -u siva   Unlock a user account
+sudo passwd -e siva   Force password change at next login
+sudo passwd -S siva    Check password status
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
