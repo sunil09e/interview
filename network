@@ -12,5 +12,8 @@ Configure IP address and subnet mask.
 Check MAC address.
 Troubleshoot network issues.
 
-ifconfig  Display all network interfaces
-ifconfig eth0  Display a specific interface
+What is ifconfig?
+
+ifconfig (Interface Configuration) is a Linux networking command used to display and configure network interface settings, including IP addresses, subnet masks,
+MAC addresses, and interface status. It is mainly used for network troubleshooting and configuration. 
+In modern Linux systems, the ip command is the recommended replacement.
