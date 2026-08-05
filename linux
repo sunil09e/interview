@@ -1,0 +1,93 @@
+curl                                                 	wget
+Used for sending and receiving HTTP requests         	Used mainly for downloading files
+Supports GET, POST, PUT, DELETE                   	Mainly GET/download
+Commonly used for API testing	                   Commonly used for software downloads
+Can upload data                                  	Cannot upload data
+
+Interview Answer
+
+What is curl?
+"curl is a command-line tool used to transfer data to and from a server. It is widely used to test REST APIs, send HTTP requests (GET, POST, PUT, DELETE), and verify web services."
+
+What is wget?
+"wget is a command-line utility used to download files from the internet. It supports resuming interrupted downloads and is commonly used in Linux and DevOps to download software packages, binaries, and scripts."
+
+Interview answer
+
+curl and wget are both command-line tools used to download files from the internet. However, curl is mainly used for transferring data and testing APIs, while wget is mainly designed for downloading files
+and websites, with features like recursive downloading and automatic resume.
+
+
+Examples
+
+Download a file using curl:
+
+curl -O https://example.com/file.txt
+
+Download the same file using wget:
+
+wget https://example.com/file.txt
+
+Rule to remember:
+
+API calls → curl
+File downloads → wget
+
+Option	Purpose
+-O	Save with original filename
+-o filename	Save with a custom filename
+-L	Follow redirects
+-C -	Resume an interrupted download
+-#	Show a progress bar
+-I	Fetch only the HTTP headers
+curl -o myfile.txt https://example.com/file.txt
+curl -L -O https://example.com/download
+wget -P /home/ec2-user/ https://example.com/project.zip
+wget -O myproject.zip https://example.com/project.zip
+
+---------------------------------------------------------------
+
+zip archive_name.zip file_name
+zip -r project.zip project/
+zip files.zip file1.txt file2.txt file3.txt
+unzip project.zip
+View zip contents
+unzip -l project.zip
+unzip project.zip -d /home/ec2-user/     The -d option stands for destination directory.
+
+Interview Answer
+
+What is zip?
+"zip is a Linux command used to compress one or more files or directories into a .zip archive, making them easier to store and transfer."
+
+What is unzip?
+"unzip is a Linux command used to extract files and directories from a .zip archive."
+------------------------------------------------------------------------------------------------
+
+awk is a powerful Linux command-line utility used for searching, filtering, processing, and formatting text. It is especially useful for working with structured text files where data is organized into columns.
+It processes input line by line and field by field.
+Why do we use awk?
+Print specific columns from a file.
+Search for patterns.
+Filter data.
+Perform calculations.
+Generate formatted reports.
+Process log files.
+Syntax  awk 'pattern { action }' filename
+awk '{print $1}' student.txt   awk '{print $1, $3}' student.txt  awk '{print NR, $0}' student.txt  awk '$3 > 80 {print $2, $3}' student.txt  awk '/Siva/' student.txt
+
+Output:
+101
+102
+103
+Variable	Meaning
+$1	First column
+$2	Second column
+$3	Third column
+$NF	Last column
+$0	Entire line
+NR	Current line number
+NF	Number of fields in the current line
+
+
+
