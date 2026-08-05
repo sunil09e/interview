@@ -170,10 +170,79 @@ sudo passwd -e siva   Force password change at next login
 sudo passwd -S siva    Check password status
 
 
+-----------------------------------------------------
+What is ls -s?
+ls -s is a Linux command that lists files and displays the amount of disk space used by each file in blocks.
+It is useful for checking how much disk space files occupy.
+-------------------------------------------
+lsof stands for:List Open Files
+It is a Linux command used to list all open files and the processes that are using them.
+Note: In Linux, everything is treated as a file (regular files, directories, devices, sockets, network connections, etc.), 
+so lsof can show much more than just ordinary files.
+Why do we use lsof?
+Find which process is using a file.
+Check which process is using a port.
+Troubleshoot "port already in use" errors.
+Monitor open files and network connections.
 
+Difference between lsof and netstat
+lsof	                                netstat
+Shows open files and processes	           Shows network connections
+Can identify which process uses a port	       Shows listening ports and connections
+Useful for file and port troubleshooting	      Useful for network diagnostics
 
+lsof -i :8081	                                         ss -tulpn | grep 8081
+Shows which process has opened the port            	Shows listening sockets and network connections
+Displays open files and network ports                	Displays network socket information
+Good for finding the process using a port	            Good for checking listening ports and connections
+Older but still widely used                        	Modern replacement for netstat
 
+--------------------------------------------------------------------
+Interview Example
 
+Suppose Google Chrome version 120 is installed.
+
+Running:
+sudo apt update
+
+tells your system that version 121 is available.
+
+Running:
+sudo apt upgrade
+
+actually installs version 121.
+
+Interview Answer
+
+Q: What is the difference between apt update and apt upgrade?
+
+apt update refreshes the local package index by downloading the latest information about available packages from the repositories. It does not install any updates.
+apt upgrade uses that updated package information to download and install newer versions of the packages that are already installed on the system.
+
+-----------------------------------------------------------
+
+What is gzip?
+
+Definition:
+
+gzip (GNU Zip) is a Linux command used to compress a file to reduce its size. It creates a file with the .gz extension.
+
+Note: gzip compresses only one file at a time. To compress an entire directory, use tar with gzip (e.g., tar -czf archive.tar.gz folder/).
+If you try: gzip project/
+It will fail because gzip cannot compress directories
+How do we compress a directory with gzip?
+
+We use tar + gzip together.
+
+tar -czf project.tar.gz project/
+tar → Archives all files into one .tar file.
+gzip → Compresses that .tar file.
+
+Interview Answer
+
+zip is used to compress multiple files and directories into a .zip archive. gzip compresses only a single file and creates a .gz file. 
+To compress an entire directory in Linux, we typically use tar to archive the directory and gzip to compress it, producing a .tar.gz file.
+This is why Linux and DevOps environments commonly use tar.gz, while .zip is more common across Windows and for cross-platform file sharing.
 
 
 
