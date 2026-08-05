@@ -1,0 +1,16 @@
+ifconfig Command in Linux
+Definition
+c (Interface Configuration) is a Linux networking command used to display and configure network interface settings,
+such as the IP address, subnet mask, MAC address, and network status.
+
+Note: On modern Linux systems, ifconfig is deprecated. The ip command (e.g., ip addr) is now the recommended replacement.
+Why do we use ifconfig?
+View IP address.
+Display network interface information.
+Enable or disable a network interface.
+Configure IP address and subnet mask.
+Check MAC address.
+Troubleshoot network issues.
+
+ifconfig  Display all network interfaces
+ifconfig eth0  Display a specific interface
