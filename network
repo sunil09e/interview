@@ -17,3 +17,734 @@ What is ifconfig?
 ifconfig (Interface Configuration) is a Linux networking command used to display and configure network interface settings, including IP addresses, subnet masks,
 MAC addresses, and interface status. It is mainly used for network troubleshooting and configuration. 
 In modern Linux systems, the ip command is the recommended replacement.
+
+---------------------------------
+Network
+
+A network is a connection between two or more devices that allows them to communicate and share data/resources.
+
+Example:
+
+Laptop ─── Wi-Fi Router ─── Internet ─── Web Server
+Basic network components
+Client – device requesting a service, e.g. laptop.
+Server – device providing a service, e.g. web server.
+Router – connects different networks and forwards packets.
+Switch – connects devices within the same local network.
+IP address – identifies a device on a network.
+MAC address – identifies a network interface at the hardware/link level.
+DNS – converts a domain name like google.com into an IP address.
+Port – identifies a particular service/application, e.g. HTTP 80, HTTPS 443, SSH 22.
+Common types
+Type	Meaning	Example
+LAN	Local Area Network	Office/home
+WAN	Wide Area Network	Internet
+MAN	Metropolitan Area Network	City-wide network
+WLAN	Wireless LAN	Wi-Fi
+-------------------------------------------
+
+Ethernet is a LAN networking technology that uses frames and MAC addresses to communicate between devices.
+Example:
+
+PC ─── Ethernet Cable ─── Switch ─── Router
+
+VLAN = Virtual Local Area Network
+
+A VLAN allows you to logically divide one physical network/switch into multiple separate networks.
+
+              Switch
+          ┌──────┴──────┐
+          │             │
+      VLAN 10        VLAN 20
+       DEV             TEST
+      PC1 PC2         PC3 PC4
+
+ETHERNET
+   ↓
+How devices communicate on a LAN
+   ↓
+MAC address + Frames
+
+VLAN
+   ↓
+How we logically divide a LAN
+   ↓
+Separate broadcast domains
+
+NACL
+   ↓
+AWS subnet-level traffic control
+   ↓
+Allow / Deny
+
+Stateless = server does not remember the previous request.
+
+Each request is treated independently.
+
+Example:
+
+Request 1 → "What is my account?"
+Request 2 → "Show my orders"
+
+The server doesn't automatically remember Request 1 when processing Request 2.
+
+A common example is REST APIs.
+
+Stateful
+
+Stateful = server remembers information about previous interactions.
+
+Example:
+
+Login
+  ↓
+Server creates session
+  ↓
+Next request
+  ↓
+Server knows who you are
+
+For example, after logging into a website, you move between pages and remain logged in because your session state is maintained.
+
+Easy comparison
+Stateless	Stateful
+Doesn't remember previous request	Remembers previous interaction
+Each request is independent	Requests can depend on previous state
+REST APIs commonly use stateless design	Sessions commonly maintain state
+Easier to scale	State management is required
+------------------------------------------
+Common TCP/UDP Ports
+Port	Protocol	TCP/UDP	Why / Purpose
+20	FTP	TCP	FTP data transfer
+21	FTP	TCP	FTP control/commands
+22	SSH	TCP	Secure remote login
+23	Telnet	TCP	Remote login, unencrypted
+25	SMTP	TCP	Sending email
+53	DNS	TCP/UDP	Domain-name resolution
+67	DHCP	UDP	DHCP server
+68	DHCP	UDP	DHCP client
+69	TFTP	UDP	Simple file transfer
+80	HTTP	TCP	Web traffic
+110	POP3	TCP	Receiving email
+123	NTP	UDP	Time synchronization
+143	IMAP	TCP	Receiving/managing email
+161	SNMP	UDP	Network monitoring/management
+162	SNMP Trap	UDP	SNMP notifications
+389	LDAP	TCP/UDP	Directory services
+443	HTTPS	TCP	Secure web traffic
+445	SMB	TCP	Windows file/printer sharing
+514	Syslog	UDP/TCP	Logging
+587	SMTP Submission	TCP	Sending email from clients
+636	LDAPS	TCP	Secure LDAP
+993	IMAPS	TCP	Secure IMAP
+995	POP3S	TCP	Secure POP3
+1433	MS SQL Server	TCP	Microsoft SQL Server
+1521	Oracle DB	TCP	Oracle Database
+2049	NFS	TCP/UDP	Network File System
+2375	Docker	TCP	Docker API, unencrypted
+2376	Docker	TCP	Docker API over TLS
+3000	Common app port	TCP	Node.js/React development apps
+3306	MySQL	TCP	MySQL database
+3389	RDP	TCP/UDP	Windows Remote Desktop
+5432	PostgreSQL	TCP	PostgreSQL database
+5601	Kibana	TCP	Kibana web interface
+6379	Redis	TCP	Redis
+6443	Kubernetes API	TCP	Kubernetes API server
+8080	HTTP alternate	TCP	Common web/app server
+8081	HTTP alternate	TCP	Common application/proxy port
+9090	Prometheus	TCP	Prometheus web/API
+9100	Node Exporter	TCP	Prometheus Node Exporter
+9200	Elasticsearch	TCP	Elasticsearch API
+9300	Elasticsearch	TCP	Elasticsearch cluster communication
+9418	Git	TCP	Git protocol
+15672	RabbitMQ	TCP	RabbitMQ management UI
+27017	MongoDB	TCP	MongoDB
+-----------------------------------------
+22     → SSH
+53     → DNS
+80     → HTTP
+443    → HTTPS
+3306   → MySQL
+5432   → PostgreSQL
+8080   → Common application/Jenkins
+6443   → Kubernetes API
+9090   → Prometheus
+9100   → Node Exporter
+3000   → Common development application
+2375   → Docker API
+2376   → Docker API TLS
+3389   → RDP
+---------------------------
+Port ranges
+
+Ports are numbered from:
+
+0 → 65535
+
+They are generally divided into:
+
+1. Well-known ports
+0 – 1023
+
+Common services such as:
+
+22  → SSH
+25  → SMTP
+53  → DNS
+80  → HTTP
+443 → HTTPS
+2. Registered ports
+1024 – 49151
+
+Used by many applications and services.
+
+Examples:
+
+3306 → MySQL
+5432 → PostgreSQL
+8080 → HTTP alternate
+9090 → Prometheus
+3. Dynamic/private ports
+49152 – 65535
+
+Often used temporarily by client applications for outgoing connections.
+-----------------------------------------
+
+
+TCP vs UDP
+
+This is very important.
+
+TCP
+
+TCP = Transmission Control Protocol
+
+TCP is connection-oriented and provides reliable delivery.
+
+Client ── SYN ──→ Server
+Client ←─ SYN/ACK ─ Server
+Client ── ACK ──→ Server
+       Connection
+       established
+
+Examples:
+
+SSH       → 22
+HTTP      → 80
+HTTPS     → 443
+FTP       → 21
+SMTP      → 25
+MySQL     → 3306
+PostgreSQL→ 5432
+UDP
+
+UDP = User Datagram Protocol
+
+UDP is connectionless and generally faster, but it does not provide TCP-style delivery guarantees.
+
+Examples:
+
+DNS       → 53
+DHCP      → 67/68
+TFTP      → 69
+NTP       → 123
+SNMP      → 161
+---------------------
+⭐ Most important for DevOps
+
+Memorize these first:
+
+100 → Continue
+
+200 → OK
+201 → Created
+202 → Accepted
+204 → No Content
+
+301 → Permanent Redirect
+302 → Temporary Redirect
+
+400 → Bad Request
+401 → Authentication required/invalid
+403 → Forbidden
+404 → Not Found
+405 → Method Not Allowed
+429 → Too Many Requests
+
+500 → Internal Server Error
+502 → Bad Gateway
+503 → Service Unavailable
+504 → Gateway Timeout
+Easy memory trick
+2xx = SUCCESS ✅
+3xx = REDIRECT 🔄
+4xx = CLIENT PROBLEM ❌
+5xx = SERVER PROBLEM ❌
+
+And remember the difference:
+
+401 → "Who are you?"
+403 → "I know who you are, but you can't do this."
+
+That 401 vs 403 distinction is especially important in interviews.
+-----------------------
+7. What is a default route?
+
+A default route is the route used when the routing table doesn't have a more specific route for the destination.
+A default route tells your computer:
+
+"If you don't have a more specific route for the destination, send the packet to this gateway."
+For IPv4, the default route is:
+
+0.0.0.0/0
+
+It basically means:
+
+"For any destination I don't have a specific route for, send the traffic here."
+
+Example:
+
+EC2
+ │
+ │ 0.0.0.0/0
+ ▼
+Internet Gateway
+ │
+ ▼
+Internet
+
+In an AWS route table you might see:
+
+Destination     Target
+10.0.0.0/16     local
+0.0.0.0/0       igw-xxxxxxxx
+
+Meaning:
+
+10.0.0.0/16 → Stay inside the VPC
+0.0.0.0/0   → Send other traffic to Internet Gateway
+
+0.0.0.0/0
+
+has zero network bits.
+
+Therefore it matches all IPv4 addresses.
+Term	Meaning
+Gateway	The router IP (192.168.1.1)
+Default route	Rule saying where to send unknown destinations
+0.0.0.0/0	IPv4 default route
+default via 192.168.1.1	Send default traffic to gateway 192.168.1.1
+------------------------------
+
+Default Gateway
+
+A default gateway is the device, usually a router, that your computer uses to send traffic to other networks when it doesn't have a more specific route.
+A gateway is the router's IP address that your computer sends traffic to when it needs to reach another network.
+Think:
+
+Gateway = the exit door from your local network.
+---------------------------------------------------------
+AWS example
+
+Suppose you create a VPC:
+
+VPC
+10.0.0.0/16
+
+Then create a subnet:
+
+Public Subnet
+10.0.1.0/24
+
+The subnet range is:
+
+10.0.1.0 → 10.0.1.255
+
+In AWS specifically, there is an important difference: AWS reserves five IP addresses in every subnet, including the network address, the first three usable addresses, and the last address. So for 10.0.1.0/24, the AWS-usable host range starts at 10.0.1.4 and ends at 10.0.1.254.
+
+Example route table:
+
+Destination     Target
+10.0.0.0/16     local
+0.0.0.0/0       Internet Gateway
+
+Traffic flow:
+
+              VPC
+          10.0.0.0/16
+               │
+       ┌───────┴────────┐
+       │                │
+10.0.1.0/24         10.0.2.0/24
+ Public              Private
+       │
+      EC2
+       │
+       │ 0.0.0.0/0
+       ▼
+Internet Gateway
+       │
+    Internet
+Interview summary
+CIDR
+ ↓
+Defines the size/range of an IP network
+
+Network address
+ ↓
+First address of the subnet
+
+First usable IP
+ ↓
+Usually network address + 1
+(AWS has additional reserved addresses)
+
+Last usable IP
+ ↓
+Usually before broadcast
+(AWS has its own reservation rules)
+
+Broadcast address
+ ↓
+Last address in a traditional IPv4 subnet
+
+0.0.0.0/0
+ ↓
+Default route
+ ↓
+Matches all IPv4 destinations
+
+Most important examples to memorize:
+
+10.0.0.0/16
+→ 65,536 total addresses
+
+10.0.1.0/24
+→ 256 total addresses
+
+10.0.1.0/25
+→ 128 total addresses
+
+0.0.0.0/0
+→ Default route / all IPv4 destinations
+------------------------------
+Don't confuse these:
+Term	Example	Meaning
+Network address	10.0.0.0	Identifies the network
+Subnet mask	255.255.0.0	Defines network/host portion
+First usable IP	10.0.0.1	First host address traditionally
+Last usable IP	10.0.255.254	Last host address traditionally
+Broadcast	10.0.255.255	Sends to all hosts in subnet
+Default gateway	e.g. 10.0.0.1	Router used to reach other networks
+Default route	0.0.0.0/0	Route for destinations without a more-specific route
+
+Important AWS point
+
+In AWS, 10.0.0.1 is not automatically "the default gateway." AWS reserves certain addresses in each subnet, and the VPC's routing is handled through route tables
+and targets such as an Internet Gateway or NAT Gateway. So don't memorize x.x.x.1 = gateway as an AWS rule.
+----------------
+Because private IP addresses are not decided by a mathematical rule. They are specific ranges reserved by the Internet standards for use inside private networks.
+
+Think of it like a rule made by the networking standards:
+
+“These particular addresses are reserved for private networks. Other addresses can be used as public addresses.”
+
+The 3 private ranges
+10.0.0.0        → 10.255.255.255
+172.16.0.0      → 172.31.255.255
+192.168.0.0     → 192.168.255.255
+--------------------------------------
+How to find the Default Gateway IP
+
+The default gateway is usually the IP address of the router that your device uses to reach other networks, such as the Internet.
+
+1. Linux
+
+Use:
+
+ip route
+
+Example:
+
+default via 192.168.1.1 dev eth0
+192.168.1.0/24 dev eth0 proto kernel src 192.168.1.10
+
+Here:
+
+default via 192.168.1.1
+             ↑
+       Default Gateway
+------------------------------
+Cookies
+
+A cookie is a small piece of data that a website stores in your browser to remember information about you or your session.
+Common uses of cookies
+Login/session management
+Remembering preferences
+Shopping carts
+User settings
+Tracking/analytics
+
+Example:
+
+Username: Siva
+Language: English
+Session: ABC123
+Cache
+
+A cache stores copies of files from a website so the browser can load the website faster next time.
+
+For example, when you visit:
+
+example.com
+
+The browser downloads:
+
+logo.png
+style.css
+script.js
+
+It can store these in the cache.
+
+Next time:
+
+Browser
+   ↓
+Check cache
+   ↓
+Already have logo.png?
+   ↓
+Yes → use cached file
+
+This reduces downloading and makes the page load faster.
+Cookie 🍪	Cache 🗃️
+Stores information/data	Stores website files/resources
+Helps remember sessions/preferences	Helps load pages faster
+Sent to the server with requests (when applicable)	Usually used locally by browser
+Example: session ID	Example: logo.png, CSS, JS
+Usually smaller	Can be much larger
+-------------------------
+Stateless
+
+Stateless = server does not remember the previous request.
+
+Each request is treated independently.
+
+Example:
+
+Request 1 → "What is my account?"
+Request 2 → "Show my orders"
+
+The server doesn't automatically remember Request 1 when processing Request 2.
+
+A common example is REST APIs.
+Stateful
+
+Stateful = server remembers information about previous interactions.
+
+Example:
+
+Login
+  ↓
+Server creates session
+  ↓
+Next request
+  ↓
+Server knows who you are
+
+For example, after logging into a website, you move between pages and remain logged in because your session state is maintained.
+
+Easy comparison
+Stateless	Stateful
+Doesn't remember previous request	Remembers previous interaction
+Each request is independent	Requests can depend on previous state
+REST APIs commonly use stateless design	Sessions commonly maintain state
+Easier to scale	State management is required
+
+-----------------------------------------------------------
+
+1. Deadlock
+Definition
+
+Deadlock is a situation where two or more processes are permanently waiting for resources held by each other, so none of them can continue.
+
+Example
+
+Suppose:
+
+Process P1 → has Resource A → needs Resource B
+Process P2 → has Resource B → needs Resource A
+P1                         P2
+ │                          │
+ │ holds A                  │ holds B
+ │                          │
+ ↓                          ↓
+needs B                   needs A
+ │                          │
+ └──────── waits ───────────┘
+
+Neither can continue.
+
+Four conditions for deadlock
+
+All four generally need to be present:
+
+Mutual Exclusion — resource can be used by only one process at a time.
+Hold and Wait — process holds one resource while waiting for another.
+No Preemption — resource cannot be forcibly taken away.
+Circular Wait — processes wait for each other in a cycle.
+How to handle deadlock
+
+Common approaches:
+
+Prevention — make one of the four conditions impossible.
+Avoidance — allocate resources carefully, e.g. Banker's algorithm.
+Detection and Recovery — detect deadlock and recover.
+Ignore — some systems tolerate rare cases rather than continuously handling them.
+-------------------------
+2. Process vs Thread
+Process
+
+A process is a program that is currently executing.
+
+Example:
+
+Chrome
+   ↓
+Process
+
+A process has its own memory/resources.
+
+Process
+├── Code
+├── Data
+├── Heap
+└── Resources
+Thread
+
+A thread is the smallest unit of execution within a process.
+
+One process can contain multiple threads:
+
+Chrome Process
+├── Thread 1 → UI
+├── Thread 2 → Network
+├── Thread 3 → Rendering
+└── Thread 4 → Downloads
+
+Threads within the same process generally share:
+
+Code
+Data
+Heap
+
+but each thread has its own:
+
+Stack
+Registers
+Program counter
+---------------------------------
+
+CPU Scheduling
+Definition
+
+CPU scheduling is the process of selecting which ready process/thread should get the CPU next.
+Common scheduling algorithms
+FCFS — First Come First Serve
+
+The process that arrives first runs first.
+
+P1 → P2 → P3
+
+Simple, but a long process can make others wait.
+
+SJF — Shortest Job First
+
+The process requiring the shortest CPU burst runs first.
+
+P2 = 2 ms
+P1 = 5 ms
+P3 = 8 ms
+
+Order:
+P2 → P1 → P3
+
+Can provide low average waiting time, but long processes may starve.
+
+Round Robin
+
+Each process gets a fixed time quantum.
+
+Example:
+
+Quantum = 2 ms
+
+P1 → 2 ms
+P2 → 2 ms
+P3 → 2 ms
+P1 → 2 ms
+...
+
+Commonly associated with time-sharing systems.
+
+Priority Scheduling
+
+The process with the highest priority gets the CPU.
+
+P1 → Priority 3
+P2 → Priority 1
+P3 → Priority 2
+
+Depending on the convention, lower number may mean higher priority.
+
+--------------------------
+4. Memory Management
+Definition
+
+Memory management is the OS function responsible for allocating, tracking, protecting, and freeing memory for processes.
+
+Example:
+
+RAM
+┌─────────────────────┐
+│ Operating System    │
+├─────────────────────┤
+│ Process A           │
+├─────────────────────┤
+│ Process B           │
+├─────────────────────┤
+│ Free Memory         │
+└─────────────────────┘
+
+The OS decides:
+
+Which process gets memory?
+How much memory?
+Where should it be placed?
+When can it be released?
+Important memory concepts
+Paging
+
+Memory is divided into fixed-size blocks.
+
+Virtual memory
+┌────┬────┬────┬────┐
+│ P1 │ P2 │ P3 │ P4 │
+└────┴────┴────┴────┘
+
+Physical memory is divided into frames.
+
+Paging helps avoid external fragmentation and supports virtual memory.
+
+Virtual Memory
+
+Virtual memory allows processes to use an address space larger than the available physical RAM by using storage as backing memory when needed.
+
+Example:
+
+Process
+   ↓
+Virtual Memory
+   ↓
+RAM + Disk backing
+
