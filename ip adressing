@@ -1,0 +1,890 @@
+IP Addressing
+
+IP addressing is the method used to give a unique logical address to a device/interface on an IP network so that data can be delivered to the correct destination.
+
+For example:
+
+Computer A                  Computer B
+192.168.1.10  ----------->  192.168.1.20
+       IP address              IP address
+
+The IP address tells the network where the device is located logically.
+
+1. Types of IP Address
+
+There are two main versions:
+
+IPv4
+
+IPv4 uses 32 bits.
+
+Example:
+
+192.168.1.10
+
+It contains 4 octets, separated by dots.
+
+192    .    168    .    1    .    10
+ ↓          ↓          ↓         ↓
+8 bits     8 bits     8 bits    8 bits
+
+Total:
+
+8 + 8 + 8 + 8 = 32 bits
+
+Each octet can have a value from:
+
+0 to 255
+IPv6
+
+IPv6 uses 128 bits.
+
+Example:
+
+2001:0db8:85a3:0000:0000:8a2e:0370:7334
+
+IPv6 was introduced mainly because the number of available IPv4 addresses is limited.
+
+2. IPv4 Address Classes
+
+Traditional IPv4 addressing has five classes:
+
+Class	First Octet	Purpose
+A	1–126	Very large networks
+B	128–191	Medium networks
+C	192–223	Small networks
+D	224–239	Multicast
+E	240–255	Experimental
+
+Example:
+
+10.10.10.10
+
+Class A.
+
+172.16.10.10
+
+Class B.
+
+192.168.1.10
+
+Class C.
+
+Important: Modern networks generally use CIDR rather than relying on these old classes.
+
+3. Public IP vs Private IP
+
+This is very important in real-world networking.
+
+Private IP
+
+Private IP addresses are used inside local networks.
+
+The main private IPv4 ranges are:
+
+10.0.0.0      – 10.255.255.255
+
+172.16.0.0    – 172.31.255.255
+
+192.168.0.0   – 192.168.255.255
+
+Example:
+
+Laptop → 192.168.1.10
+Phone  → 192.168.1.11
+Server → 192.168.1.20
+
+These addresses are not directly routable on the public Internet.
+
+Public IP
+
+A public IP is an address that can be used for communication across the Internet.
+
+For example:
+
+Your Router
+     |
+Public IP
+     |
+  Internet
+     |
+Web Server
+
+Your home devices can have private IPs while the router has a public IP.
+
+4. Static IP vs Dynamic IP
+Static IP
+
+An IP address that is manually configured or reserved so it normally remains the same.
+
+Example:
+
+Server → 192.168.1.100
+
+Useful for:
+
+Servers
+Network devices
+Important infrastructure
+Dynamic IP
+
+An IP address assigned automatically, usually by DHCP.
+
+Example:
+
+Laptop → DHCP → 192.168.1.25
+
+Later it might receive:
+
+192.168.1.30
+5. Network Address and Host Address
+
+An IPv4 address can be divided into:
+
+Network portion + Host portion
+
+For example:
+
+192.168.1.10/24
+
+With /24:
+
+Network portion       Host portion
+192.168.1             .10
+
+So:
+
+Network address = 192.168.1.0
+Host = 10
+
+Another device:
+
+192.168.1.20
+
+belongs to the same network.
+
+192.168.1.10
+192.168.1.20
+       ↓
+Same network: 192.168.1.0/24
+6. Subnet Mask
+
+A subnet mask tells us which portion of an IPv4 address represents the network and which portion represents hosts.
+
+For:
+
+192.168.1.10/24
+
+the subnet mask is:
+
+255.255.255.0
+
+Meaning:
+
+IP:          192.168.1.10
+Mask:        255.255.255.0
+             └── network ──┘ └host┘
+7. CIDR
+
+CIDR = Classless Inter-Domain Routing
+
+It represents the network using /number.
+
+Examples:
+
+192.168.1.0/24
+192.168.1.0/25
+192.168.1.0/26
+10.0.0.0/16
+
+The number tells you how many bits belong to the network portion.
+
+For example:
+
+/24 = 24 network bits
+     = 8 host bits
+
+So a /24 network has:
+
+2^8 = 256 addresses
+
+Usually:
+
+256 - 2 = 254 usable host addresses
+
+because the network address and broadcast address are traditionally reserved.
+
+8. MAC Address vs IP Address
+
+Don't confuse them.
+
+MAC Address
+Hardware/data-link address
+Usually associated with the network interface
+Used primarily for local-network delivery
+
+Example:
+
+00:1A:2B:3C:4D:5E
+IP Address
+Logical address
+Used for communication across networks
+Can change
+
+Example:
+
+192.168.1.10
+
+Simple way:
+
+MAC → Which network interface?
+IP  → Which logical destination?
+9. How IP Addressing Works
+
+Suppose:
+
+PC A
+IP: 192.168.1.10
+
+PC B
+IP: 192.168.1.20
+
+PC A wants to send data to PC B.
+
+PC A
+192.168.1.10
+     |
+     | Packet
+     ↓
+Network
+     |
+     ↓
+PC B
+192.168.1.20
+
+The IP packet contains information such as:
+
+Source IP      → 192.168.1.10
+Destination IP → 192.168.1.20
+
+Routers use the destination IP to determine where to forward the packet.
+
+Interview Definition
+
+IP addressing is a logical addressing system used to uniquely identify network interfaces and enable devices to communicate and route packets across IP networks.
+
+-------------------
+
+DHCP — How It Works
+
+DHCP = Dynamic Host Configuration Protocol
+
+DHCP automatically gives a device its network configuration, such as:
+
+IP address
+Subnet mask
+Default gateway
+DNS server
+Lease time
+
+For example, when you connect your laptop to Wi-Fi:
+
+Laptop
+   |
+   | "I need an IP address"
+   ↓
+Wi-Fi Router / DHCP Server
+   |
+   | "Here is 192.168.1.20"
+   ↓
+Laptop
+
+So you don't normally have to manually configure an IP address.
+
+Where does DHCP come from?
+
+There are two things to separate:
+
+1. DHCP is a protocol
+
+DHCP defines how the client and server communicate to obtain network configuration.
+
+2. DHCP Server is software
+
+A DHCP server program runs on some device.
+
+For example:
+
+Home network:
+
+Laptop ──┐
+Phone  ──┼── Wi-Fi Router
+TV     ──┘       |
+                 |
+          DHCP Server software
+
+Most home routers have DHCP server functionality built into them.
+
+In a company, DHCP may run on a dedicated server.
+
+For example:
+
+Employees' PCs
+      |
+      v
+    Switch
+      |
+      v
+DHCP Server
+
+On Linux, DHCP server software can be installed and configured on a Linux server.
+
+In cloud environments, DHCP can be provided as part of the cloud networking infrastructure rather than you manually installing a DHCP server.
+
+How DHCP Works — DORA
+
+DHCP commonly works through 4 steps, remembered as:
+
+DORA = Discover → Offer → Request → Acknowledge
+
+Suppose your laptop has just connected to Wi-Fi.
+
+Step 1: DHCP Discover
+
+Your laptop doesn't have an IP address yet.
+
+It broadcasts:
+
+Laptop
+   |
+   | DHCP DISCOVER
+   | "Is there any DHCP server?"
+   ↓
+Network
+
+The client essentially says:
+
+"I need an IP address."
+
+Step 2: DHCP Offer
+
+The DHCP server receives the request and offers an IP address.
+
+For example:
+
+DHCP Server
+     |
+     | DHCP OFFER
+     | IP: 192.168.1.20
+     | Mask: 255.255.255.0
+     | Gateway: 192.168.1.1
+     | DNS: 8.8.8.8
+     ↓
+Laptop
+
+The server is saying:
+
+"You can use 192.168.1.20."
+
+Step 3: DHCP Request
+
+The laptop responds:
+
+Laptop
+   |
+   | DHCP REQUEST
+   | "I want 192.168.1.20"
+   ↓
+DHCP Server
+Step 4: DHCP ACK
+
+The DHCP server confirms:
+
+DHCP Server
+     |
+     | DHCP ACK
+     | "Okay, you can use it."
+     ↓
+Laptop
+
+Now the laptop has its network configuration.
+
+Complete Flow
+              DHCP Server
+                   |
+                   |
+Laptop             |
+  |                |
+  | DHCP DISCOVER   |
+  |--------------->|
+  |                |
+  | DHCP OFFER     |
+  |<---------------|
+  |                |
+  | DHCP REQUEST   |
+  |--------------->|
+  |                |
+  | DHCP ACK       |
+  |<---------------|
+  |
+  ↓
+IP = 192.168.1.20
+What exactly does DHCP give?
+
+DHCP doesn't only give an IP address.
+
+For example, the DHCP server might provide:
+
+IP Address       : 192.168.1.20
+Subnet Mask      : 255.255.255.0
+Default Gateway  : 192.168.1.1
+DNS Server       : 8.8.8.8
+Lease Time       : 24 hours
+
+Your computer needs these settings to communicate properly.
+
+If you're asking “How does the first IP, 192.168.1.1, get there?”, especially the Default Gateway, here's the key idea.
+
+192.168.1.1 is usually the router's IP
+
+It is not the first IP given by DHCP.
+
+Your home router has a network interface with an IP configured on it, for example:
+
+Router
+LAN IP = 192.168.1.1
+       |
+       | DHCP Server
+       |
+       ├── Laptop → 192.168.1.10
+       ├── Phone  → 192.168.1.11
+       └── TV     → 192.168.1.12
+
+The router's LAN IP (192.168.1.1) is configured when the router is set up/manufactured. The router then runs a DHCP server and gives other devices addresses from its configured pool.
+
+For example:
+
+DHCP pool:
+192.168.1.10 → 192.168.1.254
+
+So when your laptop connects:
+
+Laptop
+   ↓
+DHCP Discover
+   ↓
+Router (192.168.1.1)
+   ↓
+DHCP Offer
+   ↓
+192.168.1.10
+
+The laptop may receive:
+
+IP Address      : 192.168.1.10
+Subnet Mask     : 255.255.255.0
+Default Gateway : 192.168.1.1
+DNS Server      : 192.168.1.1
+But why 192.168.1.1 specifically?
+
+There is nothing special about .1.
+
+The router could instead use:
+
+192.168.0.1
+192.168.1.1
+192.168.10.1
+10.0.0.1
+
+It depends on how the network is configured.
+
+-----------
+
+
+Subnetting = the process of dividing one network into smaller networks.
+CIDR = the notation/method used to specify how many bits belong to the network portion, such as /24, /26, /28.
+
+Yes — 192.168.1.0/24 is CIDR notation. You are correct.
+
+But there is an important distinction:
+
+CIDR
+
+CIDR tells us the network prefix length:
+
+192.168.1.0/24
+              ↑
+        24 network bits
+
+So /24 means:
+
+Network bits = 24
+Host bits    = 8
+
+Therefore:
+
+2⁸ = 256 total addresses
+Subnetting
+
+Subnetting is what you do with that network.
+
+For example, start with:
+
+192.168.1.0/24
+
+Then you decide:
+
+"I want to divide this into 4 smaller networks."
+
+You change the prefix from /24 to /26:
+
+192.168.1.0/26
+192.168.1.64/26
+192.168.1.128/26
+192.168.1.192/26
+
+That division is subnetting.
+
+So remember:
+CIDR = notation
+       ↓
+192.168.1.0/24
+
+Subnetting = process
+             ↓
+/24 → /26
+             ↓
+One network → 4 smaller networks
+
+/24 itself is CIDR. Changing /24 to /26 to create smaller networks is subnetting using CIDR.
+
+-------------
+
+Devices in a Network
+
+Network devices are hardware devices that connect computers, control traffic, or provide network services.
+
+1. Router
+
+A router connects different networks and forwards packets between them.
+
+Example:
+
+Home Network
+192.168.1.0/24
+       |
+       v
+    Router
+       |
+       v
+   Internet
+
+Main job: Routing based on IP addresses.
+
+
+
+Forwards data	Specific destination port	All ports
+Layer	Layer 2	Layer 1
+Hub = "Send to everyone"
+
+Switch = "Send to the correct device"
+
+2. Switch
+
+A switch connects devices within the same LAN.
+
+PC ──┐
+PC ──┤
+PC ──┼── Switch
+PC ──┘
+
+It mainly uses MAC addresses to forward Ethernet frames.
+
+Main job: Connect devices in a LAN.
+
+3. Hub
+
+A hub also connects multiple devices, but it sends incoming data to all ports.
+
+PC ──┐
+PC ──┤
+PC ──┼── Hub
+PC ──┘
+
+It is an older and less efficient device than a switch.
+
+
+4. Modem
+
+Modem = Modulator-Demodulator
+
+It connects your network to the service provider's network.
+
+Home Network
+     |
+   Router
+     |
+   Modem
+     |
+ ISP / Internet
+
+Modern home devices often combine modem + router + Wi-Fi + switch in one box.
+
+7. Firewall
+
+A firewall controls network traffic based on security rules.
+
+For example:
+
+Internet
+   |
+   v
+Firewall
+   |
+   v
+Internal Network
+
+It can allow or block traffic based on things such as:
+
+Source IP
+Destination IP
+Port
+Protocol
+Security rules
+
+
+5. Access Point (AP)
+
+An Access Point provides wireless connectivity to devices.
+
+Laptop ))))
+Phone  )))) → Access Point → Network
+Tablet ))))
+
+It allows Wi-Fi devices to join a wired or wireless network.
+It means an Access Point (AP) is a device that allows wireless devices to connect to a network using Wi-Fi.
+
+Simple example
+Laptop  ))))
+Phone   ))))  →  Access Point  →  Switch  →  Router  →  Internet
+Tablet  ))))
+
+Here:
+
+)))) = Wi-Fi/wireless connection
+Access Point = provides the Wi-Fi connection
+Switch = connects network devices
+Router = connects your local network to other networks/Internet
+Real-life example
+
+In an office, you may have:
+
+Internet
+   ↓
+Router
+   ↓
+Switch
+   ↓
+Access Point
+   ↓
+Wi-Fi
+ ↓   ↓   ↓
+Laptop Phone Tablet
+
+So, AP = a device that converts a wired network connection into Wi-Fi connectivity for wireless devices.
+
+AP vs Router
+
+Don't confuse them:
+
+Access Point → mainly provides Wi-Fi access
+Router → connects different networks and routes IP packets
+
+A home Wi-Fi router usually has an Access Point built into it, which is why you can connect your phone directly to your home router using Wi-Fi.
+
+Router → Internet
+
+The router performs NAT (Network Address Translation) and changes the private source address to the router's public IP.
+Thing	Role
+Default Gateway	Tells your laptop where to send traffic outside its network
+Router	Forwards traffic between networks
+NAT	Translates private IP ↔ public IP
+Public IP	Identifies your network to the Internet
+
+Your laptop has this configuration
+
+Suppose:
+
+Laptop IP       = 192.168.1.10
+Default Gateway = 192.168.1.1
+
+And your router has:
+
+Router LAN IP   = 192.168.1.1
+
+So notice:
+
+Default Gateway = 192.168.1.1
+Router LAN IP   = 192.168.1.1
+
+They are the same IP address in this example.
+
+But they describe different things:
+Router = the actual device
+Default Gateway = the address your laptop uses to reach that device when going outside its local network
+A router is a device that forwards packets between networks, while a default gateway is the IP address/interface that a host uses to send traffic to destinations outside its local network.
+Example 2: Laptop wants Google
+
+Now your laptop wants:
+
+google.com
+
+Google is not inside your local network.
+
+Your laptop thinks:
+
+"Google is outside my network. Where should I send this traffic?"
+
+It looks at:
+
+Default Gateway = 192.168.1.1
+
+So:
+
+Laptop
+192.168.1.10
+     |
+     | "I need to go outside"
+     ↓
+192.168.1.1
+     |
+     ↓
+Router
+     |
+     ↓
+Internet
+     |
+     ↓
+Google
+
+Here 192.168.1.1 is the default gateway for the laptop.
+
+And that IP belongs to the router's LAN interface.
+                 Same IP
+                    ↓
+Router LAN IP = 192.168.1.1
+                    ↑
+PC Default Gateway = 192.168.1.1
+
+9. NIC
+
+NIC = Network Interface Card
+
+It allows a computer or device to connect to a network.
+
+It can be:
+
+Ethernet NIC
+Wi-Fi NIC
+
+Example:
+
+Computer
+   |
+   ↓
+NIC
+   |
+   ↓
+Network
+
+A NIC normally has a MAC address.
+
+For example:
+
+Laptop
+ ├── Wi-Fi NIC
+ │      └── MAC: AA:BB:CC:11:22:33
+ │
+ └── Ethernet NIC
+        └── MAC: DD:EE:FF:44:55:66
+
+A device can have multiple NICs, and therefore multiple MAC addresses.
+
+A laptop has both NIC and MAC. They are not the same thing.
+LAPTOP
+  |
+  └── Wi-Fi NIC
+        |
+        └── MAC Address: AA:BB:CC:11:22:33
+NIC = the network interface/hardware in the laptop.
+MAC address = the identifier/address associated with that NIC.
+A laptop can have multiple NICs
+
+For example:
+
+Laptop
+│
+├── Wi-Fi NIC
+│     └── MAC: AA:BB:CC:11:22:33
+│
+└── Ethernet NIC
+      └── MAC: DD:EE:FF:44:55:66
+
+So each network interface normally has its own MAC address.
+
+Very simple
+
+NIC is the thing. MAC is the address of that thing.
+Like:
+
+NIC  = house
+MAC  = house identification/address
+
+And when the NIC connects to a network, it can also have an IP address:
+
+Wi-Fi NIC
+├── MAC = AA:BB:CC:11:22:33
+└── IP  = 192.168.1.10
+
+nic is device or hardware in acomputrev mac is address of nic card
+
+Exactly. You understood it correctly. ✅
+
+NIC → a hardware/network interface in the computer that allows the computer to connect to a network.
+MAC address → the hardware/network address associated with that NIC.
+Example
+Laptop
+   |
+   ↓
+NIC (Wi-Fi hardware)
+   |
+   ├── MAC Address → AA:BB:CC:11:22:33
+   |
+   └── IP Address  → 192.168.1.10
+
+So remember:
+
+NIC = hardware/interface
+MAC = address/identifier of the NIC
+IP = logical address assigned to the NIC
+
+One small correction: saying "MAC is the address of the NIC card" is fine for learning, but technically a MAC address identifies a
+network interface, and a laptop can have multiple interfaces (Wi-Fi, Ethernet, etc.), each with its own MAC address.
+
+Typical laptop
+
+A modern laptop usually has:
+
+Laptop
+│
+├── Wi-Fi NIC        ← built into the laptop
+│     └── MAC address
+│
+└── Ethernet NIC     ← only if laptop has Ethernet hardware/port
+      └── MAC address
+
+So a laptop may have:
+
+Wi-Fi NIC — very common
+Ethernet NIC — common, but many thin laptops don't have a built-in Ethernet port
+Bluetooth adapter — another wireless interface, though Bluetooth is not normally what people mean when discussing IP networking
