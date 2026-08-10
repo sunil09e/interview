@@ -1416,7 +1416,213 @@ IP address
 
 The recursive resolver sits in between your computer and that hierarchy and performs the lookup on your behalf.
 
+--------------------------------
 
+TCP/IP Model
+
+The TCP/IP model (Transmission Control Protocol / Internet Protocol) is a networking model used to explain how data is communicated between devices over a network, especially the Internet.
+
+It has 4 layers:
+
+Layer	Main Responsibility	Examples
+4. Application	Provides network services to applications	HTTP, HTTPS, DNS, FTP, SSH, SMTP
+3. Transport	End-to-end communication, reliability, ports	TCP, UDP
+2. Internet	Logical addressing and routing	IP, ICMP
+1. Network Access	Communication over physical network	Ethernet, Wi-Fi, ARP
+1. Application Layer
+
+This is the top layer. It allows applications to communicate over the network.
+
+Examples
+HTTP → Web communication
+HTTPS → Secure web communication
+DNS → Converts domain names to IP addresses
+FTP → File transfer
+SSH → Secure remote login
+SMTP → Sending email
+Example
+
+When you type:
+
+https://google.com
+
+Your browser uses HTTPS at the Application layer.
+
+2. Transport Layer
+
+The Transport layer provides process-to-process communication.
+
+The two major protocols are:
+
+TCP
+
+Transmission Control Protocol
+
+TCP provides:
+
+Reliable delivery
+Connection-oriented communication
+Error detection
+Acknowledgments
+Retransmission
+Sequencing
+Flow control
+
+TCP uses the 3-way handshake:
+
+Client                    Server
+
+   SYN  -------------------->
+        <-------------------- SYN + ACK
+   ACK  -------------------->
+
+After this, the TCP connection is established.
+
+UDP
+
+User Datagram Protocol
+
+UDP is:
+
+Connectionless
+Faster
+No guaranteed delivery
+No retransmission
+No TCP handshake
+
+Examples where UDP is useful:
+
+Video streaming
+Online gaming
+DNS queries
+Voice calls
+3. Internet Layer
+
+The Internet layer is responsible mainly for:
+
+IP addressing
+Routing
+Moving packets from one network to another
+
+Important protocols:
+
+IPv4
+IPv6
+ICMP
+
+Example:
+
+192.168.1.10
+
+is an IPv4 address.
+
+Router's role
+
+Suppose:
+
+Computer A
+192.168.1.10
+     |
+     v
+  Router
+     |
+     v
+Internet
+     |
+     v
+Google Server
+
+The router examines the destination IP address and determines where to forward the packet.
+
+4. Network Access Layer
+
+This is the lowest layer.
+
+It handles communication between devices over the actual network medium.
+
+Examples:
+
+Ethernet
+Wi-Fi
+Fiber
+MAC addresses
+Network interface cards
+
+For example:
+
+Computer
+   ↓
+NIC
+   ↓
+Ethernet/Wi-Fi
+   ↓
+Switch
+
+This layer deals with frames, MAC addresses, and physical transmission.
+
+TCP/IP vs OSI
+
+You previously asked about the OSI model, so this mapping is important for interviews:
+
+TCP/IP	OSI
+Application	Application + Presentation + Session
+Transport	Transport
+Internet	Network
+Network Access	Data Link + Physical
+
+So:
+
+TCP/IP Model             OSI Model
+
+Application       →      Application
+                         Presentation
+                         Session
+
+Transport         →      Transport
+
+Internet          →      Network
+
+Network Access    →      Data Link
+                         Physical
+Easy way to remember
+
+TCP/IP = 4 layers
+
+Application
+     ↓
+Transport
+     ↓
+Internet
+     ↓
+Network Access
+
+And the most important protocols to remember are:
+
+Application → HTTP, HTTPS, DNS, SSH, FTP
+Transport   → TCP, UDP
+Internet    → IP, ICMP
+Network     → Ethernet, Wi-Fi, ARP
+Real example: Opening google.com
+
+A simplified flow is:
+
+Browser
+  ↓
+HTTPS / DNS
+  ↓
+TCP
+  ↓
+IP
+  ↓
+Ethernet / Wi-Fi
+  ↓
+Router
+  ↓
+Internet
+  ↓
+Google server
+
+This is how the TCP/IP model organizes the communication process.
 
 
 
