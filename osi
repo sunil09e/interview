@@ -1,0 +1,1428 @@
+OSI Model — Detailed
+
+OSI = Open Systems Interconnection
+
+It is a 7-layer reference model used to understand how network communication works.
+
+7  Application
+6  Presentation
+5  Session
+4  Transport
+3  Network
+2  Data Link
+1  Physical
+
+Remember:
+
+All People Seem To Need Data Processing
+
+First understand the big picture
+
+Suppose your browser wants to send:
+
+Hello Google
+
+The application gives the data to the lower layers.
+
+Each layer adds information needed by that layer.
+
+This is called encapsulation.
+
+Application
+    │
+    │ Data
+    ↓
+Transport
+    │
+    │ Segment
+    ↓
+Network
+    │
+    │ Packet
+    ↓
+Data Link
+    │
+    │ Frame
+    ↓
+Physical
+    │
+    │ Bits
+    ↓
+Network
+
+At the receiver, the opposite happens.
+
+This is called decapsulation.
+
+Layer 7 — Application
+Purpose
+
+Provides network services directly to applications.
+
+Examples:
+
+HTTP
+HTTPS
+DNS
+SSH
+FTP
+SMTP
+DHCP
+Example
+
+You type:
+
+https://google.com
+
+Your browser uses HTTP/HTTPS.
+
+If your computer needs to find Google's IP:
+
+google.com
+     ↓
+DNS
+     ↓
+IP address
+Important point
+
+The Application layer is not the browser itself.
+
+The browser is an application that uses application-layer protocols.
+
+For example:
+
+Browser
+   ↓
+HTTPS
+   ↓
+Application Layer
+Data unit
+
+Data
+
+Layer 6 — Presentation
+Purpose
+
+Deals with data representation.
+
+It can handle:
+
+1. Encoding
+
+Example:
+
+Character
+   ↓
+UTF-8
+   ↓
+Binary representation
+2. Encryption
+Plain data
+    ↓
+Encryption
+    ↓
+Encrypted data
+
+TLS provides encryption/authentication functions, although modern TCP/IP stacks don't implement TLS as a clean, separate OSI Layer 6.
+
+3. Compression
+Large data
+    ↓
+Compression
+    ↓
+Smaller data
+
+Examples commonly associated with presentation functions:
+
+UTF-8
+ASCII
+JPEG
+PNG
+JSON
+XML
+Data unit
+
+Data
+
+Layer 5 — Session
+Purpose
+
+Manages communication sessions between applications.
+
+It can deal with:
+
+Session establishment
+Session maintenance
+Synchronization
+Session termination
+
+Think:
+
+Start
+  ↓
+Communication
+  ↓
+Continue
+  ↓
+Close
+Important
+
+In modern TCP/IP networks, Session is generally not implemented as a distinct protocol layer. Its functions are spread across applications and other protocols.
+
+Data unit
+
+Data
+
+Layer 4 — Transport
+
+This is one of the most important layers for interviews.
+
+Purpose
+
+Provides end-to-end communication between application endpoints.
+
+Main protocols:
+
+TCP
+UDP
+TCP
+
+TCP provides reliable, ordered byte-stream communication.
+
+It handles:
+
+Segmentation
+Sequence numbers
+Acknowledgments
+Retransmission
+Flow control
+Congestion control
+Connection establishment
+Connection termination
+What is segmentation?
+
+Suppose the application wants to send a large amount of data:
+
+100 KB of data
+
+The Transport layer cannot necessarily send the entire application data as one giant network transmission.
+
+TCP divides the byte stream into manageable pieces for transmission.
+
+Conceptually:
+
+Application data
+────────────────────────────
+100 KB
+────────────────────────────
+          ↓ TCP
+────────────────────────────
+Segment 1
+Segment 2
+Segment 3
+Segment 4
+...
+────────────────────────────
+
+Each TCP segment contains a TCP header.
+
+Conceptually:
+
+┌──────────────┬─────────────────┐
+│ TCP Header   │ Application data│
+└──────────────┴─────────────────┘
+
+The TCP header contains information such as:
+
+Source Port
+Destination Port
+Sequence Number
+Acknowledgment Number
+Flags
+Window
+Checksum
+Why does TCP use segmentation?
+
+Imagine sending:
+
+Large data
+
+as one huge piece.
+
+If there is a problem during transmission, recovering the entire thing would be inefficient.
+
+Instead:
+
+Segment 1 → received
+Segment 2 → received
+Segment 3 → lost
+Segment 4 → received
+
+TCP can use sequence numbers and retransmission mechanisms to recover missing data.
+
+TCP sequence numbers
+
+TCP assigns sequence numbers to bytes in the stream.
+
+For example, conceptually:
+
+Segment 1
+Seq = 1000
+
+Segment 2
+Seq = 1500
+
+Segment 3
+Seq = 2000
+
+The exact values depend on the connection's sequence numbering and segment sizes.
+
+This allows the receiver to:
+
+Identify where data belongs
+Detect missing data
+Reconstruct the original byte stream
+TCP acknowledgment
+
+Suppose:
+
+Client → Segment 1
+Client → Segment 2
+
+The server sends an acknowledgment indicating the next byte it expects.
+
+For example:
+
+ACK = 2000
+
+means conceptually:
+
+"I have received everything through byte 1999 and I'm expecting byte 2000 next."
+
+TCP 3-way handshake
+
+Before normal TCP data transfer:
+
+Client                         Server
+
+SYN ──────────────────────────>
+
+     <──────────────────────── SYN + ACK
+
+ACK ──────────────────────────>
+
+      Connection established
+Step 1 — SYN
+
+Client says:
+
+I want to establish a connection.
+
+Step 2 — SYN + ACK
+
+Server says:
+
+I received your request, and I also want to establish the connection.
+
+Step 3 — ACK
+
+Client says:
+
+I received your response.
+
+Now the TCP connection is established.
+
+TCP flow control
+
+The receiver tells the sender how much data it can currently accept.
+
+This uses the receive window.
+
+Conceptually:
+
+Receiver says:
+
+"I can accept this much data."
+             ↓
+        Receive Window
+
+This prevents a fast sender from overwhelming a slower receiver.
+
+TCP congestion control
+
+This is different from flow control.
+
+Flow control
+
+Protects the receiver.
+
+Sender → Receiver
+          ↑
+      "Don't send
+       too much."
+Congestion control
+
+Protects the network from overload.
+
+Sender → Network → Receiver
+          ↑
+    "Network is congested;
+     reduce sending rate."
+UDP
+
+UDP is also a Transport-layer protocol.
+
+UDP is:
+
+Connectionless
+Lightweight
+Low overhead
+No TCP-style acknowledgments
+No TCP-style retransmission
+No TCP-style ordering guarantee
+
+Example:
+
+DNS
+Gaming
+VoIP
+Some streaming applications
+Ports
+
+Transport layer uses port numbers.
+
+Example:
+
+192.168.1.10:443
+
+means:
+
+IP address = 192.168.1.10
+Port       = 443
+
+The IP identifies the host/interface in the network context.
+
+The port identifies the transport endpoint/service.
+
+Examples:
+
+22   → SSH
+80   → HTTP
+443  → HTTPS
+53   → DNS
+Data unit
+TCP → Segment
+UDP → Datagram
+Layer 3 — Network
+Purpose
+
+Provides:
+
+Logical addressing
+Routing
+Packet forwarding
+
+Main example:
+
+IP
+
+Protocols include:
+
+IPv4
+IPv6
+ICMP
+IP address
+
+Example:
+
+192.168.1.10
+Router
+
+Routers operate primarily at Layer 3.
+
+Example:
+
+Network A
+192.168.1.0/24
+       │
+       ↓
+    Router
+       │
+       ↓
+Network B
+10.0.0.0/24
+
+The router uses the destination IP and routing table to determine where to send the packet.
+
+Network-layer encapsulation
+
+TCP gives the Network layer a segment:
+
+TCP Header + Data
+
+The Network layer adds an IP header:
+
+┌─────────────┬──────────────────────┐
+│ IP Header   │ TCP Header + Data    │
+└─────────────┴──────────────────────┘
+
+This is called an IP packet.
+
+The IP header contains information such as:
+
+Source IP
+Destination IP
+TTL / Hop Limit
+Protocol / Next Header
+...
+Routing
+
+Suppose:
+
+Source:
+192.168.1.10
+
+Destination:
+8.8.8.8
+
+The computer checks whether the destination is local.
+
+If not, it uses a route such as:
+
+default via 192.168.1.1
+
+So:
+
+PC
+192.168.1.10
+    ↓
+Default Gateway
+192.168.1.1
+    ↓
+Router
+    ↓
+Internet
+    ↓
+8.8.8.8
+Layer 2 — Data Link
+Purpose
+
+Handles communication across a local link/network.
+
+Examples:
+
+Ethernet
+Wi-Fi
+VLAN
+
+It uses MAC addresses.
+
+Example:
+
+Source MAC:
+AA:BB:CC:11:22:33
+
+Destination MAC:
+AA:BB:CC:44:55:66
+Frame
+
+The Data Link layer takes the Layer 3 packet:
+
+IP Header + TCP Header + Data
+
+and places it inside a Layer 2 frame.
+
+Conceptually:
+
+┌──────────────┬──────────────────────────────┬──────────┐
+│ Ethernet     │ IP Packet                   │ Trailer  │
+│ Header       │                              │          │
+└──────────────┴──────────────────────────────┴──────────┘
+
+The result is called a frame.
+
+Switch
+
+A switch primarily works at Layer 2.
+
+It learns MAC addresses:
+
+MAC Address            Port
+
+AA:AA:AA:AA:AA:AA  →   Port 1
+BB:BB:BB:BB:BB:BB  →   Port 2
+
+When a frame arrives, the switch checks the destination MAC and forwards it toward the appropriate port.
+
+VLAN
+
+VLAN is a Layer 2 concept.
+
+Example:
+
+VLAN 10 → Developers
+VLAN 20 → Testing
+VLAN 30 → Production
+
+A VLAN creates a separate Layer 2 broadcast domain.
+
+ARP
+
+For IPv4, ARP maps an IP address to a MAC address on the local network.
+
+Example:
+
+Who has 192.168.1.1?
+        ↓
+Router:
+192.168.1.1
+MAC = AA:BB:CC:DD:EE:FF
+
+Then the computer can create the local Ethernet/Wi-Fi frame.
+
+ARP is commonly associated with Layer 2 because it supports local IP-to-MAC resolution, though it does not fit perfectly into the seven-layer model.
+
+Layer 1 — Physical
+Purpose
+
+Actually transmits the bits.
+
+Example:
+
+1010101011001010
+
+The bits are represented as physical signals.
+
+Through copper
+Electrical signals
+Through fiber
+Light pulses
+Through Wi-Fi
+Radio signals
+Examples
+Ethernet cable
+Fiber
+Radio
+Connectors
+Physical signaling
+Data unit
+
+Bits
+
+
+Now understand encapsulation deeply
+
+Suppose the application sends:
+
+Hello
+Layer 7
+Data
+
+Hello
+
+↓
+
+Layer 4 — TCP
+
+TCP adds a header:
+
+┌──────────────┬────────┐
+│ TCP Header   │ Hello  │
+└──────────────┴────────┘
+
+Now we call it a:
+
+TCP segment
+
+↓
+
+Layer 3 — IP
+
+IP adds its header:
+
+┌────────────┬──────────────┬────────┐
+│ IP Header  │ TCP Header   │ Hello  │
+└────────────┴──────────────┴────────┘
+
+Now we call it an:
+
+IP packet
+
+↓
+
+Layer 2 — Ethernet
+
+Ethernet adds its header and trailer:
+
+┌─────────────┬───────────────────────┬──────────┐
+│ Ethernet    │ IP Packet             │ Ethernet │
+│ Header      │                       │ Trailer  │
+└─────────────┴───────────────────────┴──────────┘
+
+Now it is a:
+
+Frame
+
+↓
+
+Layer 1
+
+The frame becomes:
+
+010101010101010101
+
+Bits/signals
+
+At the receiving side
+
+The receiver performs the opposite process.
+
+Bits
+ ↓
+Frame
+ ↓
+Packet
+ ↓
+Segment
+ ↓
+Application Data
+
+This is:
+
+Decapsulation
+
+Very important: Segmentation vs Fragmentation
+
+You specifically asked about segmentation, so don't confuse these.
+
+Segmentation
+
+Usually associated with Transport layer, especially TCP.
+
+Application data
+       ↓
+TCP
+       ↓
+Segment 1
+Segment 2
+Segment 3
+
+TCP divides its byte stream into segments for transmission.
+
+IP fragmentation
+
+Different concept.
+
+If an IPv4 packet is too large for a link's MTU and fragmentation is permitted, IP may fragment it.
+
+Large IP packet
+       ↓
+IP fragmentation
+       ↓
+Fragment 1
+Fragment 2
+Fragment 3
+
+So:
+
+TCP segmentation ≠ IP fragmentation.
+
+Modern networks generally try to avoid IP fragmentation through mechanisms such as Path MTU Discovery.
+
+PDU at each layer
+
+This is a common interview question.
+
+Layer 7 → Data
+Layer 6 → Data
+Layer 5 → Data
+Layer 4 → Segment / Datagram
+Layer 3 → Packet
+Layer 2 → Frame
+Layer 1 → Bits
+
+Remember:
+
+Data → Segment → Packet → Frame → Bits
+
+Address at each important layer
+Layer 4 → Port
+Layer 3 → IP
+Layer 2 → MAC
+
+Example:
+
+MAC:
+AA:BB:CC:11:22:33
+
+IP:
+192.168.1.10
+
+Port:
+443
+
+Think:
+
+MAC
+ ↓
+Local network interface
+
+IP
+ ↓
+Host/network and routing
+
+Port
+ ↓
+Application endpoint
+Devices by layer
+Layer	Common devices/examples
+7	Proxy, application gateway
+6	Usually software/functions rather than a dedicated device
+5	Usually software/functions rather than a dedicated device
+4	L4 firewall/load balancer
+3	Router, L3 switch
+2	Switch, bridge
+1	Hub, repeater, cables
+
+Don't treat this table as absolute—modern devices can operate across multiple layers.
+
+Complete example: https://google.com
+
+Now put everything together.
+
+User enters:
+
+https://google.com
+Layer 7
+
+Browser uses:
+
+HTTPS
+DNS
+
+DNS resolves:
+
+google.com
+     ↓
+IP address
+Layer 4
+
+For a traditional HTTPS-over-TCP connection:
+
+TCP
+Port 443
+
+TCP establishes the connection:
+
+SYN
+ ↓
+SYN-ACK
+ ↓
+ACK
+
+Then TCP segments the byte stream as needed.
+
+Layer 3
+
+IP adds:
+
+Source IP
+Destination IP
+
+Now we have:
+
+IP packet
+Layer 2
+
+Ethernet/Wi-Fi adds:
+
+Source MAC
+Destination MAC
+
+Now we have:
+
+Frame
+Layer 1
+
+Frame becomes physical signals:
+
+Bits
+ ↓
+Electrical / Radio / Light
+The full flow
+                SENDING COMPUTER
+
+Application
+   │
+   │ Data
+   ↓
+Transport
+   │
+   │ Segmentation
+   │ TCP Header
+   ↓
+Network
+   │
+   │ IP Header
+   │ Routing
+   ↓
+Data Link
+   │
+   │ MAC Header/Trailer
+   │ Frame
+   ↓
+Physical
+   │
+   │ Bits
+   ↓
+       NETWORK
+          ↓
+       RECEIVER
+          ↓
+     Decapsulation
+          ↓
+       Application
+Interview answer for segmentation
+
+If the interviewer asks:
+
+"What is segmentation in networking?"
+
+You can say:
+
+Segmentation is the Transport-layer process of dividing an application's data stream into smaller units called segments for transmission. In TCP, each segment contains a TCP header with information such as source and destination ports, sequence numbers, acknowledgment information, and flags. Sequence numbers allow the receiver to reconstruct the original byte stream and help TCP identify missing data.
+
+And if they ask the difference:
+
+Segmentation happens at the Transport layer, while packetization happens at the Network layer and framing happens at the Data Link layer. IP fragmentation is a separate Network-layer mechanism.
+
+-------------------------------------------------
+
+When user types google.com
+
+Suppose the user enters:
+
+google.com
+
+The overall flow is roughly:
+
+User
+ ↓
+Browser
+ ↓
+Browser DNS cache
+ ↓
+OS DNS cache
+ ↓
+DNS resolver
+ ↓
+Root DNS server
+ ↓
+.com TLD DNS server
+ ↓
+Authoritative DNS server for google.com
+ ↓
+IP address
+ ↓
+Browser connects to that IP
+
+Let's go step by step.
+
+1. User enters google.com
+
+The browser receives:
+
+google.com
+
+The browser needs to know:
+
+"What IP address belongs to google.com?"
+
+Because networking ultimately needs an IP address to establish communication.
+
+For example, DNS might return an address such as:
+
+google.com
+     ↓
+IP address
+
+Google can have multiple IP addresses, and the answer can vary depending on DNS and location, so don't memorize one particular Google IP.
+
+2. Browser checks its DNS cache
+
+Before asking a DNS server, the browser may check whether it already knows the answer.
+
+For example:
+
+Browser DNS cache
+
+google.com → IP address
+
+If the cached entry is still valid:
+
+google.com
+     ↓
+Browser cache
+     ↓
+IP address found ✅
+
+Then it may not need to perform a new DNS lookup.
+
+Why cache?
+
+To make DNS faster and reduce unnecessary DNS queries.
+
+3. What about cookies?
+
+This is where your understanding needs a small correction.
+
+Cookies
+
+Cookies contain information associated with a website, such as:
+
+Login/session information
+Preferences
+Tracking identifiers
+
+They are not normally used to resolve:
+
+google.com → IP address
+DNS cache
+
+DNS cache stores information like:
+
+google.com → IP address
+
+So:
+
+Cookie
+  ↓
+Website-related data
+
+DNS cache
+  ↓
+Domain → IP information
+
+They are different things.
+
+4. Operating system DNS cache
+
+If the browser doesn't have the answer, the operating system may have a cached DNS entry.
+
+Conceptually:
+
+Browser cache
+     ↓
+Not found
+     ↓
+OS DNS cache
+     ↓
+Found?
+
+If the OS already knows:
+
+google.com → IP
+
+it can return the result without querying an external DNS server.
+
+5. Hosts file
+
+There can also be a local hosts file involved in hostname resolution.
+
+On Linux:
+
+/etc/hosts
+
+Example:
+
+192.168.1.50    myserver.local
+
+On Windows:
+
+C:\Windows\System32\drivers\etc\hosts
+
+If a hostname is configured there, the system can resolve it locally.
+
+The exact order of hostname-resolution mechanisms depends on the operating system and its configuration, so don't memorize one universal order as absolute.
+
+6. DNS resolver
+
+If the answer isn't available locally, the system sends a DNS query to its configured recursive DNS resolver.
+
+For example, your network might provide a resolver through:
+
+ISP
+Router
+Enterprise DNS
+Public DNS service
+
+Conceptually:
+
+Your computer
+      ↓
+Recursive DNS resolver
+
+The resolver's job is:
+
+Find the answer on behalf of your computer.
+
+This is why it is called a recursive resolver.
+
+7. What does the DNS resolver do?
+
+Suppose the resolver doesn't already have:
+
+google.com → IP
+
+in its own cache.
+
+It needs to find the answer.
+
+It starts the DNS resolution process.
+
+A simplified flow is:
+
+Recursive Resolver
+        ↓
+Root DNS
+        ↓
+.com TLD DNS
+        ↓
+Authoritative DNS for google.com
+        ↓
+IP address
+
+This is the part you were asking about with .com server.
+
+8. Root DNS server
+
+The resolver first asks a root DNS server.
+
+It essentially asks:
+
+"I need information about google.com. Where should I look for .com?"
+
+The root doesn't normally give the Google IP.
+
+Instead, it tells the resolver where to find the .com Top-Level Domain (TLD) DNS servers.
+
+Conceptually:
+
+Resolver
+   │
+   │ Who handles .com?
+   ↓
+Root DNS
+   │
+   │ .com DNS servers
+   ↓
+Resolver
+
+There are many root DNS servers/instances distributed globally.
+
+9. .com TLD DNS server
+
+Now the resolver asks a .com TLD DNS server:
+
+"Who is authoritative for google.com?"
+
+The .com server doesn't normally give the final Google IP either.
+
+Instead, it gives information about the authoritative name servers for google.com.
+
+Conceptually:
+
+Resolver
+   ↓
+.com TLD DNS
+   ↓
+Authoritative DNS for google.com
+10. Authoritative DNS server
+
+Now the resolver asks Google's authoritative DNS server:
+
+"What is the DNS record for google.com?"
+
+The authoritative server has the actual DNS information.
+
+For an IPv4 address, the relevant record type is:
+
+A record
+
+For IPv6:
+
+AAAA record
+
+Conceptually:
+
+google.com
+    ↓
+A record
+    ↓
+IP address
+
+For example:
+
+google.com → 142.xxx.xxx.xxx
+
+Again, the actual result can vary.
+
+11. The answer comes back
+
+The authoritative DNS server gives the answer to the recursive resolver.
+
+Authoritative DNS
+       ↓
+IP address
+       ↓
+Recursive Resolver
+       ↓
+Your Computer
+       ↓
+Browser
+
+The resolver may cache the result according to its TTL.
+
+12. What is TTL?
+
+TTL means Time To Live in the DNS context.
+
+It tells a DNS cache approximately how long the DNS answer can be cached before it should be refreshed.
+
+Example:
+
+google.com
+IP = x.x.x.x
+TTL = 300 seconds
+
+The resolver can generally cache that answer for the TTL period.
+
+So the next user asking for the same domain may get:
+
+google.com
+     ↓
+DNS resolver cache
+     ↓
+IP
+
+without the resolver going all the way to root/TLD/authoritative servers again.
+
+Complete DNS process
+
+Here's the flow you were looking for:
+
+                 USER
+                   │
+                   │ types google.com
+                   ↓
+                Browser
+                   │
+                   ↓
+           Browser DNS cache
+                   │
+             not found?
+                   ↓
+            OS DNS cache
+                   │
+             not found?
+                   ↓
+              Hosts file
+                   │
+             not found?
+                   ↓
+        Recursive DNS Resolver
+                   │
+             cache hit?
+              /         \
+            YES          NO
+             │            │
+             │            ↓
+             │        Root DNS
+             │            │
+             │            ↓
+             │       .com TLD DNS
+             │            │
+             │            ↓
+             │   Authoritative DNS
+             │      for google.com
+             │            │
+             │            ↓
+             │       A / AAAA record
+             │            │
+             └──────┬─────┘
+                    ↓
+               IP address
+                    ↓
+                 Browser
+13. Now DNS is finished
+
+This is the important transition.
+
+Before DNS:
+
+google.com
+
+After DNS:
+
+google.com
+     ↓
+IP address
+
+Now the browser can start communicating with the destination.
+
+14. Then networking begins
+
+Now suppose the browser has an IPv4 destination IP.
+
+The next steps involve the networking stack.
+
+For a traditional HTTPS-over-TCP connection:
+
+IP address
+    ↓
+Routing decision
+    ↓
+Default gateway if remote
+    ↓
+TCP connection
+    ↓
+TCP 3-way handshake
+    ↓
+TLS handshake
+    ↓
+HTTPS request
+    ↓
+Google response
+
+TCP handshake:
+
+Client                    Server
+
+SYN ──────────────────────>
+
+    <────────────────────── SYN-ACK
+
+ACK ──────────────────────>
+
+Then TLS establishes encryption.
+
+Then the browser sends the HTTPS request.
+
+Where does OSI fit?
+
+This is an important distinction.
+
+DNS itself is an application-layer protocol.
+
+So DNS is part of the OSI Layer 7 discussion.
+
+The DNS lookup itself still uses lower layers to transport the DNS query.
+
+For example, a traditional DNS query often uses:
+
+Application → DNS
+Transport   → UDP/TCP
+Network     → IP
+Data Link   → Ethernet/Wi-Fi
+Physical    → Signals
+
+Modern DNS can also use other transports such as DNS over TLS or DNS over HTTPS, so the exact transport path can differ.
+
+Full google.com journey
+
+Now put DNS + OSI + TCP + HTTPS together:
+
+USER
+ │
+ │ types google.com
+ ↓
+BROWSER
+ │
+ ├── Check DNS cache
+ │
+ ├── Check local resolution mechanisms
+ │
+ ↓
+DNS RESOLVER
+ │
+ ├── Check resolver cache
+ │
+ ├── Root DNS
+ │
+ ├── .com TLD DNS
+ │
+ └── Authoritative DNS
+ │
+ ↓
+IP ADDRESS
+ │
+ ↓
+ROUTING
+ │
+ ↓
+DEFAULT GATEWAY
+ │
+ ↓
+TCP 3-WAY HANDSHAKE
+ │
+ ├── SYN
+ ├── SYN-ACK
+ └── ACK
+ │
+ ↓
+TLS HANDSHAKE
+ │
+ ↓
+HTTPS REQUEST
+ │
+ ↓
+GOOGLE SERVER
+ │
+ ↓
+HTTPS RESPONSE
+ │
+ ↓
+BROWSER
+ │
+ ↓
+WEB PAGE
+The key distinction to remember
+
+Don't mix these three:
+
+Cookie
+   ↓
+Website/user/session information
+
+Cache
+   ↓
+Temporarily stored information
+   ↓
+Can include DNS results
+
+DNS
+   ↓
+Converts domain name → IP address
+
+And the DNS hierarchy is:
+
+Root
+ ↓
+TLD (.com)
+ ↓
+Authoritative DNS
+ ↓
+IP address
+
+The recursive resolver sits in between your computer and that hierarchy and performs the lookup on your behalf.
+
+
+
+
+
+
+
+
+
+
+
