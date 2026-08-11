@@ -6,11 +6,26 @@ origin/test
    ↑    ↑
  remote branch
 
+A branch is not a separate empty folder.
+When you create a branch:
+git switch -c dev
+it starts from the current branch's files.
+
+
+Ancestor in Git means the earlier commit from which the current branches came.
+Suppose initially you have:
+file.txt
+Hello World
+You commit it: Commit 1
+Then you create two branches:
+Commit 1 is the common ancestor of main and dev.
+
 
 git --version      Check Git version
 git config --global user.name "Your Name"    Set username
 git config --global user.email "you@example.com"   set email
 git config --list       See configuration
+git config -l
 
 git init       Makes the current folder a Git repository.
 git clone <repository-url>       Clone an existing repository  
@@ -31,8 +46,9 @@ git commit -m "Add login feature"
 
 
 git log       to check the commit  Shows commit history.
-git log --stat  Detailed log
+git log --stat  Detailed log   See only the names of files changed by each commit
 git log --oneline  shows what are the commit msg and commit id
+git log --oneline -- file1.txt   See commits for a particular file
 git log -- file1.txt    See all commits that changed a particular file
 git log -- project/
 git log -p -- file1.txt   See the actual changes made to that file  -p means show the actual changes/diff.
@@ -47,6 +63,7 @@ git show    Shows details of the latest commit.
 git show    means show the details of a commit.
 git show 1e9cb0e:file1.txt         show the content of the file
 git show 1e9cb0e    This shows the details of commit abc123.
+git show HEAD:file1.txt
 
 
 git diff  See unstaged changes    file are already staged but now you change some code but not push to the staged
@@ -67,15 +84,102 @@ git branch -D development    Force delete
 git branch -m dev             If your current branch is test and you want to rename it to dev   if you want to change first go to that branch then change
     -m → rename branch, but fails if the new name already exists.
      -M → force rename branch, even if the new branch name already exists.
-If test is already pushed to GitHub
-You also need to rename the remote branch:
-git branch -m dev
-git push -u origin dev
-git push origin --delete test
-So:
-git branch -m dev → rename local branch
-git push -u origin dev → push new dev branch
-git push origin --delete test → delete old test branch from remote.
+    If test is already pushed to GitHub
+    You also need to rename the remote branch:
+     git branch -m dev
+     git push -u origin dev
+    git push origin --delete test
+   So:
+    git branch -m dev → rename local branch
+    git push -u origin dev → push new dev branch
+    git push origin --delete test → delete old test branch from remote.
+
+git merge --continue    If you want to finish the merge
+git merge --abort      If you want to cancel the merge
+----------------
+merge
+
+there are 2 branches master and main
+master has  file1.txt file2.txt
+main has same 
+content change from dev not in main
+if you merge the content and what are the file in there it will come to main
+
+Fast-forward merge 
+------------------
+You create dev from main.
+if dev has file1.txt file2.txt file3.txt
+master has file1.txt file2.txt
+if you merge dev to master file3.txt will added  in master
+One-line interview answer
+“Fast-forward merge means Git moves the current branch pointer forward to the other branch's latest commit without creating a merge commit.”
+If interviewer asks "Why no merge commit?"
+Say: “Because there is no divergent history. The target branch is directly behind the source branch, so Git doesn't need to combine two separate histories.”
+
+Before creating dev  main has 3 files
+Now you create dev from main.
+main has file1.txt file2.txt file3.txt
+dev has file1.txt file2.txt file3.txt and you added file4.txt  deleted file2.txt file3.txt  without git add and commit 
+file2.txt and file3.txt not in the main but we can restore
+so main now has 1 and 4
+so if you use add and commit now the main has all 4 files  and dev has 1 and 4
+That deletion belongs to that branch.
+
+Both branches originally have:
+file1.txt → HelloWorld
+file2.txt → Sunil
+main changes file1.txtfile1.txt → Welcome
+dev changes file2.txt file2.txt → Kumar
+git switch main git merge dev
+So the result on main is:
+file1.txt → Welcome
+file2.txt → Kumar
+so both file is change at the time then merge means conflict
+so change the file in any one branch then merge
+
+main: file1.txt file2.txt file3.txt
+You create dev from an earlier commit, before file2 and file3 were added:
+dev: file1.txt Then you add: file4.txt
+git switch main git merge dev
+main will normally contain: all 4 files
+
+Three-way merge
+--------------
+When dev was created, both branches had:
+file.txt
+Hello World
+This is the common ancestor.
+main changes the file
+dev also changes the file
+Now merge You want dev changes in main
+Git looks at three versions:
+1. Common ancestor → Hello World
+2. main            → Hello Sunil
+3. dev             → Hello Kumar
+Git cannot decide automatically.
+So you get:
+<<<<<<< HEAD
+Hello Sunil
+=======
+Hello Kumar
+>>>>>>> dev
+This is a merge conflict.
+You need to remove the conflict markers and decide which content you want to keep.
+Yes, manually means you open the conflicted file and change its content yourself.
+if it is a merge conflict, use:
+git merge --abort
+
+step1: Fix the conflict manually
+You edit the file and decide:Hello Kumar
+Step 2: Tell Git the conflict is resolved
+git add file.txt
+Step 3: Continue the merge
+git merge --continue
+This tells Git:"I have resolved the conflicts. Continue and finish the merge."
+
+
+
+
 
 
 
