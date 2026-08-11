@@ -1,3 +1,69 @@
+
+git --version      Check Git version
+git config --global user.name "Your Name"    Set username
+git config --global user.email "you@example.com"   set email
+git config --list       See configuration
+
+git init       Makes the current folder a Git repository.
+git clone <repository-url>       Clone an existing repository  
+git clone https://github.com/user/project.git    Downloads the repository to your computer.
+git status         Shows: Modified files,Untracked files,Staged files,Current branch,Commit status
+git restore --staged <file>..."    to unstage
+
+git add file1.txt file2.txt   Add multiple files
+git add file1.txt    Moves the file to the staging area.
+git add .      Add everything
+
+It is used to select which changes you want to include in the next commit
+Git tracking → Git keeps track of changes/history.
+Staging area → You choose which changes go into the next commit.
+Commit → Permanently records those staged changes in Git history.
+
+git commit -m "Add login feature"
+
+
+git log       to check the commit  Shows commit history.
+git log --stat  Detailed log
+git log --oneline  shows what are the commit msg and commit id
+git log -- file1.txt    See all commits that changed a particular file
+git log -- project/
+git log -p -- file1.txt   See the actual changes made to that file  -p means show the actual changes/diff.
+git log -p -- project/
+git log -1 -- file1.txt   See only the latest commit that changed the file
+git blame file1.txt    See who changed each line
+git diff abc123 def456 -- file1.txt    See changes between two commits for a particular file
+git diff abc123 def456 -- project/
+
+
+git show    Shows details of the latest commit.
+git show    means show the details of a commit.
+git show 1e9cb0e:file1.txt         show the content of the file
+git show 1e9cb0e    This shows the details of commit abc123.
+
+
+git diff  See unstaged changes    file are already staged but now you change some code but not push to the staged
+           Shows changes you made but haven't staged.
+git diff --staged  See staged changes    Shows changes that have been added with git add.
+git diff abc123 def456 -- file1.txt    See changes between two commits for a particular file
+git diff abc123 def456 -- project/
+git diff abc123 def456    shows differences between two commits.
+
+
+git branch                See branches   to check what are the branches are avaliable
+git branch development    Create branch
+git switch development    Switch branch
+git switch -c development   Create and switch
+git checkout -b development  Older/common syntax:  to switch
+git branch -d development    Delete branch
+git branch -D developmen    git branch -d developmentForce delete:
+
+
+
+
+
+
+
+
 Command	Purpose
 git init	Create a Git repository
 git status	Check repository status
@@ -16,12 +82,11 @@ git merge	Combine branches
 git config user.name
 git config user.email
 
-git show 
-means show the details of a commit.
+git show    Shows details of the latest commit.
+git show    means show the details of a commit.
 git show 1e9cb0e:file1.txt         show the content of the file
 git show 1e9cb0e    This shows the details of commit abc123.
 
-git log --oneline  shows what are the commit msg and commit id
 
 if there is 3 commits now iam in the 3 commit i need the first commit content so what to do
 git log --oneline
@@ -47,6 +112,17 @@ HEAD@{0} → V3
 HEAD@{1} → V4
 Then you can recover V4 by using its commit ID:
 git reset --hard <V4-commit-id>
+
+git log --stat  Detailed log
+git log --oneline  shows what are the commit msg and commit id
+ git log -- file1.txt    See all commits that changed a particular file
+git log -- project/
+git log -p -- file1.txt   See the actual changes made to that file  -p means show the actual changes/diff.
+git log -p -- project/
+git log -1 -- file1.txt   See only the latest commit that changed the file
+git blame file1.txt    See who changed each line
+git diff abc123 def456 -- file1.txt    See changes between two commits for a particular file
+git diff abc123 def456 -- project/
 
 
 
