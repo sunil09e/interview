@@ -177,6 +177,29 @@ Step 3: Continue the merge
 git merge --continue
 This tells Git:"I have resolved the conflicts. Continue and finish the merge."
 
+why we use continue after add ?
+------------------
+Because after a merge conflict, git add only tells Git that you fixed the file. It doesn't necessarily finish the merge by itself.
+git merge dev
+Conflict occurs.
+You fix file1.txt, then:git add file1.txt
+Now Git knows:"The conflict in file1.txt has been resolved."
+But the merge operation is still in progress.
+So:git merge --continue
+tells Git:"I have resolved all conflicts. Now finish the merge."
+But there is an important detail
+For a normal merge, after:
+git add file1.txt
+you can usually simply do:
+git commit
+Git creates the merge commit.
+
+So these are commonly equivalent ways to finish a conflict-resolved merge:
+git add file1.txt
+git commit
+or, where supported:
+git add file1.txt
+git merge --continue
 
 
 
