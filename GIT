@@ -1,1 +1,131 @@
+Command	Purpose
+git init	Create a Git repository
+git status	Check repository status
+git add .	Stage all changes    Now the file moves into the staging area.
+git commit -m "message"	Save changes as a commit
+git log	View commit history
+git branch	View branches
+git switch	Switch branches
+git checkout	Older command for switching/restoring
+git clone	Download a GitHub repository
+git remote -v	Show remote repository
+git push	Upload commits to remote
+git pull	Download and integrate changes
+git fetch	Download remote changes without integrating
+git merge	Combine branches
+git config user.name
+git config user.email
 
+git show 
+means show the details of a commit.
+git show 1e9cb0e:file1.txt         show the content of the file
+git show 1e9cb0e    This shows the details of commit abc123.
+
+git log --oneline  shows what are the commit msg and commit id
+
+if there is 3 commits now iam in the 3 commit i need the first commit content so what to do
+git log --oneline
+git restore --source=first or second id  file1.txt
+If you want to completely go back to Commit 1
+If you want your entire repository to become exactly like Commit 1:
+git reset --hard commit id
+
+
+git revert = create a new commit that undoes an earlier commit.
+git revert --abort    First cancel the current failed revert:
+git revert 659312c5318a2cbec1d6611cf5d78e1d596a5001c    If you want to undo the third commit, you can do it from your current location:
+git restore --source=<commit-3-id> file1.txt   This restores the file content from Commit 3.
+git revert <commit-4-id>     "Keep Commit 4 in history, but create a new commit that undoes Commit 4." undo 4 and go back to commit3
+git reset --hard <commit-3-id>         "Move my project and HEAD back to Commit 3.  You want your whole project to move back to Commit 3
+reset --hard = move the branch pointer backward and remove V4 from the visible branch history.
+revert = keep V4 and create a new commit that undoes V4.
+But important: V4 is not immediately destroyed
+Git may still have the V4 commit internally for some time, and you can often recover it using:
+git reflog
+For example:
+HEAD@{0} → V3
+HEAD@{1} → V4
+Then you can recover V4 by using its commit ID:
+git reset --hard <V4-commit-id>
+
+
+
+Staging area means a temporary area where you select the changes that you want to include in the next commit.
+A git commit is a saved snapshot of your project's changes in a Git repository.
+Git repository means a folder/project that Git is tracking.
+├── .git/        ← Git repository data
+The .git folder stores things like:
+Commit history
+Branches
+Commit IDs
+Information about changes
+Git created a commit.
+
+Git automatically generated a unique commit ID/hash:
+
+6594dc20fec385cfbc5ddc9a9...
+
+
+GIT
+
+
+What is Git?
+
+Git is a version control system (VCS).
+
+It is software installed on your computer that tracks changes in your source code.
+
+For example, you have:
+
+project/
+ ├── app.py
+ ├── index.html
+ └── style.css
+
+You modify app.py several times.
+
+Git allows you to keep track of those changes:
+
+Version 1 → Version 2 → Version 3 → Version 4
+
+If something goes wrong, you can go back to an earlier version.
+
+2. What is GitHub?
+
+GitHub is a cloud-based platform that hosts Git repositories.
+
+Think of it like this:
+
+Git
+ ↓
+Manages your code and versions
+ ↓
+Your local computer
+
+GitHub
+ ↓
+Stores/shares your Git repository online
+ ↓
+Cloud/server
+
+So:
+
+Git = tool/software for version control
+GitHub = online platform for storing and collaborating on Git repositories
+
+What does git revert do?
+
+It undoes the changes made by a particular commit, but it does not delete that commit from Git history.
+Commit 1 created this file, so reverting it means deleting it
+First cancel the current failed revert:
+
+git revert --abort
+It only undoes the changes made by Commit 3.
+Commit 1 = sunil
+Commit 2 = sunil kumar
+Commit 3 = sunil kumar world
+
+revert Commit 3
+       ↓
+
+Result = sunil kumar
