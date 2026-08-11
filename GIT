@@ -1,3 +1,11 @@
+Your computer   Local branch
+GitHub          Remote branch
+origin/test → remote branch
+origin → name of the GitHub repository connection
+origin/test
+   ↑    ↑
+ remote branch
+
 
 git --version      Check Git version
 git config --global user.name "Your Name"    Set username
@@ -53,10 +61,21 @@ git branch                See branches   to check what are the branches are aval
 git branch development    Create branch
 git switch development    Switch branch
 git switch -c development   Create and switch
-git checkout -b development  Older/common syntax:  to switch
+git checkout -b development  Older/common syntax:  to switch   or git checkout dev
 git branch -d development    Delete branch
-git branch -D developmen    git branch -d developmentForce delete:
-
+git branch -D development    Force delete
+git branch -m dev             If your current branch is test and you want to rename it to dev   if you want to change first go to that branch then change
+    -m → rename branch, but fails if the new name already exists.
+     -M → force rename branch, even if the new branch name already exists.
+If test is already pushed to GitHub
+You also need to rename the remote branch:
+git branch -m dev
+git push -u origin dev
+git push origin --delete test
+So:
+git branch -m dev → rename local branch
+git push -u origin dev → push new dev branch
+git push origin --delete test → delete old test branch from remote.
 
 
 
