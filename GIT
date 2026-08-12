@@ -19,7 +19,7 @@ Hello World
 You commit it: Commit 1
 Then you create two branches:
 Commit 1 is the common ancestor of main and dev.
-
+-------------------------------------------------------------------------------------
 
 git --version      Check Git version
 git config --global user.name "Your Name"    Set username
@@ -93,6 +93,61 @@ git branch -m dev             If your current branch is test and you want to ren
     git branch -m dev → rename local branch
     git push -u origin dev → push new dev branch
     git push origin --delete test → delete old test branch from remote.
+
+
+git remote -v    See remote
+git remote add origin https://github.com/user/project.git    Add remote
+git remote set-url origin <new-url>    Change remote URL
+git remote remove origin   Remove remote
+
+push
+----------------
+git push origin main    Push branch    Local main to GitHub main
+git push -u origin main   -u means set the upstream branch.
+This does two things:
+     Pushes your local main to origin (GitHub).
+     Connects your local main branch with the remote origin/main branch.
+     "Remember that these two branches are connected."
+So next time: git push
+  Git already knows:  "Push the current local main to origin/main."
+git switch master
+git push -u origin master
+Now Git remembers:
+    local main    → origin/main
+    local master  → origin/master
+So later: git switch main  git push
+pushes to:  origin/main
+and:
+git switch master    git push
+pushes to: origin/master
+
+pull
+-------------------
+git switch main
+git pull
+knows to pull from: origin/main
+You don't need to write: git pull origin main
+conflict during pull?
+GitHub has: file.txt Hello Kumar
+Your local main has: file.txt Hello Sunil
+Both changed the same part.
+You run:
+git pull
+Git may produce:
+<<<<<<< HEAD
+Hello Sunil
+=======
+Hello Kumar
+>>>>>>> origin/main
+That's a merge conflict.
+You manually choose the final content.
+Then: git add file.txt
+git commit         That's enough for a normal merge.
+or, depending on the operation/state:
+git merge --continue
+
+
+
 
 git merge --continue    If you want to finish the merge
 git merge --abort      If you want to cancel the merge
@@ -196,11 +251,10 @@ Git creates the merge commit.
 
 So these are commonly equivalent ways to finish a conflict-resolved merge:
 git add file1.txt
-git commit
+git commit                 That's enough for a normal merge.
 or, where supported:
 git add file1.txt
-git merge --continue
-
+git merge --continue        git merge --continue is mainly useful for operations such as rebase or cherry-pick, where Git explicitly pauses and asks you to continue.
 
 
 
