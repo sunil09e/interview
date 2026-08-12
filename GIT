@@ -26,6 +26,7 @@ git config --global user.name "Your Name"    Set username
 git config --global user.email "you@example.com"   set email
 git config --list       See configuration
 git config -l
+git config --list --show-origin      See the complete configuration
 
 git init       Makes the current folder a Git repository.
 git clone <repository-url>       Clone an existing repository  
@@ -76,6 +77,7 @@ git diff abc123 def456    shows differences between two commits.
 
 git branch -r            You might see: origin/main  origin/dev
 git branch                See branches   to check what are the branches are avaliable
+git branch -vv             see current branch
 git branch development    Create branch
 git switch development    Switch branch
 git switch -c development   Create and switch
@@ -87,9 +89,9 @@ git branch -m dev             If your current branch is test and you want to ren
      -M → force rename branch, even if the new branch name already exists.
     If test is already pushed to GitHub
     You also need to rename the remote branch:
-     git branch -m dev
-     git push -u origin dev
-    git push origin --delete test
+git branch -m dev
+git push -u origin dev
+git push origin --delete test
    So:
     git branch -m dev → rename local branch
     git push -u origin dev → push new dev branch
@@ -100,7 +102,7 @@ git remote -v    See remote
 git remote add origin https://github.com/user/project.git    Add remote
 git remote set-url origin <new-url>    Change remote URL
 git remote remove origin   Remove remote
-
+git remote add upstream https://github.com/company/project.git   upstream is a name you can give any name  add one more
 push
 ----------------
 git push origin main    Push branch    Local main to GitHub main
@@ -247,6 +249,31 @@ git merge origin/main
 the file has hello already i changed in the remote to world if i fetch and merge means
 Ah, now I understand. You mean the original file already had Hello, and you changed that file to World only on the remote (GitHub). You did not change the local file.
 Then yes — after fetch + merge, the local file becomes World. ✅
+
+git fetch checks the configured remote branches and downloads only the new data/commits you don't already have.
+It does not download the entire branches again, and it does not merge the changes.
+git fetch    Git uses the configured/default fetch settings of your repository
+Example:origin
+├── main
+├── dev
+└── master
+git fetch    → Fetches the configured branches from the configured remote(s).   use only you have one remote origin
+
+git fetch origin    Fetch from the remote named origin.    for multiple like project1 and 2
+git fetch origin  → Fetches the configured branches from origin.
+git remote add upstream https://github.com/company/project.git   upstream is a name you can give any name
+git fetch --all    → fetch from both remotes.
+git remote rename upstream company
+git config --list --show-origin      See the complete configuration
+
+Suppose you don't want origin to fetch all branches. You want only main.
+git config --unset-all remote.origin.fetch
+git config --add remote.origin.fetch +refs/heads/main:refs/remotes/origin/main
+git fetch origin   will fetch only the configured main refspec.
+git config --get-all remote.origin.fetch
+You should see:
+
++refs/heads/main:refs/remotes/origin/main
 
 
 
