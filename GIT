@@ -103,6 +103,12 @@ git remote add origin https://github.com/user/project.git    Add remote
 git remote set-url origin <new-url>    Change remote URL
 git remote remove origin   Remove remote
 git remote add upstream https://github.com/company/project.git   upstream is a name you can give any name  add one more
+
+git clone    Used when you don't have the repository locally yet.
+git clone https://github.com/user/project.git
+git fetch    Used when you already have a Git repository locally and want to get newer information/commits from a remote.
+
+
 push
 ----------------
 git push origin main    Push branch    Local main to GitHub main
