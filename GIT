@@ -65,7 +65,7 @@ git show    means show the details of a commit.
 git show 1e9cb0e:file1.txt         show the content of the file
 git show 1e9cb0e    This shows the details of commit abc123.
 git show HEAD:file1.txt
-
+git reflog  we can see all commit
 
 git diff  See unstaged changes    file are already staged but now you change some code but not push to the staged
            Shows changes you made but haven't staged.
@@ -107,6 +107,175 @@ git remote add upstream https://github.com/company/project.git   upstream is a n
 git clone    Used when you don't have the repository locally yet.
 git clone https://github.com/user/project.git
 git fetch    Used when you already have a Git repository locally and want to get newer information/commits from a remote.
+
+
+restore
+--------------
+Suppose your history is:
+Commit 1 → file1.txt = Hello
+Commit 2 → file1.txt = Welcome
+Commit 3 → file1.txt = Good Morning  you are here
+git restore --source=<commit-1-id> file1.txt
+  If you want to make that restored version part of your branch history:
+git add file1.txt 
+git commit -m "Restore file1 from Commit 1"
+----------------
+git restore --source=first id  file1.txt  If you want to completely go back to Commit 1
+git reset --hard commit id     If you want your entire repository to become exactly like Commit 1:
+-------------
+
+git revert     is for committed changes
+git restore file1.txt    not in staged and commited we change hello to sunil  now i think i need previous cotent hello so we use this but hello is already in staged 
+git restore file1.txt   Deleted but not committed but in staged                  No — in this exact situation, git restore file1.txt 
+               cannot bring back Hello if Hello was never staged or committed.
+git restore --staged file1.txt  = "Remove this file from the staging area, but keep my changes."
+git restore --source=<commit-1-id> file1.txt   current is commit2  Git takes file1.txt from Commit 1 and puts it into your working directory.
+                                               But Commit 2 is still your current commit.
+Instead of deleting the commit, use:
+git revert <commit-2-id>        undo 2 and go back to commit1
+For example:
+git revert abc1234
+Git creates a new Commit 3        revert created a commit, but restore not create acommit
+Example:
+
+Commit 1 → Hello
+     ↓
+Commit 2 → World
+     ↓
+git revert Commit-2
+     ↓
+Commit 3 → Hello
+
+git restore --staged file1.txt   This means unstage the file.
+Example You modify file1.txt:  Hello → Welcome
+Then: git add file1.txt
+Now the file is staged and ready for commit.
+If you change your mind and don't want it staged yet:
+git restore --staged file1.txt
+Now:
+Staging area:
+file1.txt ❌ removed from staging
+Working directory:
+file1.txt → Welcome ✅
+
+git restore file1.txt         This works when the deletion is not committed.  you deleted but you only staged not commited 
+What if you already committed the deletion?
+Suppose you did:
+rm file1.txt
+git add file1.txt
+git commit -m "Delete file1"
+
+Now the deletion is part of Git history.
+In that case, git restore file1.txt by itself won't restore the old version because the current HEAD says the file is deleted.
+
+You can restore it from the previous commit, for example:
+git restore --source=HEAD~1 file1.txt
+Then commit the restored file:
+git add file1.txt
+git commit -m "Restore file1"
+
+Deleted but not committed → git restore file1.txt
+Deleted and committed → git restore --source=<older-commit> file1.txt
+
+reset
+------
+git reset --soft HEAD~9  = "Go back 9 commits, but keep all the work from those 9 commits staged so I can make one clean commit."
+git reset --soft HEAD~2 
+HEAD means: Current commit = Commit 3
+HEAD~1 means: One commit before HEAD = Commit 2
+HEAD~2 means: Two commits before HEAD = Commit 1
+Commit 1 remains. Commits 2–10 are removed from the branch history, their changes are combined and staged, and you create one new commit containing those changes.
+
+Why use --soft?A common use is when you made a commit too early or with the wrong commit message, and you want to undo the commit while keeping all its changes staged.
+For example:git commit -m "wrong message"
+Then: git reset --soft HEAD~1
+Now the commit is removed from the branch, but your changes are still staged, so you can make a new commit:
+
+git commit -m "correct message"
+Remember
+git reset --soft HEAD~1
+HEAD:
+Commit 2 → removed from branch history
+Changes:
+Commit 2's changes → STAGED ✅
+
+cat > sunil.txt   sunil
+git add .
+git commit -m "first"
+now i changed
+cat > sunil.txt world
+git add .
+git commit -m "second"
+git log --oneline sunil.txt
+          77f066d (HEAD -> master) second
+           f39f04b first
+ git reset --soft HEAD~1
+ git log --oneline sunil.txt
+        f39f04b (HEAD -> master) first
+git show HEAD:sunil.txt
+sunil
+ git commit -m "New Commit"
+ git log --oneline sunil.txt
+536759c (HEAD -> master) New Commit
+f39f04b first
+ git show HEAD:sunil.txt
+world
+ git show HEAD~1:sunil.txt
+sunil
+git reflog  we can see all commit
+So you can still access them.
+For example: git show 67b71ba
+shows the old third commit.
+
+git reset --soft HEAD~1
+        ↓
+Commit removed
+Changes → STAGED
+
+git reset HEAD~1
+        ↓
+Commit removed
+Changes → UNSTAGED
+
+git reset --hard HEAD~1
+        ↓
+Commit removed
+Changes → DELETED
+
+git reset --hard HEAD~1
+Commit 1 → file1.txt = Hello
+Commit 2 → file1.txt = World
+                         ↑
+                        HEAD
+if i do git reset --hard HEAD~1 menas  hello will there and commit 2 will deleted and content so commit one will be there
+Yes. Exactly. ✅
+Commit 2 immediately destroyed?   ❌ No, usually recoverable through git reflog
+
+git reset --hard commit id        If you want your entire repository to become exactly like Commit 1:
+git reset --hard <commit-1-id>    your branch points to Commit 1, and your entire working project is made to match Commit 1.
+Commit 1 → Commit 2 → Commit 3
+   ↑           ↑           ↑
+ Hello       World     Good Morning
+                         HEAD
+After:  git reset --hard <commit-1-id>
+you get:
+Commit 1
+   ↑
+  HEAD
+What happens to 2 and 3?  They are no longer part of the current branch history.
+So when you run: git log --oneline
+you'll normally see: Commit 1
+
+And your whole working project is restored to how it was at Commit 1:
+Files = exactly the state at Commit 1
+Content = exactly the state at Commit 1
+
+However, saying "Commit 2 and 3 are permanently deleted" is not quite correct. They may still be recoverable using:
+git reflog
+So the best wording is:
+git reset --hard <commit-1-id> makes Commit 1 the current commit and makes the entire working project match Commit 1. Commits 2 and 3 are removed from the
+current branch history, but may still be recoverable through the reflog.
+
 
 
 push
