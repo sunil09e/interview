@@ -74,6 +74,7 @@ git diff abc123 def456 -- project/
 git diff abc123 def456    shows differences between two commits.
 
 
+git branch -r            You might see: origin/main  origin/dev
 git branch                See branches   to check what are the branches are avaliable
 git branch development    Create branch
 git switch development    Switch branch
@@ -121,7 +122,7 @@ and:
 git switch master    git push
 pushes to: origin/master
 
-pull
+pull     fetch + merge
 -------------------
 git switch main
 git pull
@@ -146,14 +147,114 @@ git commit         That's enough for a normal merge.
 or, depending on the operation/state:
 git merge --continue
 
+if i changed but not commited the file1 but same file1 in github iam try to pull what will happen
+error: Your local changes to the following files would be overwritten by merge:
+    file1.txt
+Please commit your changes or stash them before you merge.
+If you have:
+Local: file1.txt → uncommitted change
+GitHub: file1.txt → changed
+git pull    Git will usually stop before merging if the pull would overwrite your uncommitted local changes.
+Then you can either:
+git add file1.txt
+git commit -m "My changes"
+git pull     Git will likely get a merge conflict:
+or:
+git stash     Git temporarily stores your change and makes your working directory look like the last committed version:
+git pull
+git stash pop   <<<<<<< Updated upstream
+Hello Kumar
+=======
+Hello Sunil
+>>>>>>> Stashed changes
+Now you decide what the final content should be
+Then: git add file1.txt
+git commit -m "Resolve stash conflict"
+git commit → permanently records change in Git history
+git stash  → temporarily puts change aside
+suppose local has file1 and 2 hithub has fil3 and 4 the pull means main has now 4 files
+Yes, exactly, assuming the files are committed on both sides and there are no conflicts.
+
+
+fetch
+--------
+normally git fetch origin fetches updates for all branches that the origin remote is configured to track, not just main.
+git fetch downloads the remote commits into your local Git repository, but it does not put the files into your current working folder.
+Suppose GitHub has: file1.txt file2.txt file3.txt file4.txt
+Your local main has: file1.txt file2.txt
+You run: git fetch origin
+Now Git knows about file3.txt and file4.txt, but your ls may still show only:
+file1.txt
+file2.txt
+
+git log main..origin/main --oneline   See commits that are on GitHub but not local
+git diff main origin/main        This shows exactly what changed.
+git ls-tree -r --name-only origin/main   See the files in origin/main
+git merge origin/main   now the file are came
+main..origin/main   Now you can see what commits are available on GitHub before merging them.  for inspect:
+This means: Show me the commits that exist in origin/main but do NOT exist in my local main.
+git log main..origin/main --oneline
+Output:
+Commit 4
+Commit 3
+This tells you: "GitHub has Commit 3 and Commit 4, but my local main doesn't have them."
+Why use fetch instead of pull?
+Because sometimes you don't want Git to immediately merge changes.
+Instead of: git pull
+you can first do:git fetch
+Then inspect:git log main..origin/main
+or: git diff main origin/main
+You can see what changed.
+Then decide: git merge origin/main
+
+git fetch origin main   To fetch a specific branch:
+
+if a local file1 has sunil remote has file1 kumar then fetch means conflict or what?
+Local main:
+Sunil
+origin/main:
+Kumar
+You run: git fetch origin
+When you try to merge the two:git merge origin/main
+If both changed the same part of file1.txt, Git may give a conflict:
+
+we fetch all from remote now i switch to master the merge the master means the master code will come 
+if iam in main then i merge the master means the master code will come in main?
+Yes, exactly. But one small correction: git merge master means bring the changes from master into the branch you are currently on.
+It doesn't simply replace your branch with all of master's files.
+
+if local file1 not commited from remote the file1 is fetch what will happen?
+Then if you try:  git merge origin/main
+Git sees that your local file has an uncommitted change.
+If merging the remote change would overwrite that local change, Git will usually stop with something like: error
+If you want to keep your local change:
+
+git add file1.txt
+git commit -m "Save local change"
+git merge origin/main
+
+Or temporarily put it aside:
+git stash
+git merge origin/main
+git stash pop
+
+If you don't want your local change:
+git restore file1.txt     then your uncommitted changes are removed, and the file returns to the last committed version of your current branch.
+So:Hello Sunil  ❌ uncommitted change is removed
+   Hello World  ✅ previous committed content comes back
+git merge origin/main
+
+the file has hello already i changed in the remote to world if i fetch and merge means
+Ah, now I understand. You mean the original file already had Hello, and you changed that file to World only on the remote (GitHub). You did not change the local file.
+Then yes — after fetch + merge, the local file becomes World. ✅
 
 
 
 git merge --continue    If you want to finish the merge
 git merge --abort      If you want to cancel the merge
-----------------
-merge
 
+merge
+----------------
 there are 2 branches master and main
 master has  file1.txt file2.txt
 main has same 
