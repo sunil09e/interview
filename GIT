@@ -60,6 +60,8 @@ git diff abc123 def456 -- file1.txt    See changes between two commits for a par
 git diff abc123 def456 -- project/
 
 
+git blame file1.txt   Find who changed each line
+
 git show    Shows details of the latest commit.
 git show    means show the details of a commit.
 git show 1e9cb0e:file1.txt         show the content of the file
@@ -74,8 +76,9 @@ git diff abc123 def456 -- file1.txt    See changes between two commits for a par
 git diff abc123 def456 -- project/
 git diff abc123 def456    shows differences between two commits.
 
-
-git branch -r            You might see: origin/main  origin/dev
+git branch --show-current     Find which branch you're on
+git branch -r           See remote branches         You might see: origin/main  origin/dev
+git branch -a             See all branches
 git branch                See branches   to check what are the branches are avaliable
 git branch -vv             see current branch
 git branch development    Create branch
@@ -107,6 +110,83 @@ git remote add upstream https://github.com/company/project.git   upstream is a n
 git clone    Used when you don't have the repository locally yet.
 git clone https://github.com/user/project.git
 git fetch    Used when you already have a Git repository locally and want to get newer information/commits from a remote.
+
+
+git rm file1.txt    Delete file and stage deletion
+git rm --cached file1.txt    Delete file from Git but keep it locally
+dont do at the same time it can completly delete
+--cached means remove from Git's index but keep the physical file. It doesn't make sense after you've already removed the file with git rm.
+
+git commit --amend                means modify your most recent commit instead of creating another separate commit.
+You made a commit: git add file1.txt  git commit -m "Add login"
+Then you realize you forgot to include file2.txt.
+
+Instead of creating another commit:
+git add file2.txt
+git commit -m "Add file2"
+you can add it to the previous commit:
+git add file2.txt
+git commit --amend
+
+git commit --amend -m "Add login feature"  You can also change the commit message
+This changes the last commit's message.
+
+Important
+--amend works on the latest commit only.
+
+
+
+git mv old.txt new.txt   Rename Files
+
+touch .gitignore   Create  .gitignore
+
+git clean -n  Delete untracked files:
+git clean -f   ⚠️ Be careful. It permanently removes untracked files.
+
+git switch -c development origin/development      Create a new local branch called development based on the remote-tracking branch origin/development, and switch to it.
+-c → create a new branch  origin/development → use the remote-tracking branch as the starting point
+Suppose GitHub has:origin/main
+origin/development
+
+But your local computer only has:main
+
+You want to work on the remote development branch locally.
+Run: git switch -c development origin/development
+Now you have:
+Remote:  origin/development
+       ↓
+Local:
+development
+And you are automatically switched to:
+* development
+  main
+
+
+Git Tags
+Tag = human-friendly name/label for an important commit
+A Git tag is a name/label that points to a specific commit.
+Think of it like putting a label on an important version.
+Create a tag
+Suppose you are currently at: commit3  git tag v1.0
+create a tag  git tag v1.0
+git tag   See tags
+git tag v1.0 <C2-commit-id>   Tag an older commit
+git show v1.0  It shows the commit information and changes.
+git tag -d v1.0    This removes the tag locally.
+git push origin v1.0  Push a tag to GitHub
+git push origin --tags      push all tags
+
+Annotated tag
+There are two common types.
+Lightweight tag
+git tag v1.0
+Simple pointer to a commit.
+
+Annotated tag
+git tag -a v1.0 -m "Version 1.0 release"
+This stores extra information such as: tag name,message,tagger,date
+For releases, annotated tags are commonly preferred.
+
 
 
 restore
@@ -180,7 +260,7 @@ Deleted and committed → git restore --source=<older-commit> file1.txt
 reset
 ------
 git reset --soft HEAD~9  = "Go back 9 commits, but keep all the work from those 9 commits staged so I can make one clean commit."
-git reset --soft HEAD~2      if the 3 commit msg is worng i need to change the commit msg so give head2 to remove the commit3 msg but the content in staged  then give commit msg it will commit 
+git reset --soft HEAD~2      if the 3 commit msg is worng i need to change the commit msg so give head2 to remove the commit3 msg but the content in staged  then  give commit msg it will commit 
 HEAD means: Current commit = Commit 3
 HEAD~1 means: One commit before HEAD = Commit 2
 HEAD~2 means: Two commits before HEAD = Commit 1
@@ -588,7 +668,7 @@ Example:origin
 ├── main
 ├── dev
 └── master
-git fetch    → Fetches the configured branches from the configured remote(s).   use only you have one remote origin
+git fetch    → Fetches the configured branches from the configured remote(s).   use only you have one remote origin   Download remote branch information
 
 git fetch origin    Fetch from the remote named origin.    for multiple like project1 and 2
 git fetch origin  → Fetches the configured branches from origin.
