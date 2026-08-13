@@ -180,7 +180,7 @@ Deleted and committed → git restore --source=<older-commit> file1.txt
 reset
 ------
 git reset --soft HEAD~9  = "Go back 9 commits, but keep all the work from those 9 commits staged so I can make one clean commit."
-git reset --soft HEAD~2 
+git reset --soft HEAD~2      if the 3 commit msg is worng i need to change the commit msg so give head2 to remove the commit3 msg but the content in staged  then give commit msg it will commit 
 HEAD means: Current commit = Commit 3
 HEAD~1 means: One commit before HEAD = Commit 2
 HEAD~2 means: Two commits before HEAD = Commit 1
@@ -247,7 +247,7 @@ Commit 1 → file1.txt = Hello
 Commit 2 → file1.txt = World
                          ↑
                         HEAD
-if i do git reset --hard HEAD~1 menas  hello will there and commit 2 will deleted and content so commit one will be there
+if i do git reset --hard HEAD~1 menas  hello will there and commit 2 will deleted and content also commit one will be there
 Yes. Exactly. ✅
 Commit 2 immediately destroyed?   ❌ No, usually recoverable through git reflog
 
@@ -275,6 +275,162 @@ git reflog
 So the best wording is:
 git reset --hard <commit-1-id> makes Commit 1 the current commit and makes the entire working project match Commit 1. Commits 2 and 3 are removed from the
 current branch history, but may still be recoverable through the reflog.
+
+
+revert
+-----------
+git revert is used when you want to undo a previous commit without deleting the commit history.
+   you can revert both a previous commit and the current/latest commit.
+Suppose your Git history is:
+Commit 1 → Commit 2 → Commit 3   commit1 is sunil 2 is sunilkumar 3 is sunilkumar123
+now i git revert <commit3 id>    undo 3 and go to 2 commit msg has a commit id 4
+if you see git log you can see commit4  is Revert "third"  third is commit msg of commit3
+if you see cat file.txt means you can see the commit2  (sunilkumar)content has a commit4 msg
+
+if you  git revert <commit1 id>  means it will delete the file   reverting Commit 1 means Git tries to remove file.txt.
+so you need to git revert --abort         
+if you  git revert <commit2 id>  commit msg is  Revert "second" commitid is now 5  content is commit1 (sunil)
+
+But that is NOT what revert means.
+git revert C2 means: "Undo exactly what C2 did."
+What did C2 do?
+C2 changed: Sunil → Sunilkumar
+So Git needs to reverse that change: Sunilkumar → Sunil
+
+
+
+Suppose we have one file called file.txt.
+Commit 1  file.txt Sunil
+Commit 2 You change the same file:
+file.txt Sunilkumar
+Commit 3
+You change it again:
+file.txt Sunilkumar123
+
+So history is:C1 → C2 → C3
+and currently you are at: C3
+with: Sunilkumar123
+
+Now you say: "I want C1 content"
+You might think: git revert C2
+means: C3 → C1
+
+But that is NOT what revert means.
+git revert C2 means: "Undo exactly what C2 did."
+
+What did C2 do?
+C2 changed: Sunil → Sunilkumar
+So Git needs to reverse that change: Sunilkumar → Sunil
+
+But where are you currently?
+You are at C3:Sunilkumar123
+So Git sees: What C2 changed: Sunil → Sunilkumar
+Reverse of C2:
+Sunilkumar → Sunil
+
+Current content:Sunilkumar123
+Git says:"Wait! I expected Sunilkumar, but the current file has Sunilkumar123."
+Why? Because C3 changed the same line after C2.
+Therefore Git may say: CONFLICT
+
+git revert --skip   skip that return back to current
+git revert --continue  conflict made the continue means both cotents come then edit and add and commit
+git revert --abort  to cancel the revert
+then 
+git add file1.txt
+git revert --continue  both content will come we decide which one we need edit manually  then ad  commit
+ if you add . means we cant skip or abort 
+or git revert --abort  
+
+If you want C1 content temporarily
+You can use: git switch --detach <C1-id>
+If you want to permanently move your branch from C3 back to C1
+Use:git reset --hard <C1-id>
+
+
+Example
+C1 = Sunil
+C2 = Sunilkumar
+C3 = Sunilkumar123
+
+Run:git revert C3 C2
+Git creates two new commits:
+C1 → C2 → C3 → Revert C3 → Revert C2
+Final file.txt: Sunil
+git revert C2 C3   you may encounter a conflict if C3 modified the same content that C2 modified.
+
+
+Stash
+-----------
+git stash temporarily saves uncommitted changes.
+
+git stash    Save changes
+git stash pop   Apply and remove stash
+
+git stash list  See stashes  Example: stash@{0} stash@{1}
+git stash apply   Apply latest stash
+git stash apply stash@{0}   Apply a specific stash
+git stash drop stash@{0}   Delete a stash
+git stash clear   Delete all stashes
+
+git stash is used when you have uncommitted changes in your working directory, but you don't want to commit them yet.
+It temporarily saves your changes and gives you a clean working directory.
+
+Simple example
+You are working on: file.txt
+Original committed content: Hello
+You modify it:Hello Welcome
+
+But you haven't committed it: git status
+You see: modified: file.txt
+
+Now you suddenly need to switch to another task/branch.
+Instead of committing unfinished work, use: git stash
+Git temporarily stores your changes.
+
+Your file goes back to the last committed version: Hello
+
+And: git status
+shows a clean working tree.
+
+Where did your changes go?
+They are stored in the stash.
+
+Check: git stash list
+
+Example: stash@{0}: WIP on main
+Your changes are not deleted.
+
+Get your changes back
+Use: git stash pop
+
+git stash apply   Restores the changes but keeps the stash.
+Stash
+ ↓
+Apply changes
+ ↓
+Stash still exists
+
+git stash pop    Restores the changes and removes the stash if it applies successfully.
+Stash
+ ↓
+Apply changes
+ ↓
+Stash removed
+
+Multiple stashes
+You can stash multiple times:
+git stash
+git stash
+git stash
+
+Check them: git stash list
+Example:
+stash@{0}  ← newest
+stash@{1}
+stash@{2}  ← oldest
+To apply a specific one: git stash apply stash@{1}
+
 
 
 
