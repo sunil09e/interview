@@ -440,6 +440,68 @@ Final file.txt: Sunil
 git revert C2 C3   you may encounter a conflict if C3 modified the same content that C2 modified.
 
 
+
+git cherry-pick
+-----------
+Cherry-pick = take the changes from a particular commit and create a new commit with those changes on your current branch.
+git cherry-pick works with commits. If the commit does not exist / cannot be found, Git cannot cherry-pick it.
+git cherry-pick is used when you want to take one specific commit from another branch (or anywhere in the repository) and apply its changes to your current branch.
+So “anywhere in the repository” means the commit can be:
+on another branch
+on your current branch
+from an older part of the history
+
+Suppose you have:
+main:    C1 ── C2 ── C3
+                  \
+feature:           C4 ── C5
+You are currently on main:
+But you want only the changes from C5.
+
+First find the commit ID: git log --oneline
+Suppose C5 is: abc1234 Add login validation
+Then: git cherry-pick abc1234
+
+Now:
+main:    C1 ── C2 ── C3 ── C5'
+                  \
+feature:           C4 ── C5
+C5' is a new commit on main containing the changes from C5.
+
+
+If you run: git cherry-pick C4 C5
+Example:
+feature:
+C1 ── C2 ── C3 ── C4 ── C5
+
+You are on main:
+main:
+C1 ── C2 ── C3
+
+Then: git cherry-pick C4 C5
+Result:
+main: C1 ── C2 ── C3 ── C4' ── C5'
+C4' = new commit containing C4's changes
+C5' = new commit containing C5's changes
+Original C4 and C5 remain on the feature branch.
+
+Suppose:
+main:     C1 ── C2
+                   \
+feature:            C3 ── C4 ── C5
+You are on main and want the latest commit from feature, but you don't know its ID.
+You can do: git cherry-pick feature    Because feature currently points to C5, Git cherry-picks C5.
+main:     C1 ── C2 ── C5'
+                   \
+feature:            C3 ── C4 ── C5
+
+git cherry-pick C2 C4 C7   Multiple specific commits
+git cherry-pick C2..C5     A range of commits  This applies the commits after C2 up to C5.
+git cherry-pick C2..feature      This means: "Cherry-pick the commits after C2 up to where feature currently points."
+git cherry-pick dev
+
+
+
 Stash
 -----------
 git stash temporarily saves uncommitted changes.
