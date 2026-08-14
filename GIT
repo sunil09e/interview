@@ -641,6 +641,10 @@ Usually your remote is: git remote -v
 and you'll see something like:
 origin  https://github.com/user/project.git
 
+If you run: git pull main
+Git interprets main as the remote name, not the branch name.
+So if you don't have a remote named main, it will fail.
+
 git push origin main    Push branch    Local main to GitHub main
 git push -u origin main   -u means set the upstream branch.
 This does two things:
