@@ -633,6 +633,14 @@ To apply a specific one: git stash apply stash@{1}
 
 push
 ----------------
+git pull <remote> <branch>
+git pull origin main
+          ↑      ↑
+       remote  branch
+Usually your remote is: git remote -v
+and you'll see something like:
+origin  https://github.com/user/project.git
+
 git push origin main    Push branch    Local main to GitHub main
 git push -u origin main   -u means set the upstream branch.
 This does two things:
