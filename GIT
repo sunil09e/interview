@@ -501,6 +501,61 @@ git cherry-pick C2..feature      This means: "Cherry-pick the commits after C2 u
 git cherry-pick dev
 
 
+ 
+Git Rebase
+------------
+Rebase means: take your commits and put them on top of another branch's latest commit.
+1.Both branches have A and B
+main:     A ── B
+feature:  A ── B
+
+2. You make ONE commit C on feature
+main:     A ── B
+feature:  A ── B ── C
+
+3. Now you make a new commit on main
+Let's call it M to avoid using C twice:
+main:     A ── B ── M
+feature:  A ── B ── C
+
+4. Rebase feature onto main
+git checkout feature
+git rebase main
+Git takes feature's C and replays it after main's M:
+A ── B ── M ── C'
+
+So finally:
+main:     A ── B ── M
+feature:  A ── B ── M ── C'
+
+
+Example
+main:     A → B → M
+feature:  A → B → C → D → E
+
+B is the common point.
+Feature has 3 commits after B:
+C → D → E
+
+Now:
+git checkout feature
+git rebase main
+
+Git takes ALL three feature commits:
+C → D → E
+and replays them after the latest main commit M:
+A → B → M → C' → D' → E'
+So:
+MAIN's commits       FEATURE's commits
+A → B → M            C' → D' → E'
+───────────────      ────────────────
+same order first     feature changes last
+
+Rebase makes the feature branch follow the same main order, and then puts all the feature changes at the end.
+
+
+
+
 
 Stash
 -----------
