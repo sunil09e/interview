@@ -914,9 +914,129 @@ git merge --continue        git merge --continue is mainly useful for operations
 
 
 
+Main
+main:
+├── a.txt
+├── b.txt
+└── main.py
+Dev
+dev:
+├── c.txt
+├── d.txt
+└── dev.py
+
+There are no common files.
+
+You are on main:
+
+git checkout main
+git merge dev
+Result
+main:
+├── a.txt      ← main stays
+├── b.txt      ← main stays
+├── main.py    ← main stays
+├── c.txt      ← dev comes in
+├── d.txt      ← dev comes in
+└── dev.py     ← dev comes in
+
+Common starting point
+
+Both had:
+
+file1
+file2 = "Hello"
+file3
+file4
+
+Then main changes file2:
+
+main:
+file2 = "Hello Main"
+
+But dev does not change file2:
+
+dev:
+file2 = "Hello"
+
+Now you are on main and run:
+
+git merge dev
+
+Git compares the changes:
+
+Original: Hello
+main:     Hello Main   ← changed
+dev:      Hello        ← unchanged
+
+Because only main changed file2, Git keeps main's change:
+
+After merge:
+
+file1
+file2 = "Hello Main"   ← stays
+file3
+file4
+
+So:
+
+git merge dev does NOT simply copy all of dev's files over main.
+
+It combines the changes made in dev with the changes made in main.
+
+If dev made no change to file2, then main's changed file2 stays.
+
+ort
+----
+ort is used by git merge as the merge strategy.
+git merge = the operation/command
+ort        = the strategy Git uses to perform that merge
+
+When you type: git merge dev
+you are saying: "Merge the dev branch into my current branch."
+Git then needs a method for figuring out how to combine the changes. For a normal two-branch merge, modern Git uses ort by default.
+
+So: git merge dev
+is effectively: git merge -s ort dev
+Therefore
+If you ask: "Are merge and ort doing the same job?"
+
+Not exactly:
+Merge = I want to combine these branches.
+ort = The algorithm Git uses to figure out how to combine them.
 
 
+When you run:
+git merge dev
 
+Git normally uses:
+
+git merge
+    ↓
+ort strategy
+    ↓
+combine changes from main + dev
+
+You can explicitly write: git merge -s ort dev
+
+But normally you just use:
+git merge dev
+
+Remember
+merge = the operation
+ort   = the strategy used for the operation
+So ort is part of the merge process, not a separate alternative to merge.
+
+
+The difference is only that:
+git merge dev
+➡️ Git automatically chooses ort.
+
+While: git merge -s ort dev
+➡️ You explicitly tell Git to use ort.
+
+So you normally use: git merge dev
+You don't need to write -s ort every time.
 
 
 
