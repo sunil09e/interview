@@ -11,6 +11,7 @@ When you create a branch:
 git switch -c dev
 it starts from the current branch's files.
 
+Unrelated history means the two Git repositories/branches do not have any common commit in their history.
 
 Ancestor in Git means the earlier commit from which the current branches came.
 Suppose initially you have:
@@ -19,6 +20,63 @@ Hello World
 You commit it: Commit 1
 Then you create two branches:
 Commit 1 is the common ancestor of main and dev.
+
+
+When do you need --allow-unrelated-histories?
+Only when there is no common history:
+Local:    A → B
+Remote:   X → Y
+There is no common ancestor between A-B and X-Y.
+
+Then: git pull origin main
+may give: fatal: refusing to merge unrelated histories
+So you use:git pull origin main --allow-unrelated-histories
+Important
+Different files ≠ unrelated histories.
+These can have completely different files and still have a common history:
+Local:   A → B → C
+Remote:  A → B → D
+They have A and B in common, so their histories are related.
+Unrelated histories means no common commit at all.
+
+There is no common commit:
+Local:    A → B
+GitHub:   X → Y
+Now your local repository is connected to GitHub as origin.
+You run: git pull origin main --allow-unrelated-histories
+
+Git says: "Okay, these histories are unrelated, but you have explicitly allowed me to combine them."
+Git then tries to merge the two histories.
+Conceptually:
+        A ── B
+       /      \
+      ?        M
+       \      /
+        X ── Y
+M = merge commit.
+If the files are different
+Local: app.py
+GitHub: README.md
+After the pull:
+app.py
+README.md
+✅ Both are present.
+
+If the same file conflicts
+Local:
+README.md
+Hello from local
+GitHub:
+README.md
+Hello from GitHub
+
+git pull origin main --allow-unrelated-histories --no-rebase
+Without --no-rebase
+→ "Use whatever pull strategy my configuration says."
+
+With --no-rebase
+→ "I specifically want MERGE."
+
 -------------------------------------------------------------------------------------
 
 git --version      Check Git version
