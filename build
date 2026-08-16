@@ -72,7 +72,75 @@ JUnit
 Jackson
 NumPy
 React
+Yes — spring-core is a library. But someone has to create that library first.
 
+How spring-core is created
+
+The Spring developers write Java source code:
+
+Spring developers
+      ↓
+Java source code
+      ↓
+Compile
+      ↓
+.class files
+      ↓
+Package
+      ↓
+spring-core-6.2.0.jar
+
+That .jar file is the packaged form of the spring-core library.
+
+Then how does Maven get it?
+
+The Spring team publishes the JAR to a Maven repository:
+
+Spring developers
+       ↓
+create spring-core
+       ↓
+spring-core-6.2.0.jar
+       ↓
+Maven Repository
+       ↓
+Your project
+       ↓
+Maven downloads it
+
+Your pom.xml tells Maven exactly which one you want:
+
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-core</artifactId>
+    <version>6.2.0</version>
+</dependency>
+
+So these are different things:
+
+spring-core
+     ↓
+Library name
+
+
+spring-core-6.2.0.jar
+     ↓
+Packaged library/artifact
+
+
+pom.xml
+     ↓
+Your project says:
+"I depend on this library"
+
+
+Maven
+     ↓
+Downloads it from a repository
+
+In short: Developers create the library → package it as a JAR → publish it to a Maven repository → your Maven project downloads it as a dependency.
+
+A package manager is a tool that installs, updates, removes, and manages software packages and their dependencies.
 Package
 
 A package is a distributable unit that contains software/code and usually metadata.
