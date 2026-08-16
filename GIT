@@ -80,8 +80,18 @@ With --no-rebase
 -------------------------------------------------------------------------------------
 
 git --version      Check Git version
-git config --global user.name "Your Name"    Set username
-git config --global user.email "you@example.com"   set email
+git config --global user.name "Your Name"    Set username                If you want to change it for all repositories on this computer
+git config --global user.email "you@example.com"   set email             If you want to change it for all repositories on this computer
+if you do want to see another one acc in your git repo :
+git -c user.name="sunil09e" -c user.email="YOUR_GITHUB_EMAIL" commit --amend --reset-author --no-edit
+git push --force origin master
+
+if a particuklar repo means
+cd ~/project/siva/project-eco
+Then:
+git config user.name "New Name"
+git config user.email "new-email@example.com"
+
 git config --list       See configuration
 git config -l
 git config --list --show-origin      See the complete configuration
