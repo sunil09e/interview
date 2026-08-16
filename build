@@ -1,0 +1,766 @@
+1. Artifact
+
+An artifact is the output/package produced by your build process.
+
+Example for a Java Maven project:
+
+Source code
+    ↓
+   Maven
+    ↓
+target/
+    ├── app.jar
+    └── app.war
+
+app.jar or app.war is an artifact.
+
+Other examples:
+
+Java → .jar, .war
+Python → .whl
+Docker → Docker image
+Android → .apk
+
+
+2. Artifact Repository
+
+An artifact repository is a place/server where those artifacts are stored and managed.
+
+Examples:
+
+Nexus Repository
+JFrog Artifactory
+AWS CodeArtifact
+
+Think:
+
+Developer
+    ↓
+Source Code
+    ↓
+Maven Build
+    ↓
+app.jar          ← Artifact
+    ↓
+Upload
+    ↓
+Nexus            ← Artifact Repository
+
+
+app.jar	Nexus
+app.war	JFrog Artifactory
+
+---------------------------------------------
+Library
+
+A library is reusable code that another program can use.
+
+Example:
+
+Your Java application
+       ↓
+   Spring library
+       ↓
+   Reusable Java code
+
+A library provides functionality so you don't have to write everything yourself.
+
+Examples:
+
+Spring
+JUnit
+Jackson
+NumPy
+React
+
+Package
+
+A package is a distributable unit that contains software/code and usually metadata.
+
+For example, a Maven package/artifact might be:
+
+spring-core-6.2.0.jar
+
+That .jar contains compiled Java classes and other resources.
+
+Simple relationship
+
+Think of it like this:
+
+Library = reusable code
+
+
+Package = a packaged/distributable form of that code
+
+For example:
+
+Spring library
+      ↓
+packaged as
+      ↓
+spring-core.jar
+      ↓
+stored in
+      ↓
+Maven Repository
+But one important point
+
+The word package can mean different things depending on the technology.
+
+
+
+Term	Meaning
+Java library	Reusable Java code
+Maven package/artifact	Distributable Java artifact such as .jar
+Python package	Collection of Python modules
+APT package	Linux software package such as nginx
+npm package	JavaScript package distributed through npm
+
+So don't treat library = package in every situation.
+
+Easy way to remember:
+
+Library = the reusable functionality.
+Package = how software/code is organized and distributed.
+
+
+Maven is primarily a Build Tool, but it also does dependency/package management.
+
+So the best answer is:
+
+Maven = Build Tool + Dependency Management Tool
+
+What Maven does
+pom.xml
+   ↓
+ Maven
+   ├── Downloads dependencies → dependency management
+   ├── Compiles code
+   ├── Runs tests
+   ├── Packages application
+   └── Creates JAR/WAR → build
+-----------------------------------------------------
+
+Build script
+
+A build script contains instructions/commands that tell the build tool how to build the project.
+
+Example:
+
+build.sh
+javac *.java
+jar -cf app.jar *.class
+
+It says what actions to perform.
+
+Build configuration file
+
+A build configuration file mainly contains settings/information for the build tool.
+
+Example:
+
+pom.xml
+
+It tells Maven things like:
+
+Project name/version
+Dependencies
+Java version
+Plugins
+Packaging type
+Build settings
+But pom.xml can do both?
+
+pom.xml is primarily a build configuration file, not a traditional build script.
+
+pom.xml
+   ↓
+Maven reads configuration
+   ↓
+Maven performs build
+   ↓
+target/app.jar
+
+Similarly, setup.py can contain configuration plus executable Python build/package logic, depending on how it's used.
+
+Easy distinction
+
+Build script = instructions/commands to execute.
+Build configuration = settings that tell the build tool how the project should be built.
+
+So when someone says "build script/config file", they are grouping two related things together, but they are not exactly the same.
+-------------------------------------------------------------
+
+When you say:
+
+CI/CD pipeline runs Maven to install dependencies
+
+Maven looks at your pom.xml to know which dependencies your project needs.
+
+For example:
+
+<dependencies>
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-core</artifactId>
+        <version>...</version>
+    </dependency>
+</dependencies>
+
+Then when the pipeline runs:
+
+mvn package
+
+Maven:
+
+pom.xml
+   ↓
+Read dependencies
+   ↓
+Download required libraries
+   ↓
+Compile code
+   ↓
+Run tests
+   ↓
+Create artifact
+   ↓
+target/app.jar
+
+So:
+
+pom.xml → declares what dependencies are needed
+
+Maven → downloads/manages those dependencies and performs the build
+For npm, the equivalent is usually:
+
+package.json
+   ↓
+npm install
+   ↓
+node_modules/
+
+---------------------------------------------------
+
+Each build/package tool has its own configuration file:
+
+Tool	Configuration file	Dependencies
+Maven	pom.xml	Java libraries
+npm	package.json	JavaScript/Node.js packages
+Python pip	requirements.txt or pyproject.toml	Python packages
+
+Maven
+mvn package
+    ↓
+looks at pom.xml
+    ↓
+finds dependencies
+    ↓
+downloads them
+npm
+npm install
+    ↓
+looks at package.json
+    ↓
+finds dependencies
+    ↓
+downloads them
+    ↓
+node_modules/
+
+So remember:
+
+Maven → pom.xml
+npm → package.json
+
+Build tools to learn for DevOps
+1. Maven — Java ⭐⭐⭐⭐⭐
+
+You should learn this first because Java applications are very common in DevOps.
+
+Learn:
+
+pom.xml
+   ↓
+Dependencies
+   ↓
+mvn clean
+mvn compile
+mvn test
+mvn package
+mvn install
+
+Understand:
+
+pom.xml
+Dependencies
+Maven lifecycle
+target/
+JAR/WAR artifacts
+Maven repositories
+Maven Central
+Nexus/Artifactory
+Running Maven inside Jenkins
+
+Example:
+
+mvn clean package
+2. npm — JavaScript/React/Node.js ⭐⭐⭐⭐
+
+Learn:
+
+package.json
+package-lock.json
+node_modules/
+npm install
+npm test
+npm run build
+
+Understand:
+
+npm install
+npm run build
+
+For a React application:
+
+Source code
+    ↓
+npm install
+    ↓
+Dependencies
+    ↓
+npm run build
+    ↓
+build/dist
+    ↓
+Docker image
+3. Gradle — Java ⭐⭐⭐
+
+You don't need to go extremely deep initially.
+
+Learn:
+
+build.gradle
+gradlew
+gradle build
+gradle test
+gradle clean
+
+Understand that Gradle can perform a similar role to Maven for Java projects.
+
+4. Python build/package tools ⭐⭐
+
+For DevOps, basic knowledge is enough initially.
+
+Learn:
+
+requirements.txt
+pyproject.toml
+pip
+pip install
+
+Example:
+
+pip install -r requirements.txt
+Most important for you
+
+Since you're learning DevOps, I'd follow this order:
+
+1. Maven
+     ↓
+2. npm
+     ↓
+3. Gradle
+     ↓
+4. Python pip/pyproject
+
+Then learn how they fit into a CI/CD pipeline:
+
+GitHub
+   ↓
+Jenkins
+   ↓
+Maven / npm
+   ↓
+Build + Test
+   ↓
+Artifact
+   ↓
+Nexus / Docker Registry
+   ↓
+Docker
+   ↓
+Kubernetes / AWS
+What you should be able to explain in an interview
+
+For example:
+
+"Jenkins checks out the source code from GitHub. Maven reads the pom.xml, downloads the required dependencies, compiles the source code, runs tests,
+and packages the application into a JAR/WAR artifact. The artifact can then be stored in Nexus or used to build a Docker image."
+
+---------------------------------------
+1. Library = reusable code
+
+A library is code written by someone else that you use in your application.
+
+Example:
+
+Spring
+   ↓
+Java library
+   ↓
+Provides reusable classes/functions
+
+You don't need to write that functionality yourself.
+
+2. Package = distributable unit
+
+A package is a way of bundling and distributing software/code.
+
+For Java:
+
+Spring library
+      ↓
+spring-core.jar
+      ↓
+Package/artifact
+
+For JavaScript:
+
+React library
+      ↓
+npm package
+      ↓
+react
+
+So a library can be distributed as a package.
+
+3. Dependency = something your application needs
+
+A dependency describes a relationship:
+
+"My application depends on this library/package."
+
+For example:
+
+Your Java application
+       ↓
+depends on
+       ↓
+Spring library
+
+Therefore, Spring is a dependency of your application.
+
+In Maven:
+
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-core</artifactId>
+    <version>...</version>
+</dependency>
+
+This tells Maven:
+
+"My application needs this dependency."
+
+Very simple example
+Library
+  ↓
+Spring
+
+
+Package
+  ↓
+spring-core.jar
+
+
+Dependency
+  ↓
+Your application needs Spring
+
+So remember:
+
+Library = reusable code
+Package = how code/software is bundled and distributed
+Dependency = something your application needs to work
+
+----------------------------------------------------------
+
+
+
+
+mvn deploy is used to build the project and upload the generated artifact to a remote Maven repository such as Nexus or Artifactory.
+
+Maven lifecycle
+
+The commands you asked about fit together like this:
+
+mvn clean
+    ↓
+Deletes target/
+
+
+mvn compile
+    ↓
+Compiles source code
+
+
+mvn test
+    ↓
+Runs tests
+
+
+mvn package
+    ↓
+Creates JAR/WAR in target/
+
+
+mvn install
+    ↓
+Copies artifact to your LOCAL Maven repository
+
+
+mvn deploy
+    ↓
+Uploads artifact to REMOTE Maven repository
+mvn install vs mvn deploy
+
+This is the important difference:
+
+mvn install
+     ↓
+app.jar
+     ↓
+Local repository
+~/.m2/repository/
+
+Whereas:
+
+mvn deploy
+     ↓
+app.jar
+     ↓
+Remote repository
+Nexus / Artifactory
+
+For example, in a CI/CD pipeline:
+
+GitHub
+   ↓
+Jenkins
+   ↓
+mvn clean package
+   ↓
+app.jar
+   ↓
+mvn deploy
+   ↓
+Nexus Repository
+
+So remember:
+
+mvn install → stores the artifact locally
+mvn deploy → uploads the artifact to a remote Maven repository
+
+mvn compile compiles your Java source code into .class files.
+
+Example:
+
+src/main/java/
+    App.java
+       ↓
+   mvn compile
+       ↓
+target/classes/
+    App.class
+
+
+mvn compile → .class files
+mvn test    → run tests
+mvn package → create .jar/.war
+
+mvn package builds your Java application and creates the final artifact, usually a .jar or .war file.
+
+Example:
+
+src/
+  ↓
+Java source code
+  ↓
+mvn package
+  ↓
+compile
+  ↓
+run tests
+  ↓
+create JAR/WAR
+  ↓
+target/
+   └── app.jar
+
+So:
+
+mvn package = build/package the application → create the JAR/WAR in target/.
+
+Then you can upload that JAR/WAR to an artifact repository such as Nexus using mvn deploy.
+
+There isn't actually a second separate compile.
+
+When you run:
+
+mvn package
+
+Maven follows its lifecycle and includes the compile phase automatically.
+
+So:
+
+mvn compile
+
+means:
+
+Stop after compiling.
+
+But:
+
+mvn package
+
+means:
+
+Go through the earlier phases too, including compile, test, and then package.
+
+For example:
+
+mvn package
+   ↓
+validate
+   ↓
+compile       ← compilation happens here
+   ↓
+test
+   ↓
+package       ← creates JAR/WAR
+
+So if you already ran:
+
+mvn compile
+
+and then run:
+
+mvn package
+
+Maven doesn't normally need to compile everything from scratch; it can reuse what's already built if nothing relevant changed.
+
+Key point: package is a later phase that includes the earlier phases.
+
+without running compile we can run directly package'
+
+Yes, exactly. You can directly run:
+
+mvn package
+
+You do not need to run mvn compile first.
+
+Because package automatically goes through the earlier Maven lifecycle phases:
+
+mvn package
+   ↓
+compile
+   ↓
+test
+   ↓
+package
+   ↓
+target/app.jar
+
+So:
+
+mvn compile
+
+means only compile.
+
+mvn package
+
+means compile + test + package.
+
+And commonly:
+
+mvn clean package
+
+means:
+
+delete old target/
+      ↓
+compile
+      ↓
+test
+      ↓
+create new JAR/WAR
+
+So in a CI/CD pipeline, you can normally use mvn clean package directly.
+
+if you mean mvn package, that's basically correct.
+
+mvn package
+    ↓
+1. Read pom.xml
+    ↓
+2. Download required dependencies
+    ↓
+3. Compile Java code
+    ↓
+4. Run tests
+    ↓
+5. Create .jar / .war
+    ↓
+target/app.jar
+
+So you can remember:
+
+mvn package = get dependencies + compile + test + create the JAR/WAR artifact.
+
+One small correction: Maven doesn't always download dependencies every time. If they are already available in the local Maven repository (~/.m2), Maven can reuse them.
+“Get dependencies” means Maven gets the libraries your application needs.
+
+For example, your pom.xml says:
+
+Your application
+      ↓
+needs Spring library
+      ↓
+pom.xml mentions Spring
+      ↓
+Maven gets/downloads Spring
+      ↓
+Now your code can use Spring
+
+So:
+
+Dependency = library that your application needs.
+
+And “get dependencies” = Maven finds and makes those required libraries available to your project.
+
+Dependencies means:
+
+Libraries that your application needs to run or build.
+
+Example:
+
+Your Java application
+        ↓
+needs Spring library
+        ↓
+Spring = dependency
+
+In pom.xml:
+
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-core</artifactId>
+    <version>6.2.0</version>
+</dependency>
+
+Here Spring Core is a dependency of your application, and 6.2.0 specifies which version Maven should use.
+
+So simply:
+
+Dependency = a library/package that your project depends on.
