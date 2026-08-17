@@ -212,6 +212,45 @@ Registry → stores Docker images
 ----------------------------------------
 
 docker build -t myapp .    The . means current directory is the build context.
+Build context means:
+
+The files and folders that Docker is allowed to access during docker build.
+
+For example:
+
+myapp/
+├── Dockerfile
+├── app.py
+└── requirements.txt
+
+If you run:
+
+docker build -t myapp .
+
+The . means:
+
+"Use this myapp directory as the build context."
+
+So Docker can access:
+
+app.py
+requirements.txt
+Dockerfile
+
+Then your Dockerfile can do:
+
+COPY . /app
+
+This means:
+
+Copy the files from the build context into the Docker image.
+
+Simple memory
+docker build -t myapp .
+                         ↑
+                  Build context
+
+. = current directory = build context.
 Important
 
 The Dockerfile doesn't have to be in the same directory. You can specify another location:
