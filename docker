@@ -282,3 +282,23 @@ Dockerfile.dev:       docker build -f Dockerfile.dev -t myapp:dev .
 Dockerfile.prod:  docker build -f Dockerfile.prod -t myapp:prod .
 
 Here -f means:  Tell Docker which Dockerfile to use.
+----------------------
+A Docker network is a virtual network that allows Docker containers to communicate with each other, with the Docker host, and with external networks. Docker provides several built-in network drivers, each designed for different use cases.
+
+Types of Docker Networks
+Network Driver	Description	Use Case
+bridge	Default network for containers on a single host. Containers communicate using IP addresses or container names.	Most standalone applications
+host	Container shares the host's network stack. No network isolation.	High-performance networking
+none	Disables networking for the container.	Maximum isolation
+overlay	Connects containers across multiple Docker hosts.	Docker Swarm, distributed applications
+macvlan	Assigns a MAC address to the container, making it appear as a physical device on the network.	Legacy applications requiring direct LAN access
+
+User-defined bridge means a bridge network that you create yourself in Docker.
+Default Bridge vs User-Defined Bridge
+Default Bridge	User-Defined Bridge
+No automatic DNS	Automatic DNS resolution
+Limited isolation	Better isolation
+Manual linking required (older approach)	Containers discover each other by name
+Basic networking	Preferred for most applications
+
+For most projects, creating a user-defined bridge network is recommended.
