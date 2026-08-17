@@ -50,5 +50,10 @@ docker exec -it web bash    Execute a command inside a running container
 docker exec -it web sh       If Bash isn't available
     -i = allows you to send input/commands to the container.
 docker inspect web       Inspect container
-docker top web           Show container processes 
-docker stats                  Show container resource usage
+docker top web           Show container processes  how much the process container is utilizing
+docker stats  con-id     Show container resource usage  to check overall resource utilization
+
+
+
+
+
