@@ -5,3 +5,50 @@ docker version       client and server version and other details
 docker info         Get Docker information    general information about docker like version ,image,container, volume..
 docker --help      Get help
 docker run --help   For a specific command
+
+
+
+docker images or  docker image ls   List images
+docker pull nginx                   Pull an image
+docker pull nginx:1.27              Specific version
+docker build -t myapp:v1 .           Build an image
+docker build -f Dockerfile.dev -t myapp:dev .     Using a different Dockerfile:
+docker rmi myapp:v1                  Remove an image
+docker rmi -f myapp:v1               Force remove an image
+docker image inspect nginx           Inspect an image
+docker tag myapp:v1 username/myapp:v1   Tag an image
+docker save -o myapp.tar myapp:v1       Save image to a file
+docker load -i myapp.tar                Load image from a file
+
+
+
+docker run nginx   Create and start a container
+docker run       	Creates + starts a new container
+docker exec      	Runs a command inside an existing running container
+docker run -d nginx   Run in background 
+-d = detached mode.
+-i → interactive → keeps input open     
+-t → TTY → gives you a terminal
+-t	Provides a terminal
+-d	Runs in background
+-i = allows you to send input/commands to the container.  It means you can type/send something into the running container through your terminal. like ls pwd 
+docker inspect web       Inspect container
+docker run -d --name web nginx  Give container a name
+       If you don't provide a container name, Docker automatically generates a random human-readable name.
+docker run -d -p 8080:80 nginx      Map ports       Host port 8080 → Container port 80
+docker run -it ubuntu bash               Then Docker creates the container and immediately gives you a terminal inside it.
+docker ps     List running containers
+docker ps -a  List all containers
+docker start web    Start a stopped container
+docker stop web      Stop a container
+docker restart web    Restart a container
+docker rm web         Remove a container
+docker rm -f web       Force remove a running container
+docker logs web        Show container logs
+docker logs -f web      Follow logs continuously
+docker exec -it web bash    Execute a command inside a running container
+docker exec -it web sh       If Bash isn't available
+    -i = allows you to send input/commands to the container.
+docker inspect web       Inspect container
+docker top web           Show container processes 
+docker stats                  Show container resource usage
