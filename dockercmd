@@ -5,7 +5,13 @@ docker version       client and server version and other details
 docker info         Get Docker information    general information about docker like version ,image,container, volume..
 docker --help      Get help
 docker run --help   For a specific command
-
+docker system prune -a
+        ↓
+Deletes unused:
+  - containers
+  - images
+  - networks
+  - build cache
 
 
 docker images or  docker image ls   List images
@@ -17,10 +23,20 @@ docker rmi myapp:v1                  Remove an image
 docker rmi -f myapp:v1               Force remove an image
 docker image inspect nginx           Inspect an image
 docker tag myapp:v1 username/myapp:v1   Tag an image
-docker save -o myapp.tar myapp:v1       Save image to a file
+docker save -o myapp.tar myapp:v1       Save image to a file    myapp.tar is created in your current directory.
+docker save -o ~/myapp.tar myapp:v1       ~ means your home directory.
+docker load -i ~/myapp.tar                 If the file is in your home directory
 docker load -i myapp.tar                Load image from a file
-
-
+       Important: -i specifies where the input .tar file is located.
+       If myapp.tar is currently in your home directory and you want to move it into the dev directory, use mv.
+        mv ~/myapp.tar ~/dev/
+        Now the file will be: /home/ubuntu/dev/myapp.tar
+        Then you can: cd ~/dev
+        docker load -i myapp.tar
+        Or directly: docker load -i ~/dev/myapp.tar
+docker image prune -a                   Deletes unused images      
+docker image prune                 removes only dangling images       Dangling images means Docker images that don't have a useful tag and are not being used.
+           image prune        → limited
 
 docker run nginx   Create and start a container
 docker run       	Creates + starts a new container
@@ -49,11 +65,213 @@ docker logs -f web      Follow logs continuously
 docker exec -it web bash    Execute a command inside a running container
 docker exec -it web sh       If Bash isn't available
     -i = allows you to send input/commands to the container.
-docker inspect web       Inspect container
+docker inspect web       Inspect container  and you can see ip of the container
 docker top web           Show container processes  how much the process container is utilizing
 docker stats  con-id     Show container resource usage  to check overall resource utilization
+docker container prune    → removes all stopped containers
 
 
 
+docker network
+-----------------
+We need Docker networks so containers can communicate with each other and with the outside world.
+to run in the same port means we can try by running in different network  but port forwarding is recommended first
+Think about a real application:
+Frontend
+   ↓
+Backend
+   ↓
+Database
+
+If these are separate Docker containers, they need a way to communicate.
+Without a Docker network
+Container 1          Container 2
+Frontend             Backend
+   ❌                 ❌
+      Cannot easily communicate
+With a Docker network
+             Docker Network
+          ┌──────────────────┐
+          │                  │
+     Frontend ───────→ Backend
+                         │
+                         ↓
+                     Database
+          └──────────────────┘
+Now they can communicate.
+bridge: Default choice for containers on one host.
+host: Uses the host's network directly.  Host network = Don't create a separate Docker network for the container; use the host machine's network directly.
+none: No networking.
+overlay: Multi-host networking for Docker Swarm.
+macvlan: Containers appear as devices on the physical network.
+Use user-defined bridge networks for automatic DNS-based service discovery and better isolation.
+
+when you use bridge
+Host IP       = 10.0.1.10
+Container 1   = 172.17.0.2
+Container 2   = 172.17.0.3
+
+bridge → container gets its own Docker network/IP
+host   → container uses host's network directly
+none   → container has no network
+
+docker network ls   List networks
+docker network create mynetwork               Create a network   default bridge
+docker network create --driver bridge sunil       sunl is a network name
+docker network inspect mynetwork                Inspect network
+docker run -d --name app --network mynetwork nginx      Run container inside a network
+docker network rm mynetwork    Remove network
+docker network prune           Remove unused networks
+docker network connect my-network container-name     Connect an existing container to a network
+docker network disconnect my-network container-name   Disconnect a container
+
+Suppose you already have a container: docker run -d --name app nginx  Now connect that existing app container to my-network:
+docker network connect my-network app 
+
+If your container is currently connected to another network and you want it on your network, you have two choices.
+1. Add it to your network     docker network connect my-network container1
+ Now the container is connected to both networks:
+old-network
+     |
+  container1
+     |
+my-network
+2. Remove it from the old network  If you want it to be only on your network:
+docker network disconnect old-network container1
+Then:my-network
+     |
+  container1
+So, to move a container from one network to another:
+docker network connect my-network container1
+docker network disconnect old-network container1
+Important: Docker doesn't have a single move command. You connect first, then disconnect.
+
+docker network connect my-network app
+So:
+my-network → the network you created
+app → the existing container
+After this, the app container becomes part of my-network and can communicate with other containers connected to the same network.
+Simple example
+my-network
+   |
+   +---- app
+   |
+   +---- database
+
+Now app can communicate with database using the container name:
+Now app can communicate with database using the container name:  app → database
+You use docker network connect when the container already exists. If you are creating the container now, you can directly use:
+docker run -d --name app --network my-network nginx
 
 
+If you mean host network, it means:
+The container uses the host machine's network directly.
+Normally:
+Host
+  |
+ Docker network
+  |
+Container
+
+With host:
+
+Host network
+     |
+  Container
+The container does not get its own separate IP address from Docker.
+Example:
+docker run -d --network host nginx
+If Nginx listens on port 80, it uses the host's port 80 directly.
+
+It means the container shares the network of the machine where Docker is running.
+
+For example, suppose:
+
+AWS EC2 Ubuntu
+IP = 10.0.1.20
+
+Normally with bridge:
+
+EC2 (10.0.1.20)
+      |
+   Docker
+      |
+ Container (separate Docker IP)
+
+With host network:
+
+EC2 (10.0.1.20)
+      |
+   Container
+
+The container uses the same network interfaces and IP as the EC2 host.
+So if your container runs Nginx on port 80:
+docker run -d --network host nginx
+Nginx uses the EC2's port 80 directly.
+
+
+We use Docker host network when we want the container to use the host's network directly, mainly to avoid Docker's network isolation/NAT.
+Why use it?
+1. Better network performance
+With bridge:  Container → Docker network → Host network → Internet
+With host:    Container → Host network → Internet
+There is less Docker networking overhead.
+
+2. When the application needs the host's network
+For example, a network-monitoring application may need to see the host's network interfaces directly.
+
+3. Simpler port handling
+With bridge, you usually do:
+docker run -p 8080:80 nginx
+With host:  docker run --network host nginx
+If Nginx listens on port 80, it uses the host's port 80 directly.
+Important
+You don't normally use host networking for every container.
+For normal applications: Frontend → bridge network → Backend → bridge network → Database
+is usually better because it provides network isolation.
+
+
+If you're asking which one provides network isolation: Host or Bridge?
+👉 Bridge provides network isolation.
+
+Bridge
+Host
+ |
+ +--- Docker Bridge Network
+       |
+       +--- Container A
+       +--- Container B
+
+Containers have their own Docker network/IP, separated from the host's network.
+Host
+Host Network
+     |
+  Container
+The container shares the host's network, so there is less network isolation.
+So remember:
+Bridge → network isolation ✅
+Host → no separate network isolation ❌
+
+
+none means the container has NO network connection.
+Example: docker run -it --network none ubuntu
+The container will have:
+Container
+   |
+   X
+No network
+
+It cannot normally communicate with:
+
+❌ Internet
+❌ Other containers
+❌ Host through Docker networking
+Why use none?
+When you want maximum network isolation.
+For example, if a container only needs to process some files locally and doesn't need any network access, you can use:
+docker run --network none my-app
+
+------------------------------------------------------------------
+
+docker volume
+-------------
