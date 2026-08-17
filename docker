@@ -201,9 +201,45 @@ User ──→ Docker Client ──→ REST API ──→ Docker Daemon
 
 Best interview definition
 
-"Docker uses a client-server architecture. The Docker Client sends commands through the Docker REST API to the Docker Daemon. The Docker Daemon performs operations such as building images and creating and managing containers. Docker Registry is used to store and retrieve images."
+"Docker uses a client-server architecture. The Docker Client sends commands through the Docker REST API to the Docker Daemon.
+The Docker Daemon performs operations such as building images and creating and managing containers. Docker Registry is used to store and retrieve images."
 
 Remember:
 
 Client → API → Daemon → Containers
 Registry → stores Docker images
+
+----------------------------------------
+
+docker build -t myapp .    The . means current directory is the build context.
+Important
+
+The Dockerfile doesn't have to be in the same directory. You can specify another location:
+
+docker build -f docker/Dockerfile -t myapp:v1 .
+
+Here:
+
+myapp/
+├── app.py
+├── requirements.txt
+└── docker/
+    └── Dockerfile
+
+
+For example:
+myapp/
+├── Dockerfile
+├── Dockerfile.dev
+├── Dockerfile.prod
+├── app.py
+└── requirements.txt
+
+Here you have 3 Dockerfiles.
+How to build each one
+
+Default Dockerfile:   docker build -t myapp .
+Dockerfile.dev:       docker build -f Dockerfile.dev -t myapp:dev .
+Dockerfile.prod:  docker build -f Dockerfile.prod -t myapp:prod .
+
+Here -f means:  Tell Docker which Dockerfile to use.
