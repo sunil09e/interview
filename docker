@@ -87,5 +87,123 @@ So remember:
 
 1 OS → Docker → multiple isolated containers → different applications
 
+-------------------------------
+Docker Engine 
+-------------
+Docker Engine is the platform that allows us to build, run, and manage Docker containers. It consists mainly of the Docker Client,
+Docker REST API, and Docker Daemon.
+  A simplified view is:
 
-  
+Docker Engine
+├── Docker Client
+├── Docker REST API
+└── Docker Daemon
+
+So don't think of Docker Engine and Docker Daemon as exactly the same thing.
+
+Docker Engine = the overall Docker system
+
+Docker Daemon (dockerd) = the background service that performs the work
+
+Docker Client
+-----------
+Docker Client – The command-line tool through which we give commands, such as docker run, docker ps, and docker build.
+The Docker Client is the command-line tool you use.
+When you type: docker run nginx
+the docker command is the Docker Client.
+
+Its job is basically:
+
+"I receive the user's command and send the request to Docker."
+
+
+Docker REST API
+----------------
+Docker REST API – Provides the communication interface between the Docker Client and Docker Daemon.
+The Docker REST API is the communication interface between the client and Docker daemon.
+
+For example:
+
+docker run nginx
+       ↓
+Docker Client
+       ↓
+REST API
+       ↓
+Docker Daemon
+
+It allows programs to communicate with Docker using API requests.
+
+Docker Daemon
+----------
+Docker Daemon (dockerd) – Runs in the background and actually performs Docker operations such as creating, starting,
+stopping, and managing containers, images, networks, and volumes.
+The Docker Daemon is the background service that actually does the Docker work.
+
+It is commonly called:
+
+dockerd
+
+For example, when you run:
+
+docker run nginx
+
+the daemon handles things such as:
+
+Creating containers
+Starting/stopping containers
+Creating images
+Managing networks
+Managing volumes
+
+Think:
+
+Client asks → Daemon does the work.
+
+Simple flow
+User
+  ↓
+Docker Client
+  ↓
+Docker REST API
+  ↓
+Docker Daemon
+  ↓
+Container
+Example
+
+If the interviewer asks:
+
+"What happens when you run docker run nginx?"
+
+Answer:
+
+"The Docker Client receives the command and sends a request through the Docker REST API to the Docker Daemon. The Docker Daemon checks or pulls the nginx image, creates the container, and starts it."
+
+One-line memory trick:
+
+Client sends the request → API carries the request → Daemon does the work → Container runs the application.
+
+Architecture
+                    Docker Registry
+                 (Docker Hub / ECR)
+                         ↑
+                         │ pull / push
+                         │
+User ──→ Docker Client ──→ REST API ──→ Docker Daemon
+                                          │
+                         ┌────────────────┼───────────────┐
+                         ↓                ↓               ↓
+                      Images         Containers       Networks
+                                          │
+                                          ↓
+                                      Application
+
+Best interview definition
+
+"Docker uses a client-server architecture. The Docker Client sends commands through the Docker REST API to the Docker Daemon. The Docker Daemon performs operations such as building images and creating and managing containers. Docker Registry is used to store and retrieve images."
+
+Remember:
+
+Client → API → Daemon → Containers
+Registry → stores Docker images
