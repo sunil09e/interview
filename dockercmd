@@ -1,1 +1,7 @@
+Basic Docker Commands
 
+docker --version    Check Docker version
+docker version       client and server version and other details
+docker info         Get Docker information    general information about docker like version ,image,container, volume..
+docker --help      Get help
+docker run --help   For a specific command
