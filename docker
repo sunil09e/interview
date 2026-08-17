@@ -1,0 +1,91 @@
+Docker is an open-source platform that lets you package an application and all of its dependencies into a container. Containers make it easy to run software consistently across different environments (your laptop, a server, or the cloud).
+
+Why use Docker?
+Consistency: "It works on my machine" problems are reduced.
+Portability: Run the same container on Windows, macOS, Linux, or cloud platforms.
+Lightweight: Containers share the host OS kernel, making them faster and smaller than virtual machines.
+Isolation: Applications run independently without conflicting with each other.
+Key concepts
+Image: A blueprint for a container (like a template).
+Container: A running instance of an image.
+Dockerfile: A text file containing instructions to build an image.
+Docker Hub: An online repository for sharing Docker images.
+
+  Docker vs Virtual Machine
+Docker (Containers)	Virtual Machine
+Shares host OS kernel	Includes a full guest OS
+Starts in seconds	Takes minutes to boot
+Lightweight	Heavier, uses more resources
+Best for microservices and app deployment	Best for complete OS isolation
+
+
+  Containers share the host OS kernel,
+
+means
+
+It means Docker containers do not have their own complete operating system.
+
+For example, suppose your computer/server is running Linux:
+
+Your Linux Server
+│
+├── Docker
+│   ├── Container 1 → Java application
+│   ├── Container 2 → MySQL
+│   └── Container 3 → Nginx
+│
+└── Linux Kernel  ← shared by all containers
+What is the kernel?
+
+The kernel is the core part of the operating system. It manages things like:
+
+CPU
+Memory
+Files
+Network
+Processes
+
+A Docker container uses the host machine's kernel instead of bringing its own kernel.
+
+VM is different
+
+A virtual machine contains a complete OS:
+
+Physical Server
+│
+├── VM 1 → Guest Linux OS → Application
+├── VM 2 → Guest Linux OS → Application
+└── VM 3 → Guest Linux OS → Application
+
+So:
+
+Container → shares host kernel → lightweight
+
+VM → has its own OS/kernel → heavier
+
+
+so uses the 1 0s for different applicatiob 
+
+Yes 👍 Exactly.
+
+One OS can be used to run multiple different applications in separate Docker containers.
+
+For example:
+
+Linux OS
+   │
+   └── Docker
+        │
+        ├── Container 1 → Java application
+        ├── Container 2 → MySQL
+        ├── Container 3 → React application
+        └── Container 4 → Nginx
+
+All containers share the same Linux kernel, but each application is isolated from the others.
+
+So remember:
+
+1 OS → Docker → multiple isolated containers → different applications
+
+
+  
