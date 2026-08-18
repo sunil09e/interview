@@ -302,3 +302,108 @@ Manual linking required (older approach)	Containers discover each other by name
 Basic networking	Preferred for most applications
 
 For most projects, creating a user-defined bridge network is recommended.
+
+
+
+In a VM environment
+Physical Server (Hardware)
+        ↓
+Host OS / Hypervisor
+        ↓
+Virtual Machine
+        ↓
+Guest OS (Ubuntu)
+        ↓
+Docker Engine
+        ↓
+Containers
+What does Docker use?
+
+Docker uses the OS where Docker Engine is installed.
+
+In this example:
+
+Physical Server
+      ↓
+Hypervisor
+      ↓
+EC2 VM
+      ↓
+Ubuntu ← Docker uses this OS
+      ↓
+Docker Engine
+      ↓
+Container
+
+So Docker uses the Guest OS's kernel.
+
+Why doesn't Docker use the physical server directly?
+
+Because Docker is installed inside the EC2 VM.
+
+The physical server is underneath the virtualization layer:
+
+Physical hardware
+      ↓
+Virtualization
+      ↓
+EC2 VM
+      ↓
+Ubuntu
+      ↓
+Docker
+
+Docker sees the Ubuntu environment, not the AWS physical machine directly.
+
+Compare VM and Docker
+
+With a VM:
+
+Physical Server
+      ↓
+Hypervisor
+      ↓
+VM
+      ↓
+Guest OS
+      ↓
+Application
+
+With Docker inside that VM:
+
+Physical Server
+      ↓
+Hypervisor
+      ↓
+VM
+      ↓
+Guest OS (Ubuntu)
+      ↓
+Docker Engine
+      ↓
+Container
+      ↓
+Application
+
+The container doesn't have another full Guest OS.
+
+Instead:
+
+Ubuntu Kernel
+     ↑
+     │ shared
+ ┌───┴────┬────────┐
+Container Container Container
+The key point
+
+Docker needs an OS to run on, but each container does not need its own OS.
+
+So in your AWS example:
+
+Physical server = hardware
+EC2 = VM
+Ubuntu = Guest OS
+Docker = software running on Ubuntu
+Container = isolated application environment
+
+And if you install Docker directly on a physical Ubuntu server (no VM), then Docker uses that host Ubuntu OS instead.
