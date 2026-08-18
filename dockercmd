@@ -963,7 +963,7 @@ services:
 Common options include:
 no            Don't automatically restart the container. Container starts -> Application crashes -> Container stops -> ❌ Docker does NOT restart it   This is the default behavior.
 always        Use this when you want a service to continuously stay running.
-on-failure
+on-failure    Restart only when the container exits with a failure/error.
 unless-stopped
 
 restart: always
@@ -983,11 +983,182 @@ Container running
 Container stops
       ↓
 Docker restarts it ✅
-3. You manually stop it
-docker stop mycontainer
+3. You manually stop it     
+docker stop mycontainer     
+the container stays stopped (while docker is running(It means as long as the Docker Engine/daemon is running on your server.)
+   But if the server restarts:
+Server reboot
+    ↓
+Docker Engine starts
+    ↓
+Container starts again ✅
+But if the Docker daemon restarts (for example, the server reboots), Docker can start that container again.
+EC2 server
+   ↓
+RESTART / REBOOT
+   ↓
+Server comes back
+   ↓
+Docker starts
+   ↓
+Container with restart: always
+   ↓
+Starts again automatically ✅
+So server restarts = the whole machine is rebooted, not just the Docker container.
+Example:sudo reboot This reboots the Linux server.
 Even if the container was stopped manually, Docker's restart behavior can cause it to be started again when the Docker daemon/Compose-managed setup is brought back.
-
 Use this when you want a service to continuously stay running.
+
+3. on-failure
+restart: on-failure
+Restart only when the container exits with a failure/error.
+
+Example:
+Application crashes
+      ↓
+Exit code = 1
+      ↓
+Docker restarts
+
+But: Application stops normally
+      ↓
+Exit code = 0
+      ↓
+❌ Docker doesn't restart
+
+You can also specify a maximum number of restart attempts:
+restart: on-failure:5
+Meaning: Try to restart it up to 5 times after failures.
+
+Crash
+The application unexpectedly stops because of an error.
+
+Example:
+
+Backend running
+      ↓
+Unexpected error
+      ↓
+Application crashes
+      ↓
+Container stops
+
+Usually the container exits with a non-zero exit code, such as 1.
+
+Failure
+
+Failure is a broader term. It means the container/application exits unsuccessfully.
+
+For example:
+
+Application crashes → failure
+Command returns error → failure
+Application exits with exit code 1 → failure
+
+When we say “application exits unsuccessfully”, it simply means:
+
+The application stops and returns an exit code other than 0.
+
+Application crashes
+        ↓
+Exit code 1
+        ↓
+✅ Restart
+
+
+Application encounters an error
+        ↓
+Exit code 1
+        ↓
+✅ Restart
+
+
+Application fails
+        ↓
+Non-zero exit code
+        ↓
+✅ Restart
+
+
+Application finishes normally
+        ↓
+Exit code 0
+        ↓
+❌ Don't restart
+
+Non-zero exit code means the application ended with an error/failure.
+Docker uses exit codes:
+
+0       → Success ✅
+1, 2, 3... → Failure/Error ❌
+
+A program can exit with different non-zero codes:
+0   → Success
+1   → General failure
+2   → Another type of failure
+127 → Command not found
+130 → Terminated by Ctrl+C
+
+4. unless-stopped
+restart: unless-stopped
+
+This means: Keep restarting the container unless I intentionally stop it.
+Example:
+Container crashes
+      ↓
+Docker restarts it
+
+But if you intentionally do:
+docker stop mycontainer
+then Docker won't keep automatically restarting that container.
+
+If restart: unless-stopped
+If you manually stop it: docker stop mycontainer
+then even after:
+Server reboot
+    ↓
+Docker starts
+    ↓
+Container stays stopped ⏹️
+
+
+Easy comparison
+Policy  	Container crashes	Normal exit	Manually stopped
+no	           ❌ No restart	❌              	❌
+always	              ✅ Restart	✅ Restart	Special behavior on daemon restart
+on-failure	       ✅ Restart	❌               	❌
+unless-stopped      	✅ Restart	✅ Restart         	❌ Stay stopped
+
+Normal exit means the application finishes its work and stops without an error.
+
+Policy          Crash	                     Manual stop	         Server reboot
+always   	✅ Restart	            ⏹️ Stays stopped now	✅ Starts again
+unless-stopped	✅ Restart	                ⏹️ Stays stopped	⏹️ Stays stopped
+on-failure	✅ Restart if non-zero  	⏹️ Stays stopped	Depends on its exit/restart state
+no	         ❌	                       ⏹️	                          ⏹️
+
+So if you want:
+
+Crash → restart, but manually stopped → remain stopped even after server reboot
+--------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
