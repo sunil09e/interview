@@ -455,12 +455,6 @@ We are setting: POSTGRES_PASSWORD = secret
 The PostgreSQL image uses this variable during initialization to set the PostgreSQL password.
 
 
-
-
-
-
-
-
 Bind mount example
 docker run -v $(pwd):/app nginx
 This maps the current host directory into the container.
@@ -550,5 +544,89 @@ Create new container with volume
 for a normal Docker container, you cannot add a new volume mount to an already-created container.
 there is a way to attach the volume to exist container ?
 No, not with standard Docker commands. Docker does not provide a command to add a new volume mount to an already-created container.
+----------------------------
+
+docker compose
+------------
+Docker Compose is a tool used to create and manage multiple Docker containers together using one YAML file, usually docker-compose.yml or compose.yaml.
+
+Without Docker Compose
+Suppose your application has:
+Frontend → React container
+Backend → Java/Python container
+Database → MySQL container
+You would need to run multiple docker run commands separately.
+
+With Docker Compose You define everything in one file:
+
+services:
+  frontend:
+    image: my-frontend                               frontend → service name
+    ports:                                           my-frontend → image name
+      - "3000:3000"
+
+  backend:
+    image: my-backend
+    ports:
+      - "8080:8080"
+
+  database:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+
+Then: docker compose up -d
+Docker Compose will create and start all three containers.
+
+docker compose up -d   Create and start containers in background.
+docker compose ps      See Compose containers.
+docker compose logs    See logs.
+docker compose stop    Stop containers.
+docker compose start    Start stopped containers.
+docker compose down     Stop and remove containers/network created by Compose. This removes: Containers,Compose-created network
+    It does not remove images or named volumes by default.
+    If you also want to remove volumes: docker compose down -v
+docker compose pull     Pull the images specified in the Compose file.
+docker compose restart   Restart the services.
+
+docker compose -f myapp/docker-compose.yml ps       you can see by Outside the folder — also possible
+docker compose -f myapp/docker-compose.yml logs      You can stay outside and tell Compose exactly where the file is using -f.
+docker compose -f myapp/docker-compose.yml stop
+docker compose -f myapp/docker-compose.yml down
+
+docker compose logs backend    See backend logs
+docker compose logs frontend   See frontend logs
+docker compose logs -f backend  Follow logs continuously
+    -f means follow — it keeps showing new logs as they are generated.
+docker compose logs --tail 100 backend   last 100 lines
+
+
+Can we create multiple Compose files? Yes.
+For example:
+project/
+├── docker-compose.yml
+├── docker-compose.dev.yml
+└── docker-compose.prod.yml
+
+You can have different configurations for development, testing, and production.
+For example: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+So remember:
+Docker Compose = tool for defining and running multiple containers/services together.
+services: = the section where you define each service/container your application needs.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
