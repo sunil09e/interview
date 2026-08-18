@@ -70,6 +70,28 @@ docker top web           Show container processes  how much the process containe
 docker stats  con-id     Show container resource usage  to check overall resource utilization
 docker container prune    → removes all stopped containers
 
+docker inspect <container>
+
+You can see:
+Container ID
+Container name
+Image
+Created date/time
+Container state — running, stopped, exited
+PID
+Port mappings
+Environment variables
+Mounts / volumes
+Network configuration
+IP address
+MAC address
+Connected networks
+Container command
+Restart policy
+CPU / memory settings
+Labels
+
+Example:  docker inspect mycontainer
 
 
 docker network
@@ -272,6 +294,31 @@ When you want maximum network isolation.
 For example, if a container only needs to process some files locally and doesn't need any network access, you can use:
 docker run --network none my-app
 
+docker network inspect <network>
+
+You can see:
+Network ID
+Network name
+Driver (bridge, host, etc.)
+Subnet
+Gateway
+IP range
+Connected containers
+Each container's IP address
+Each container's MAC address
+Network options
+Labels
+
+Example: docker network inspect mynetwork
+
+Easy way to remember
+Command	What it inspects
+docker inspect container	Container details
+docker network inspect network	Network details
+docker image inspect image	Image details
+docker volume inspect volume	Volume details
+
+So inspect is basically Docker's detailed-information command.
 ------------------------------------------------------------------
 
 docker volume
@@ -616,7 +663,17 @@ services: = the section where you define each service/container your application
 
 
 
-
+Suppose you have:
+project/
+├── compose.yaml
+└── backend/
+    ├── Dockerfile
+    ├── app.py
+    └── requirements.txt
+services:
+  backend:
+    build: ./backend
+    image: mybackend:v1
 
 
 
