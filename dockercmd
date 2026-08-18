@@ -657,7 +657,7 @@ services:
     build: ./backend
 docker compose up -d --build   Build the image first, then create and start the containers.
 up -d can build; --build explicitly forces a build before starting.
-
+docker compose up -d --build    If you want to force the build
 
 Can we create multiple Compose files? Yes.
 For example:
@@ -1142,23 +1142,164 @@ So if you want:
 Crash → restart, but manually stopped → remain stopped even after server reboot
 --------------------------------------------------
 
+volumes:
+  dbdata:
+
+networks:
+  frontend-network:
+  backend-network:
+
+
+If they don't already exist
+You do not need to manually create them.
+Docker Compose will automatically create them when you run:
+docker compose up -d
+
+
+If they already exist
+This is different.
+If you want Compose to use an already-existing Docker volume or network, you should tell Compose that it is external.
+
+For example, an existing network:
+
+networks:
+  mynetwork:
+    external: true
+
+Then Docker Compose will not create it. It expects mynetwork to already exist.
+
+Similarly, for an existing volume:
+volumes:
+  mydata:
+    external: true
+
+
+Why do we write them at the bottom?
+Because here we are declaring the Docker resources that Compose should create/manage:
+
+volumes:
+  appdata:
+  dbdata:
+
+→ Create/manage these 2 volumes
+
+networks:
+  frontend-network:
+  backend-network:
 
 
 
+  backend-network:
+    external: false
+then Compose is allowed to create them if they don't already exist.
 
+In fact, external: false is the default, so you normally don't need to write it.
+false → Compose can create it
+true → Compose expects it to already exist.
 
+What if I write mynetwork under the service, but don't declare it at the bottom?
+Then Compose will give an error.
+but Compose doesn't know what mynetwork is.
+You normally need to declare it at the bottom:
 
+Compose checks mynetwork:
+Doesn't exist? → ✅ Compose creates it.
+Already exists as a Compose-managed network? → ✅ Compose uses it.
+An independently created Docker network with the same name? → You generally need external: true if you want Compose to use that existing external network.
 
+So simply:
+networks:
+  mynetwork:
 
+1. No external
+networks:
+  mynetwork:
 
+Compose manages this network.
 
+Compose
+   ↓
+mynetwork
+   ↓
+Creates/manages it
 
+If you run:
 
+docker compose down
 
+Compose can remove this network because it owns it.
 
+2. external: true
+networks:
+  mynetwork:
+    external: true
 
+The network was created outside Compose:
 
+docker network create mynetwork
 
+Then Compose says:
 
+"This already exists.
+I will use it.
+I will NOT manage/create it."
 
+If you run:
+
+docker compose down
+
+Compose does not remove the external network.
+
+If you write:
+
+networks:
+  mynetwork:
+
+without external: true, Compose will create a Compose-managed network if the required Compose network doesn't exist.
+
+Even if you already created a standalone Docker network called mynetwork, Compose does not automatically take ownership of that existing standalone network.
+
+Example
+
+You already created:
+
+docker network create mynetwork
+
+Then Compose has:
+
+networks:
+  mynetwork:
+
+When you run:
+
+docker compose up -d
+
+Compose normally creates its own project-scoped network, such as:
+
+myproject_mynetwork
+
+The existing:
+
+mynetwork
+
+remains separate.
+
+If you want to use the existing one
+networks:
+  mynetwork:
+    external: true
+
+Then Compose uses:
+
+existing mynetwork
+        ↓
+     container
+
+So:
+
+external: true → use the existing external network
+no external: true → Compose manages its own network
+
+No external: true → Compose creates/manages/deletes it
+external: true → Compose only uses it; doesn't create/delete it
 
