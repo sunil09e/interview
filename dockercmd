@@ -950,10 +950,44 @@ Check 4 → ❌
 Check 5 → ❌
              ↓
          Unhealthy
+---------------------------------
+restart
+------------------
+Used to restart a container automatically under specified conditions.
 
+services:
+  backend:
+    image: my-backend
+    restart: unless-stopped
 
+Common options include:
+no            Don't automatically restart the container. Container starts -> Application crashes -> Container stops -> ❌ Docker does NOT restart it   This is the default behavior.
+always        Use this when you want a service to continuously stay running.
+on-failure
+unless-stopped
 
+restart: always
+Docker restarts the container if it crashes/fails OR stops.
 
+1. Application crashes
+Container running
+      ↓
+Application crashes
+      ↓
+Container stops
+      ↓
+Docker restarts it ✅
+2. Container stops normally
+Container running
+      ↓
+Container stops
+      ↓
+Docker restarts it ✅
+3. You manually stop it
+docker stop mycontainer
+Even if the container was stopped manually, Docker's restart behavior can cause it to be started again when the Docker daemon/Compose-managed setup is brought back.
+
+Use this when you want a service to continuously stay running.
 
 
 
