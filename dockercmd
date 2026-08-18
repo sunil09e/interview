@@ -243,6 +243,7 @@ Host
        +--- Container B
 
 Containers have their own Docker network/IP, separated from the host's network.
+
 Host
 Host Network
      |
@@ -275,3 +276,279 @@ docker run --network none my-app
 
 docker volume
 -------------
+“Docker volume is a storage mechanism used to persist data outside the container. Normally, when a container is deleted, the data inside the container can be lost.
+So we use a volume to store important data separately. The volume can be attached to one or more containers, and even if the container is deleted,
+the data in the volume remains.”
+
+“Docker volume is used for persistent storage. It keeps data independent of the container, so the data remains even when the container is deleted.”
+Why use Docker volumes?
+Persistence: Data remains even if the container is deleted.
+Data sharing: Multiple containers can use the same volume.
+Performance: Generally faster and more reliable than bind mounts for Docker-managed data.
+Portability: Docker manages the storage location, making it easier to migrate.
+
+1. Named Volume
+Docker manages the storage location.
+docker volume create mydata
+docker run -v mydata:/app/data ubuntu
+Interview: “A named volume is managed by Docker and is mainly used for persistent application data.”
+
+2.Bind Mount               here we not created a volume so we use file or fol;der to store a data
+You specify a directory from the host machine.
+docker run -v /home/user/data:/app/data ubuntu
+Here:
+Host                         Container
+/home/user/data   ───────→   /app/data
+/home/user/data = folder on your host machine
+/app/data = folder inside the container
+This is called a bind mount
+Data written to /app/data is actually stored in /home/user/data on the host.
+Interview: “A bind mount maps a specific file or directory from the host to the container.”
+
+3.Anonymous Volume
+Docker creates the volume automatically without you giving it a name.
+docker run -v /app/data ubuntu
+Docker generates a random volume name.
+Interview: “An anonymous volume is automatically created by Docker and doesn't have a user-defined name.”
+
+docker volume create my_volume         Create a volume
+docker volume ls                    List volumes:
+docker volume inspect my_volume    Inspect a volume
+docker volume rm my_volume         Remove a volume
+docker volume prune                  Remove a volume
+docker run -it --name container1 -v mydata:/data ubuntu   Create a container and attach the volume
+    here data  we create a folder inside the container   mydata is a volume
+     Now check: cat /data/file.txt
+    /data → you choose it, unless the application requires a specific path.
+
+this is the same volume concept, but using Docker's --mount syntax instead of -v.
+docker run -itd --name=sunil \
+  --mount source=my-volume,destination=/usr/local/apache2/htdocs \
+  httpd:2.4
+
+docker run --rm -it -v mydata:/data ubuntu    is used to temporarily open a container and look inside the mydata volume.
+docker run     → create and start a container
+--rm           → automatically delete the container when you exit
+-it            → interactive terminal
+-v mydata:/data → attach mydata volume to /data inside container
+ubuntu         → use Ubuntu image
+If you create data: echo "Hello" > /data/file.txt
+the file is stored in mydata.
+Container → automatically deleted ❌
+mydata    → remains ✅
+file.txt  → remains ✅
+
+docker run --rm \
+  -v my_volume:/data \
+  -v $(pwd):/backup \
+  ubuntu \
+  tar czf /backup/backup.tar.gz /data  You don't need to create another permanent container. 
+This command creates a temporary Ubuntu container, performs the backup, and removes it.
+
+Suppose on your host: /home/sunil/ is your current directory.
+When we run: -v $(pwd):/backup
+Docker connects them:
+HOST                         CONTAINER
+/home/sunil  ─────────────→   /backup
+Initially:/backup
+          └── (empty)
+Then this command: tar czf /backup/backup.tar.gz /data
+means: Take everything from /data and create backup.tar.gz inside /backup.
+So after tar runs: Temporary Container
+/data
+└── file1.txt
+└── file2.txt
+/backup
+└── backup.tar.gz   ← CREATED by tar
+Because /backup is connected to the host:
+Container                    Host
+/backup
+└── backup.tar.gz  ───────→  /home/siva/backup.tar.gz
+So the key point
+/backup does NOT need to already contain data.
+It is simply the destination where we create the backup file.
+
+Interview answer
+“To back up a Docker volume, I mount the volume into a temporary container, use tar to compress its contents,
+and mount a host directory to save the resulting backup file.”
+
+
+We already have: backup.tar.gz
+This file contains the data that was previously inside our volume.
+Now suppose the original volume is empty or we created a new volume. We want to put the backup data back into it.
+Step 1 — Create a new volume
+docker volume create my_volume
+Now:
+my_volume
+   ↓
+(empty)
+Step 2 — Run a temporary container
+docker run --rm \
+  -v my_volume:/data \
+  -v $(pwd):/backup \
+  ubuntu \
+  tar xzf /backup/backup.tar.gz -C /
+
+Again, we have two mounts.
+First:
+-v my_volume:/data
+This connects the empty volume to the container:
+my_volume ─────→ /data
+
+This is the destination for our restored data.
+Second:
+-v $(pwd):/backup
+This connects the host's current directory to /backup:
+Host folder ─────→ /backup
+Our backup file is there:
+Host
+└── backup.tar.gz
+Inside the container:
+/backup
+└── backup.tar.gz
+Step 3 — Extract the backup
+This part:
+tar xzf /backup/backup.tar.gz -C /       -C / means extract the files starting from the root directory /.
+means: Take backup.tar.gz from /backup and extract its contents starting at /.
+The backup contains something like:
+data/
+└── file.txt
+So extraction puts it back into:
+/data/
+└── file.txt
+And /data is connected to my_volume.
+Therefore:
+backup.tar.gz
+      ↓
+   extract
+      ↓
+   /data
+      ↓
+ my_volume
+Why --rm again?
+
+The container is only being used to perform the restore.
+
+After extraction:
+
+Restore complete
+      ↓
+Temporary container removed
+
+But:
+
+my_volume       → remains
+restored data   → remains
+backup.tar.gz   → remains
+
+
+
+docker run -d \
+  --name postgres \
+  -e POSTGRES_PASSWORD=secret \
+  -v postgres_data:/var/lib/postgresql/data \
+  postgres:16
+
+-e POSTGRES_PASSWORD=secret
+-e means environment variable.
+We are setting: POSTGRES_PASSWORD = secret
+The PostgreSQL image uses this variable during initialization to set the PostgreSQL password.
+
+
+
+
+
+
+
+
+Bind mount example
+docker run -v $(pwd):/app nginx
+This maps the current host directory into the container.
+
+
+docker run -d --name mysql -v my_volume:/var/lib/mysql mysql:8
+Here:
+my_volume → Docker volume
+/var/lib/mysql → Path inside the container
+
+Examples:
+MySQL       → /var/lib/mysql
+PostgreSQL  → /var/lib/postgresql/data
+MongoDB     → /data/db
+Nginx       → /usr/share/nginx/html (for website files)
+
+
+
+Using volumes in Docker Compose
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8
+    volumes:
+      - db_data:/var/lib/mysql
+volumes:
+  db_data:
+
+Start: docker compose up -d
+Docker automatically creates db_data if it doesn't exist.
+
+Sharing a volume
+services:
+  app:
+    image: myapp
+    volumes:
+      - shared_data:/data
+  backup:
+    image: ubuntu
+    volumes:
+      - shared_data:/backup
+volumes:
+  shared_data:
+
+but both data in same volume but stored in different files
+Both containers can access the same files.
+
+Volumes vs Bind Mounts
+Feature	Volume	Bind Mount
+Managed by Docker	✅	❌
+Stores data outside container	✅	✅
+Uses host directory	❌	✅
+Easy to back up	✅	Depends
+Best for databases	✅	Usually not
+Good for source code development	❌	✅
+
+
+If you want to store all files from a particular directory of the container—such as logs, configuration, application files, etc.—you can mount a volume to that directory.
+But one important point: one volume mounted to one directory does not automatically capture every file in the entire container.
+
+If you want multiple directories in the same volume:
+
+docker run -d --name nginx1 \
+  -v mydata:/var/log/nginx \
+  -v mydata:/usr/share/nginx/html \
+  nginx
+Then both directories use the same volume:
+
+If you already created a container without a volume, you cannot directly attach a new volume to that existing container using docker volume commands.
+For example, you created:
+docker run -d --name nginx1 nginx
+Now you want to attach mydata.
+First stop and remove the old container:
+Now create the container again with the volume:
+Why recreate?
+The volume mount configuration is defined when the container is created.
+So:
+Container created without volume
+          ↓
+     Can't add mount
+          ↓
+Remove container
+          ↓
+Create new container with volume
+
+for a normal Docker container, you cannot add a new volume mount to an already-created container.
+there is a way to attach the volume to exist container ?
+No, not with standard Docker commands. Docker does not provide a command to add a new volume mount to an already-created container.
+
+
