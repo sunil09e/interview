@@ -672,16 +672,35 @@ project/
     └── requirements.txt
 services:
   backend:
-    build: ./backend
+    build: ./backend      The . means the current project directory.   ./backend  means: project/backend
     image: mybackend:v1
+mybackend:v1 is the name/tag of the Docker image that gets built.
+and you do not specify image:, Compose will automatically generate the image name.
 
+When you run: docker compose build
+Compose essentially performs the equivalent of: docker build ./backend
+Docker reads: backend/Dockerfile
+and creates an image.
+backend/Dockerfile
+       ↓
+   docker build
+       ↓
+ backend image
+Then docker compose up -d
 
+docker compose up -d
+        ↓
+Uses existing image if possible
+        ↓
+Starts container
 
+docker compose up -d --build
+        ↓
+Build image
+        ↓
+Start container
 
-
-
-
-
+docker compose up -d does not always build the image.
 
 
 
