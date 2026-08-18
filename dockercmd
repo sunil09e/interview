@@ -323,6 +323,8 @@ So inspect is basically Docker's detailed-information command.
 
 docker volume
 -------------
+Volume    = persistent data  Persistent data = data that should remain even after the container is deleted.
+Container = temporary
 “Docker volume is a storage mechanism used to persist data outside the container. Normally, when a container is deleted, the data inside the container can be lost.
 So we use a volume to store important data separately. The volume can be attached to one or more containers, and even if the container is deleted,
 the data in the volume remains.”
@@ -647,6 +649,15 @@ docker compose logs -f backend  Follow logs continuously
     -f means follow — it keeps showing new logs as they are generated.
 docker compose logs --tail 100 backend   last 100 lines
 
+docker compose build          Build the Docker images, but don't start the containers.
+docker compose up -d	       Create/start the containers, and build the image if necessary.
+If your Compose file has:
+services:
+  backend:
+    build: ./backend
+docker compose up -d --build   Build the image first, then create and start the containers.
+up -d can build; --build explicitly forces a build before starting.
+
 
 Can we create multiple Compose files? Yes.
 For example:
@@ -660,8 +671,6 @@ For example: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 So remember:
 Docker Compose = tool for defining and running multiple containers/services together.
 services: = the section where you define each service/container your application needs.
-
-
 
 Suppose you have:
 project/
@@ -677,30 +686,272 @@ services:
 mybackend:v1 is the name/tag of the Docker image that gets built.
 and you do not specify image:, Compose will automatically generate the image name.
 
-When you run: docker compose build
-Compose essentially performs the equivalent of: docker build ./backend
-Docker reads: backend/Dockerfile
-and creates an image.
-backend/Dockerfile
-       ↓
-   docker build
-       ↓
- backend image
-Then docker compose up -d
+Compose finds the Dockerfile
+Inside: project/backend/
+Compose expects: Dockerfile
 
-docker compose up -d
-        ↓
-Uses existing image if possible
-        ↓
-Starts container
-
-docker compose up -d --build
-        ↓
-Build image
-        ↓
-Start container
+Command          	Build	             Start container
+docker compose build     	✅	        ❌
+docker compose up -d	        ✅ if needed	✅
+docker compose up -d --build	✅ explicitly	✅
 
 docker compose up -d does not always build the image.
+
+-----------------------
+services:
+
+  frontend:
+    build: ./frontend
+    image: myfrontend:v1
+    ports:
+      - "80:80"
+    networks:
+      - frontend-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    image: mybackend:v1
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_NAME: appdb
+      DB_USER: appuser
+      DB_PASSWORD: apppassword
+    networks:
+      - frontend-network
+      - backend-network
+    depends_on:
+      - database
+    restart: unless-stopped
+
+  database:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: appdb
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppassword
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - backend-network
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+
+networks:
+  frontend-network:
+  backend-network:
+------------------------------------
+depends_on 
+--------------
+ means  “Start this service after the service I depend on has been started.”
+Your startup order
+Because of depends_on, Compose starts them in this order:
+database
+   ↓
+backend
+   ↓
+frontend
+
+when you run :  docker compose up -d
+Compose understands:
+database must be started first
+        ↓
+backend can be started
+        ↓
+frontend can be started
+
+Important point ⚠️
+depends_on does NOT mean the application is fully ready.
+For example:
+
+database container starts
+        ↓
+MySQL is still initializing
+        ↓
+backend container starts
+
+the database container has started, but MySQL might still be preparing the database.
+So depends_on mainly controls service startup order, not "wait until the service is completely ready."
+For true readiness, you can use a healthcheck with condition: service_healthy.
+
+why we starting first what is the udse of
+We start backend before frontend because the frontend may need the backend to process requests.
+Think of it like this:
+User
+  ↓
+Frontend
+  ↓
+Backend
+  ↓
+Database
+Why backend first?
+Suppose the frontend has a Login button.
+
+When the user clicks Login:
+Frontend
+   ↓
+"Check username/password"
+   ↓
+Backend
+   ↓
+Database
+
+The frontend sends the request to the backend.
+If the backend is not running:
+Frontend → Backend ❌
+The request fails.
+So depends_on tells Docker Compose:
+frontend:
+  depends_on:
+    - backend
+
+Meaning: Start the backend service before starting the frontend service.
+
+This tells Compose that the database service should be started before the backend service.
+But important: depends_on does not automatically mean the database is fully ready to accept connections.
+For that, use a health check.
+---------------------
+health check
+----------
+We use healthcheck to check whether a container's application is actually ready and working, not just whether the container has started.
+
+services:
+  database:
+    image: mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+Now Compose can check:
+MySQL
+  ↓
+Healthy / Unhealthy
+
+Why do we need it?
+When MySQL container starts:
+Container starts
+      ↓
+MySQL is initializing
+      ↓
+MySQL becomes ready
+
+The container can be Running while MySQL is still initializing.
+So:  Running ≠ Ready
+The healthcheck checks:
+Is MySQL actually responding?
+       ↓
+      Yes
+       ↓
+   Healthy
+
+If it isn't responding:
+No
+ ↓
+Unhealthy
+
+depends_on vs healthcheck
+backend:
+  depends_on:
+    - database
+
+means:  Start the database service before starting backend.
+But it doesn't necessarily mean:
+Wait until MySQL is ready.
+
+healthcheck checks the actual readiness.
+Simple example
+database container
+       ↓
+    Starting
+       ↓
+ healthcheck
+       ↓
+Is MySQL responding?
+    ↙       ↘
+  No         Yes
+  ↓           ↓
+Unhealthy   Healthy
+              ↓
+        Backend can connect
+
+In short:
+depends_on → startup dependency
+healthcheck → is the application actually ready/healthy?
+
+test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+This is the command Docker runs inside the MySQL container to check whether MySQL is working.
+
+Break it down:
+CMD
+ ↓
+Run a command
+
+mysqladmin
+ ↓
+MySQL administration tool
+
+ping
+ ↓
+Ask MySQL: "Are you responding?"
+
+-h
+ ↓
+Specify the MySQL host
+
+localhost
+ ↓
+The MySQL server inside this same container
+
+So essentially:
+Docker
+  ↓
+Runs mysqladmin ping -h localhost
+  ↓
+MySQL responds?
+  ↓
+YES → Healthy
+NO  → Unhealthy
+
+interval: 10s
+Means: Run the health check every 10 seconds.
+10 sec → check
+10 sec → check
+10 sec → check
+...
+
+3. timeout: 5s
+timeout: 5s
+Means: Give the health-check command up to 5 seconds to respond.
+
+If it doesn't respond within 5 seconds:
+Check
+ ↓
+5 seconds passed
+ ↓
+Failed
+
+4. retries: 5
+retries: 5
+Means: If the health check keeps failing, allow 5 consecutive failures before Docker marks the container as unhealthy.
+For example:
+Check 1 → ❌
+Check 2 → ❌
+Check 3 → ❌
+Check 4 → ❌
+Check 5 → ❌
+             ↓
+         Unhealthy
+
+
 
 
 
