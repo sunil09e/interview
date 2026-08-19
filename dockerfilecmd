@@ -114,8 +114,354 @@ Host OS = provides the kernel that the container uses.
 
 That's why we need a base image: to give the container its basic environment.
   -----------------------------------------------------------
+# 2. LABEL or MAINTAINER
+# Add information about the image
+LABEL maintainer="student@example.com"
+LABEL description="Dockerfile learning example"
+-------------------------------------
+# 3. ENV
+# Set environment variables inside the image/container.
+ENV APP_HOME=/app
+ENV APP_PORT=8080
+ENV APP_HOME /usr/src/app
+
+# 4. WORKDIR
+# Set the working directory inside the image/container
+WORKDIR $APP_HOME
+--------------------------------
+5. WORKDIR
+WORKDIR /app
+Sets the working directory.
+After this: COPY app.jar .
+means: /app/app.jar
+----------------
+# 5. RUN
+# Execute commands while BUILDING the image
+RUN apt-get update && \
+    apt-get install -y nginx curl && \     Both Nginx and curl are installed.
+    rm -rf /var/lib/apt/lists/*          Removes downloaded package-list files to reduce the final image size.  Remove unnecessary apt lists
+RUN
+RUN apt update                                     this also work
+RUN apt install -y nginx
+
+Runs during image build.
+docker build
+      ↓
+RUN executes
+      ↓
+Image created
+
+RUN ["apt", "update"]                         this is the proper pattern to bring your dockerfile
+RUN ["apt", "install", "-y", "nginx"]
+----------------------------------
+# 6. COPY
+# Copy files from your host/build context into the image
+COPY index.html /app/index.html
+
+COPY . .       means: Copy everything from the current build context into the current destination directory in the image.  Copy everything in the build context
+
+COPY config/ /app/config/     Copy one file 
+
+COPY app.jar /app/app.jar
+
+COPY target/*.jar $APP_HOME/app.jar
+target/
+└── myproject-1.0.jar
+Then this: COPY target/*.jar $APP_HOME/app.jar
+renames/copies that JAR inside the Docker image as: /app/app.jar
+
+So:
+myproject-1.0.jar  →  app.jar
+
+app.jar is not a special Docker command or special Java file. It's simply the name we choose for the application JAR inside the container.
+Copies a file from your project/build context into the image.
+
+So remember:
+
+COPY *.jar /app/
+       ↑
+       JAR must be directly in build context
+
+whereas:
+
+COPY target/*.jar /app/
+      ↑
+      look inside target/
+
+----------------------------
+# 7. ADD
+# Similar to COPY, but has additional features
+# Prefer COPY for normal file copying
+ADD website.tar.gz /app/
+
+ADD can copy a normal file
+ADD config/ /app/config/
+ADD app.py /app/
+Result: /app/app.py
+
+If you write: ADD app.tar /app/
+Docker can automatically extract the tar archive.
+
+ADD can use URLs
+ADD has historically supported URLs as a source, for example:
+ADD https://example.com/app.tar.gz /app/
+
+However, don't normally use ADD just to download files. For downloads, RUN curl or RUN wget gives you better control and reproducibility.
+For example: RUN curl -L https://example.com/app.tar.gz -o /tmp/app.tar.gz
+This downloads the file inside the image being built:
+Image filesystem
+└── tmp/
+    └── app.tar.gz
+
+Then if you write: COPY app.tar.gz .
+Docker does not copy /tmp/app.tar.gz.
+Why? Because COPY takes its source from the build context on your host, not from the previous RUN command inside the image.
+
+If you want to move the downloaded file
+Since the file is already inside the image, use another RUN:
+RUN curl -L https://example.com/app.tar.gz -o /tmp/app.tar.gz && \
+    cp /tmp/app.tar.gz /app/
+
+Or simply download directly where you need it:
+RUN curl -L https://example.com/app.tar.gz -o /app/app.tar.gz
+----------------------------
+# 8. EXPOSE
+# Document which port the application uses
+EXPOSE 8080
+
+EXPOSE is mainly used to tell/document which port the application inside the container listens on.
+Suppose your Java application runs on:
+Container
+└── Java application
+    └── listening on 8080
+
+You write: EXPOSE 8080
+
+But this does NOT make port 8080 accessible from your host.
+To access it from your host, you need:
+docker run -p 8080:8080 myapp
+------------------------------------
+#9. CMD
+CMD ["java", "-jar", "app.jar"]   When the container starts, run this command.
+
+Default command executed when the container starts.
+docker build → creates image
+docker run   → starts container → CMD runs
+
+CMD ["-g", "daemon off;"]
+CMD runs at container runtime, not during image build.
+
+# 12. ENTRYPOINT
+# Main executable of the container
+ENTRYPOINT ["nginx"]
+
+What is CMD?
+CMD ["java", "-jar", "app.jar"]
+
+It says: When the container starts, run this command.
+
+So: docker run myapp
+➡️ Docker runs:
+java -jar app.jar
+What does "override" mean?
+
+Suppose your Dockerfile says:
+CMD ["java", "-jar", "app.jar"]
+
+But when starting the container, you say: docker run myapp bash
+
+Docker says: "Okay, instead of the default CMD, I'll run bash."
+
+So:
+Dockerfile:
+CMD → java -jar app.jar
+              ↓
+        DEFAULT command
+
+docker run myapp bash
+              ↓
+        REPLACE CMD
+              ↓
+             bash
+That's all "easy to override" means.
 
 
+Suppose Dockerfile has:
+CMD ["java", "-jar", "app.jar"]
+Case 1: No command given
+docker run myapp
+Docker uses the default CMD:
+
+CMD
+ ↓
+java -jar app.jar
+ ↓
+Java application starts
+Case 2: You give bash
+docker run -it myapp bash
+
+Now bash replaces the CMD:
+
+CMD: java -jar app.jar
+          ↓
+       REPLACED
+          ↓
+       bash runs
+
+So Java does NOT start.
+
+You are now inside the container's shell: root@container:/app#
+If you manually type: java -jar app.jar
+then Java starts.
+
+
+
+CMD ["nginx", "-g", "daemon off;"]
+means: When the container starts, run Nginx in the foreground.
+Break it down:
+"nginx"          → program to run
+"-g"             → Nginx option for global configuration
+"daemon off;"    → tell Nginx NOT to run in the background
+
+So Docker effectively runs:
+nginx -g "daemon off;"
+Why daemon off;?
+Normally Nginx tries to run as a background process (daemon).
+But a Docker container needs its main process to keep running in the foreground.
+
+If Nginx goes into the background:
+Container
+└── main process finishes
+       ↓
+Container stops ❌
+
+With: daemon off;
+Nginx stays in the foreground:
+
+Container
+└── nginx (main process)
+       ↓
+Container keeps running ✅
+Why is this important?
+Docker considers the container's main process (PID 1) to be what keeps the container alive.
+So: CMD ["nginx", "-g", "daemon off;"]
+means: Start Nginx as the main foreground process so the container stays running.
+----------------------------
+ENTRYPOINT is used when you want a command to be the main program of the container and you don't normally want docker run arguments to replace it.
+
+Example
+ENTRYPOINT ["java", "-jar"]
+CMD ["app.jar"]
+
+Why use ENTRYPOINT?
+Suppose your container is specifically designed to run your Java application:
+
+ENTRYPOINT ["java", "-jar"]
+CMD ["app.jar"]
+
+You are saying:
+"This container's main job is to run Java. You can change the JAR/arguments, but Java is the main executable."
+
+Suppose your Dockerfile is:
+ENTRYPOINT ["java", "-jar"]
+CMD ["app.jar"]
+
+Now you run: docker run -it myimage bash
+What happens? bash does not replace the ENTRYPOINT.
+Docker treats bash as an argument to the ENTRYPOINT:
+ENTRYPOINT          argument
+    ↓                  ↓
+java -jar          bash
+        ↓
+java -jar bash
+
+So Docker tries to run: java -jar bash
+It does NOT open a bash shell.
+
+Simple rule
+CMD only:
+docker run image bash
+        ↓
+bash replaces CMD
+ENTRYPOINT + CMD:
+docker run image bash
+        ↓
+bash becomes an argument to ENTRYPOINT
+        ↓
+java -jar bash
+
+If you actually want to override the ENTRYPOINT and run bash, Docker provides:
+docker run -it --entrypoint bash myimage
+
+Now:
+--entrypoint bash
+       ↓
+ENTRYPOINT is replaced
+       ↓
+bash runs
+
+So --entrypoint is how you override an ENTRYPOINT.
+
+
+Yes, you can put everything in ENTRYPOINT.
+For example: ENTRYPOINT ["java", "-jar", "app.jar"]
+
+Then: docker run myimage
+runs: java -jar app.jar
+So why do people use:
+ENTRYPOINT ["java", "-jar"]
+CMD ["app.jar"]
+
+instead?
+Because CMD gives you a default argument that can be changed.
+
+With:
+ENTRYPOINT ["java", "-jar"]
+CMD ["app.jar"]
+
+normally: docker run myimage
+java -jar app.jar
+
+But you can give another JAR: docker run myimage test.jar
+java -jar test.jar
+
+The ENTRYPOINT stays fixed: java -jar
+and CMD is replaced: app.jar → test.jar
+
+If everything is in ENTRYPOINT
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+Then: docker run myimage test.jar
+does not replace app.jar.
+It becomes an additional argument:
+java -jar app.jar test.jar
+So the reason is flexibility
+ENTRYPOINT = What must always run
+CMD        = Default arguments
+
+
+Ah, you mean whether you can write: ENTRYPOINT ["java -jar"]
+instead of: ENTRYPOINT ["java", "-jar"]
+
+No, not in the JSON/exec form. ❌
+Why?
+
+In: ENTRYPOINT ["java", "-jar"]
+Docker sees two separate items:
+
+"java"  → executable/command
+"-jar"  → argument
+
+So it runs: java -jar
+But in: ENTRYPOINT ["java -jar"]
+Docker sees one item: "java -jar"
+
+It tries to find an executable literally named: java -jar
+which doesn't exist. ❌
+
+But you can write it using shell form
+This is valid: ENTRYPOINT java -jar app.jar
+Here Docker uses shell-style execution, so java -jar app.jar is treated as a command line.
 
 
 
