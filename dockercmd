@@ -1671,7 +1671,7 @@ With an environment variable, the value becomes an environment variable. With a 
 
 1. Using environment
 services:
-  database:
+  backend:
     environment:
       PASSWORD: mypassword
 
@@ -1686,7 +1686,7 @@ and get: mypassword
 
 2. Using secrets
 services:
-  database:
+  backend:
     secrets:
       - db_password
 
