@@ -1,0 +1,133 @@
+FROM              Specifies the base image
+  Base image = the starting environment for your container. Choose one that supports your application.
+  you can choose almost any suitable base image, but it must be compatible with your application.
+ FROM ubuntu
+FROM alpine
+FROM python:3.12    Python application:
+FROM eclipse-temurin:17   Java application
+FROM node:22     Node.js application
+FROM nginx       Nginx website
+
+We need base image because a container needs a starting filesystem/environment to run the application.
+FROM eclipse-temurin:17 → gives you the Java runtime + required Linux environment
+Think of it this way:
+Base image
+    ↓
+Provides basic environment
+    ↓
+Install/copy your application
+    ↓
+Docker image
+    ↓
+Container
+    ↓
+Application runs
+
+  Base image gives the container a ready-made starting environment required to run your application.
+And the base image can be Ubuntu, Alpine, Java, Python, Node, Nginx, etc., depending on what your application needs.
+
+  Without a base image
+You would have to create the container's filesystem and install/configure everything yourself. That's unnecessary.
+
+  For example, normally:
+
+FROM ubuntu
+
+Ubuntu already provides:
+
+/
+├── bin/
+├── etc/
+├── usr/
+├── var/
+├── tmp/
+└── ...
+
+It also provides basic Linux libraries and utilities.
+
+Then we add our application:
+
+Ubuntu base image
+       ↓
++ application
+       ↓
+Docker image
+       ↓
+Container
+Without a base image
+
+We would need to create things like:
+
+Root filesystem
+├── /bin
+├── /etc
+├── /usr
+├── /var
+├── /tmp
+├── required libraries
+└── required runtime
+
+and install whatever the application needs.
+
+That's why we normally use a base image: someone has already created that basic environment for us.
+
+Important: The base image is not the same as the host/server OS. The host provides the kernel,
+while the container image provides the container's filesystem and user-space environment.
+means:
+Container image provides the files and tools inside the container
+
+For example:
+
+FROM ubuntu
+
+The Ubuntu image contains a basic Linux filesystem:
+
+Container
+├── /bin
+├── /etc
+├── /usr
+├── /var
+├── /tmp
+└── libraries/tools
+
+These are available inside the container.
+
+But the container does NOT have its own kernel
+
+The container uses the host's Linux kernel.
+
+EC2 Server
+└── Host OS
+     └── Linux Kernel
+          │
+          └── Docker
+               │
+               └── Container
+                    ├── Ubuntu filesystem
+                    ├── libraries
+                    └── your application
+
+So simply:
+
+Base image = files + libraries + tools that the container needs.
+Host OS = provides the kernel that the container uses.
+
+That's why we need a base image: to give the container its basic environment.
+  -----------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
