@@ -1141,6 +1141,644 @@ So if you want:
 
 Crash → restart, but manually stopped → remain stopped even after server reboot
 --------------------------------------------------
+Bind mount
+----------------
+1. Project structure
+myproject/
+├── compose.yaml
+└── html/
+    └── index.html
+2. Compose file
+services:
+  nginx:
+    image: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./html:/usr/share/nginx/html
+
+But bind mount is different
+For:
+
+services:
+  nginx:
+    volumes:
+      - ./html:/usr/share/nginx/html
+
+you do not need a bottom volumes: declaration.
+
+Because ./html is a host directory, not a named Docker volume.
+
+Easy rule
+Named volume:
+dbdata:/data
+       ↓
+Declare at bottom
+volumes:
+  dbdata:
+Bind mount:
+./html:/data
+    ↓
+No bottom declaration needed
+
+For this:
+
+services:
+  nginx:
+    volumes:
+      - ./html:/usr/share/nginx/html
+
+the full host path is based on where your compose.yaml file is located.
+For example, suppose:
+/home/siva/myproject/
+├── compose.yaml
+└── html/
+    └── index.html
+
+Then:
+- ./html:/usr/share/nginx/html
+
+means:
+Host:
+ /home/siva/myproject/html
+          ↓
+Container:
+ /usr/share/nginx/html
+
+So ./html is a relative path.
+
+./ means
+Current Compose project directory
+
+So:
+./html
+means: <directory-containing-compose.yaml>/html
+------------------------------------------------------------
+why 2 network
+------
+backend:
+  networks:
+    - frontend-network
+    - backend-network
+
+1. frontend-network
+
+The backend needs this to receive requests from the frontend:
+
+Frontend → Backend
+
+For example:
+
+GET /login
+POST /signup
+2. backend-network
+
+The backend needs this to communicate with MySQL:
+
+Backend → Database
+
+For example, the backend sends:
+
+SELECT * FROM users
+
+to the database.
+---------------------------------------
+environment
+----------
+Used to pass configuration into a container.
+
+environment:
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_NAME: appdb
+      DB_USER: appuser
+      DB_PASSWORD: apppassword
+Inside the container, these become environment variables.
+
+why we need to pass variables what the purpose
+We pass environment variables because the application inside the container needs configuration values to know how to work.
+
+Why does the backend need these?
+Your backend needs to connect to MySQL.
+
+It needs to know:
+Where is the database?   → DB_HOST
+Which port?              → DB_PORT
+Which user?              → DB_USER
+Which password?          → DB_PASSWORD
+Which database?          → DB_NAME
+
+So we pass:
+DB_HOST=database
+DB_PORT=3306
+DB_USER=appuser
+
+Why not directly write these values in the application?
+You can, but it's bad practice.
+For example, hard-coding:
+
+DB_HOST = "database"
+DB_PASSWORD = "mypassword"
+
+means you have to change your application code when the environment changes.
+
+Instead:
+DB_HOST = os.getenv("DB_HOST")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+Now the same Docker image can be used in different environments.
+
+Development:
+DB_HOST=dev-db
+
+Testing:
+DB_HOST=test-db
+
+Production:
+DB_HOST=prod-db
+
+The application image stays the same.
+This is very important in DevOps
+
+The idea is: Keep application code/image the same; change configuration using environment variables.
+For example:
+                 Same Docker Image
+                       |
+          +------------+------------+
+          |            |            |
+        DEV          TEST          PROD
+          |            |            |
+       DB_HOST      DB_HOST      DB_HOST
+       dev-db       test-db      prod-db
+
+That's why DevOps engineers commonly use environment, .env, env_file, and secret-management systems.
+One important point: passwords and other sensitive values should generally not be hard-coded directly in compose.yaml or committed to Git. Use secrets or a secret manager for those.
+
+without thses
+Yes, you can run a container without these environment variables:
+
+environment:
+  DB_HOST: database
+  DB_PORT: 3306
+  DB_USER: appuser
+
+But whether the application works depends on how the application is configured.
+Example  If your backend application already has the database configuration inside its code/config:
+
+DB_HOST = database
+DB_PORT = 3306
+DB_USER = appuser
+
+then you don't need to pass them through Compose.
+
+You could simply have:
+
+services:
+  backend:
+    image: mybackend:v1
+    networks:
+      - backend-network
+But normally we use environment variables
+
+Because the same image can work in different environments:
+
+Development → DB_HOST=dev-db
+Testing     → DB_HOST=test-db
+Production  → DB_HOST=prod-db
+
+You don't have to modify the application image.
+
+Important distinction
+environment: does not create the database connection.
+It only passes configuration values into the container.
+
+What if DB_HOST, DB_PORT, etc. are not mentioned anywhere at all?”
+For example, your Compose file:
+
+services:
+  backend:
+    image: mybackend:v1
+
+There are no environment variables.
+If the backend application needs database information but has no database configuration anywhere, then:
+
+Backend
+   ↓
+Needs database
+   ↓
+Doesn't know:
+  - database host
+  - port
+  - username
+  - password
+   ↓
+❌ Database connection fails
+
+The application needs to get that information from somewhere.
+
+It can come from:
+1. Environment variables
+2. Configuration file
+3. Application code
+4. Command-line arguments
+5. Secrets
+6. Other configuration systems
+
+For example, the application could have the database host hard-coded:
+DB_HOST=database
+Then Compose doesn't need to provide it.
+-----------------------
+.env
+----------
+Usually you put it in the same project directory as compose.yaml:
+myproject/
+├── compose.yaml
+├── .env
+├── backend/
+│   └── Dockerfile
+└── frontend/
+    └── Dockerfile
+.env
+For development:
+
+DB_HOST=dev-db
+DB_USER=appuser
+DB_PASSWORD=mypassword
+compose.yaml
+services:
+  backend:
+    image: mybackend:v1
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+When you run: docker compose up -d
+
+Compose reads .env and substitutes the values:
+.env
+  ↓
+DB_HOST=dev-db
+  ↓
+compose.yaml
+  ↓
+DB_HOST: dev-db
+  ↓
+Backend container
+For production
+
+You can create another file:
+myproject/
+├── compose.yaml
+├── .env.dev
+└── .env.prod
+
+.env.prod:
+DB_HOST=prod-db
+
+Then: docker compose --env-file .env.prod up -d
+So you create the .env / environment files and put the appropriate values there.
+-------------------
+env_file
+-----
+env_file means: Take environment variables from a separate file and give them to the container.
+
+For example:
+1. Create .env
+DB_HOST=database
+DB_PORT=3306
+DB_USER=appuser
+DB_PASSWORD=mypassword
+2. In compose.yaml
+services:
+  backend:
+    image: mybackend:v1
+    env_file:
+      - .env
+
+Now Compose takes the variables from .env and puts them inside the backend container.
+.env
+  │
+  ├── DB_HOST=database
+  ├── DB_PORT=3306
+  ├── DB_USER=appuser
+  └── DB_PASSWORD=mypassword
+          ↓
+     env_file
+          ↓
+   Backend container
+          ↓
+   Application
+
+Inside the container, the application can read:
+DB_HOST
+DB_PORT
+DB_USER
+DB_PASSWORD
+env_file vs environment
+
+This is the important difference.
+
+environment:
+ environment:
+  DB_HOST: database
+  DB_PORT: 3306
+
+You write the variables directly in the Compose file.
+env_file:
+ env_file:
+   - .env
+
+You keep the variables in a separate file.
+So:
+environment → variables written in compose.yaml
+env_file → variables stored in another file
+
+Yes. You can put the environment variable directly in the Dockerfile, but there is an important difference.
+For example:
+
+FROM python:3.12
+WORKDIR /app
+ENV DB_HOST=database
+ENV DB_PORT=3306
+COPY . .
+CMD ["python", "app.py"]
+
+Option 1 — Put it in Dockerfile
+ENV DB_HOST=database
+
+This creates a default value inside the image.
+
+Dockerfile
+   ↓
+ENV DB_HOST=database
+   ↓
+Image
+   ↓
+Container
+Option 2 — Put it in Compose
+services:
+  backend:
+    environment:
+      DB_HOST: prod-db
+
+This gives the container a value when Compose creates it.
+
+Why prefer Compose for environment-specific values?
+
+Suppose you use the same image:
+
+mybackend:v1
+
+For development:
+
+DB_HOST=dev-db
+
+For production:
+
+DB_HOST=prod-db
+
+If you put DB_HOST in the Dockerfile:
+
+ENV DB_HOST=prod-db
+
+then the value is baked into the image as the default.
+
+If you put it in Compose:
+
+environment:
+  DB_HOST: prod-db
+
+the same image can be used with different configuration.
+
+Why use both?
+Dockerfile ENV → default value that travels with the image.
+Compose environment → environment-specific value that can override the default
+
+-------------------------------
+command: python test.py
+--------
+so if in docker file is wrong cmd means we can give in compose to replace
+
+Yes, exactly. ✅
+
+If the Dockerfile already has a CMD:
+
+CMD ["python", "app.py"]
+
+you can replace/override it in Compose:
+
+services:
+  backend:
+    image: mybackend:v1
+    command: python test.py
+
+Then:
+
+Dockerfile CMD
+python app.py
+      ↓
+   overridden
+      ↓
+Compose command
+python test.py
+      ↓
+Container runs test.py
+
+If you don't write command: in Compose, the Dockerfile's CMD is used.
+
+So remember:
+
+Dockerfile CMD = default command
+Compose command = override that default command.
+
+So override = replace the default with another command.
+------------------------------------
+secrets
+-------------
+environment → normal configuration
+secrets → sensitive information such as passwords, API keys, tokens.
+Why do we need secrets?
+Suppose MySQL needs a password.
+
+You could write:
+environment:
+  MYSQL_ROOT_PASSWORD: mypassword
+
+But this is a problem because the password is directly visible in compose.yaml. If you commit that file to Git, the password can be exposed.
+Instead, we can keep the password in a separate secret file.
+
+
+1. Create the secret file
+Project:
+myproject/
+├── compose.yaml
+└── db_password.txt
+
+db_password.txt contains: mypassword
+The password is not written directly in compose.yaml.
+
+2. Tell Compose about the secret
+secrets:
+  db_password:
+    file: ./db_password.txt
+
+This means:
+db_password
+      ↓
+read the value from
+      ↓
+./db_password.txt
+
+3. Give the secret to the service
+services:
+  database:
+    image: mysql
+    secrets:
+      - db_password
+
+This means: Give the db_password secret to the database container.
+Complete example
+services:
+
+  database:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: appdb
+      MYSQL_USER: appuser
+    secrets:
+      - db_password
+
+secrets:
+  db_password:
+    file: ./db_password.txt
+
+Important: where does the secret appear?
+
+Docker Compose makes the secret available inside the container, typically as a file under:
+/run/secrets/db_password
+
+So the application/container can read:
+/run/secrets/db_password
+
+and get: mypassword
+It is not the same as:
+
+environment:
+  PASSWORD: mypassword
+
+With an environment variable, the value becomes an environment variable. With a secret, the value is provided as a secret file.
+
+1. Using environment
+services:
+  database:
+    environment:
+      PASSWORD: mypassword
+
+Docker puts the value into the container as an environment variable:
+Container
+│
+├── PASSWORD=mypassword   ← environment variable
+└── application
+
+The application can read: PASSWORD
+and get: mypassword
+
+2. Using secrets
+services:
+  database:
+    secrets:
+      - db_password
+
+secrets:
+  db_password:
+    file: ./db_password.txt
+
+Suppose db_password.txt contains: mypassword
+Docker provides it as a file inside the container:
+
+Container
+│
+├── /run/secrets/db_password   ← secret file
+│
+└── application
+
+The application reads: /run/secrets/db_password
+and gets: mypassword
+
+environment gives the value as a variable, while secrets gives the value as a file.
+
+
+In real DevOps
+For production, you generally don't want:
+
+Git repository
+    ↓
+password stored in compose.yaml
+
+Instead:
+Secret Manager
+      ↓
+Production application
+      ↓
+Database password
+Examples are AWS Secrets Manager, HashiCorp Vault, etc.
+
+
+Local development/testing
+You can use a local secret file: db_password.txt
+and keep it out of GitHub using .gitignore.
+
+Local machine
+    ↓
+db_password.txt
+    ↓
+Docker Compose
+    ↓
+Container
+This is convenient for learning and local testing.
+
+Real production application
+For production, use a proper secret manager such as AWS Secrets Manager.
+
+AWS Secrets Manager
+       ↓
+   Application
+       ↓
+ Database password
+
+The password is stored in AWS, rather than in:
+
+❌ compose.yaml
+❌ GitHub
+❌ Dockerfile
+❌ db_password.txt committed to Git
+Typical DevOps approach
+LOCAL
+Docker Compose
+     ↓
+local secret file
+     ↓
+container
+
+
+PRODUCTION
+Docker / Kubernetes / ECS
+          ↓
+AWS Secrets Manager
+          ↓
+application
+
+So your understanding is correct:
+
+Local testing → local secret file is okay.
+Production → use AWS Secrets Manager (or another proper secret-management system).
+----------------------------------------------------------
+
+
+
+
+
 
 volumes:
   dbdata:
