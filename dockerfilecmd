@@ -263,8 +263,8 @@ It says: When the container starts, run this command.
 So: docker run myapp
 ➡️ Docker runs:
 java -jar app.jar
-What does "override" mean?
 
+What does "override" mean?
 Suppose your Dockerfile says:
 CMD ["java", "-jar", "app.jar"]
 
@@ -284,7 +284,8 @@ docker run myapp bash
               ↓
              bash
 That's all "easy to override" means.
-
+➡️ Now bash runs instead.
+So CMD is easy to override.
 
 Suppose Dockerfile has:
 CMD ["java", "-jar", "app.jar"]
@@ -463,6 +464,176 @@ But you can write it using shell form
 This is valid: ENTRYPOINT java -jar app.jar
 Here Docker uses shell-style execution, so java -jar app.jar is treated as a command line.
 
+Easy memory
+CMD = "If you don't give me anything, I'll run this."
+ENTRYPOINT = "This is the main program; your arguments are added to it."
+---------------------
+
+# 10. USER
+# Run the application as a particular user
+USER appuser
+means: Run the application/process inside the container as the user appuser, instead of the default user.
+
+Example:
+
+FROM ubuntu
+RUN useradd -m appuser
+USER appuser
+CMD ["bash"]
+
+Here:
+FROM ubuntu
+    ↓
+Default user is usually root
+    ↓
+USER appuser
+    ↓
+Now commands/processes run as appuser
+    ↓
+CMD runs as appuser
+Why use USER?
+
+Mainly for security.
+
+If your application runs as root, it has very high permissions inside the container.
+
+Instead:
+
+USER appuser
+
+runs it with a normal user's permissions.
+
+Important
+
+USER does not create the user.
+You need to create it first:
+
+RUN useradd -m appuser
+USER appuser
+
+So remember:
+RUN useradd → creates the user
+USER appuser → switches to that user for subsequent instructions/runtime.
+
+What happens?
+
+During build:
+RUN useradd -m appuser
+        ↓
+appuser is created INSIDE the image
+
+Then:
+USER appuser
+
+means:
+Container starts
+      ↓
+CMD runs as appuser
+
+
+So when you run: docker run -it myimage
+you get a shell as: appuser
+
+not root.
+Can another user start the container?
+Yes.
+
+The person on the host can run: docker run myimage
+They don't need to be named appuser.
+The distinction is:
+HOST
+└── You run: docker run myimage
+             ↓
+CONTAINER
+└── Process runs as: appuser
+
+Can you override the user?
+Yes, if you have the required Docker permissions: docker run -it --user root myimage
+Then the process runs as root instead.
+
+
+What permissions does appuser have?
+By default, useradd creates a normal, non-root user.
+
+So:
+root
+ ├── full privileges
+ │
+ └── appuser
+      └── normal/limited privileges
+
+Typically, appuser cannot:
+Install packages with apt
+Modify system files
+Change /etc files
+Perform root-level operations
+Access everything owned by root
+
+
+-m in:  useradd -m appuser
+means:  Create a home directory for the user.
+
+Without -m: useradd appuser
+the user is created, but a home directory may not be created automatically.
+
+With -m: useradd -m appuser
+you get something like:
+
+/home/
+└── appuser/
+
+
+Not directly. A host/terminal user and a container user are different user accounts.
+Suppose your terminal/host has:
+Host
+└── Siva
+
+Then your Dockerfile:
+FROM ubuntu
+USER Siva
+
+will not normally work, because the Ubuntu image doesn't know who Siva is.
+The container has its own /etc/passwd and its own users.
+You need to create the user inside the image
+
+
+But there is one exception
+You can tell Docker to run the container with a numeric UID from the host:
+docker run --user 1000 myimage
+This does not mean Docker copies your host user into the container. It simply tells the container:
+Run the process with UID 1000.
+
+
+
+
+If you mean without writing USER appuser, then the default user depends on the base image.
+
+For your example:
+FROM ubuntu
+RUN useradd -m appuser
+CMD ["bash"]
+
+Since the Ubuntu base image defaults to root, the container runs as root.
+
+FROM ubuntu
+    ↓
+Default user = root
+    ↓
+RUN useradd -m appuser
+    ↓
+appuser is CREATED
+    ↓
+But we did NOT switch to appuser
+    ↓
+CMD runs as root
+
+So even though appuser exists:
+
+Users inside container:
+root       ← current/default user
+appuser    ← created user, but not being used
+
+To make appuser the runtime user: USER appuser
 
 
 
@@ -470,10 +641,3 @@ Here Docker uses shell-style execution, so java -jar app.jar is treated as a com
 
 
 
-
-
-
-
-
-
-  
