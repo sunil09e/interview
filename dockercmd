@@ -643,19 +643,45 @@ docker compose -f myapp/docker-compose.yml logs      You can stay outside and te
 docker compose -f myapp/docker-compose.yml stop
 docker compose -f myapp/docker-compose.yml down
 
+docker compose images means:   👉 Show the Docker images that are being used by your Docker Compose services.
+If you only want to start frontend:
+
+docker compose up -d frontend
+Only:
+frontend → started ✅
+backend  → not started
+database → not started
+
+
+
 docker compose logs backend    See backend logs
 docker compose logs frontend   See frontend logs
 docker compose logs -f backend  Follow logs continuously
     -f means follow — it keeps showing new logs as they are generated.
 docker compose logs --tail 100 backend   last 100 lines
 
+docker compose exec backend env  the env command shows the environment variables currently available inside the container.
+
 docker compose build          Build the Docker images, but don't start the containers.
 docker compose up -d	       Create/start the containers, and build the image if necessary.
+example
 If your Compose file has:
 services:
   backend:
     build: ./backend
-docker compose up -d --build   Build the image first, then create and start the containers.
+First time
+docker compose up -d
+No image exists → Compose builds it ✅
+
+Later
+You change the Dockerfile and run: docker compose up -d
+If you want to explicitly say:
+
+"Build again before starting."
+use: docker compose up -d --build
+
+Compose may determine that the existing image can be used → it doesn't necessarily force a rebuild.
+docker compose up -d --build   Build the image first, then create and start the containers.   Build again after changing Dockerfiles
 up -d can build; --build explicitly forces a build before starting.
 docker compose up -d --build    If you want to force the build
 
@@ -1778,7 +1804,286 @@ So your understanding is correct:
 
 Local testing → local secret file is okay.
 Production → use AWS Secrets Manager (or another proper secret-management system).
+
+
+If you mean when using plain Docker commands instead of Docker Compose, yes, you can also pass environment variables directly.
+
+With Docker
+docker run -d \
+  --name backend \
+  -e DB_HOST=database \
+  -e DB_PORT=3306 \
+  -e DB_NAME=appdb \
+  -e DB_USER=appuser \
+  -e DB_PASSWORD=apppassword \
+  mybackend:v1
+
+
+docker compose exec backend env       the env command shows the environment variables currently available inside the container.
+For example:
+
+DB_HOST=database
+DB_PORT=3306
+DB_NAME=appdb
+DB_USER=appuser
+DB_PASSWORD=apppassword
+
 ----------------------------------------------------------
+
+logging in Docker Compose controls how the container's logs are handled and where Docker stores/sends them.
+
+Basic example
+services:
+  backend:
+    image: mybackend:v1
+    logging:
+      driver: json-file
+
+Why do we need logging?
+Suppose your backend has an error:
+
+Database connection failed
+User login failed
+Server started
+
+The application writes these messages to its standard output/error:
+stdout
+stderr
+
+Docker collects them.
+You can then see them with:  docker compose logs backend
+or:
+docker logs <container-name>
+Common logging driver
+The default Docker logging driver is commonly:
+
+logging:
+  driver: json-file
+
+Docker stores the logs and you can view them with:
+docker compose logs
+
+Limit log size
+For example:
+
+services:
+  backend:
+    image: mybackend:v1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+This means:
+Maximum size of one log file = 10 MB
+Keep up to = 3 files
+
+This helps prevent logs from consuming unlimited disk space.
+
+Important
+
+logging does not create application logs.
+
+Your application creates the log messages; Docker's logging configuration controls how Docker handles those messages.
+
+logging:
+  driver: json-file
+What is driver?
+driver tells Docker:
+"How should I handle/store the logs produced by this container?"
+
+What is json-file?
+json-file is a Docker logging driver.
+
+So:
+logging:
+  driver: json-file
+
+means: Store this container's stdout/stderr logs using Docker's JSON-file logging driver.
+
+Yes. json-file means Docker stores the container's logs in a JSON-formatted log file on the Docker host.
+
+For example, your application prints:
+
+Server started
+Database connected
+Login successful
+
+Docker stores those log messages on the host machine, not inside the container's filesystem.
+
+Then you can view them using:
+
+docker logs <container>
+or:
+docker compose logs backend
+
+Exactly. You can see logs even if you don't write logging: driver: json-file.
+That's because json-file is usually Docker's default logging driver.
+So this:
+
+services:
+  backend:
+    image: mybackend:v1
+
+you can still run: docker compose logs backend
+and see the logs.
+
+Then why write it explicitly?
+Usually to configure logging behavior, especially log rotation.
+
+For example:
+
+logging:
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+This means:
+
+Each log file → maximum 10 MB
+Keep → maximum 3 files
+-------------------------------
+
+Example
+services:
+  backend:
+    image: mybackend:v1
+    mem_limit: 512m
+    cpus: 0.5
+
+This means:
+
+backend container
+       |
+       ├── Memory → maximum 512 MB
+       |
+       └── CPU → maximum 0.5 CPU
+
+Memory
+mem_limit: 512m
+
+means the container can use up to 512 MB RAM.
+
+For example:
+
+mem_limit: 1g
+
+means maximum 1 GB RAM.
+
+CPU
+cpus: 0.5
+
+means the container can use up to approximately half of one CPU core.
+
+For example:
+
+cpus: 1.0
+
+means approximately one CPU core.
+
+services:
+
+  backend:
+    image: mybackend:v1
+    ports:
+      - "8080:8080"
+    mem_limit: 512m
+    cpus: 0.5
+    restart: unless-stopped
+
+So when the backend runs:
+
+Backend container
+      |
+      ├── CPU limit    → 0.5 CPU
+      ├── Memory limit → 512 MB
+      └── Restart      → unless-stopped
+Why do we use limits?
+
+Suppose your server has:
+
+Host server
+RAM = 4 GB
+
+Without limits, one container could potentially consume a large amount of available memory.
+
+With: mem_limit: 512m
+
+you restrict that container's memory usage.
+This is useful for resource control and preventing one container from consuming excessive host resources.
+Note: Compose resource-limit syntax has some differences depending on whether you're using regular Docker Compose or Swarm-style deploy.resources. For normal Docker Compose, mem_limit and cpus are straightforward options.
+----------------
+docker compose exec backend bash       Go inside the already-running backend container and open a terminal.
+docker compose exec database mysql -u root -p  Go inside the already-running database container and open the MySQL command line.
+
+Remember
+exec = execute a command inside an existing running container
+
+
+So:
+docker compose exec backend bash
+means:
+backend (service)
+      ↓
+find the container created for this service
+      ↓
+project-backend-1
+      ↓
+run bash inside it
+
+And:
+docker compose exec database mysql -u root -p
+means:
+
+database (service)
+      ↓
+find its container
+      ↓
+project-database-1
+      ↓
+run mysql inside it
+
+So remember this
+Service → Container
+compose.yaml
+     ↓
+service: backend
+     ↓
+container created by Compose
+compose.yaml
+     ↓
+service: database
+     ↓
+container created by Compose
+
+That's why docker compose exec asks for the service name, and Compose finds the corresponding container automatically.
+
+-----------------------------------------
+Why DB_HOST: database?
+This is very important.
+environment:
+  DB_HOST: database
+database is the Compose service name:
+
+services:
+  database:
+
+Docker Compose provides internal DNS, so the backend can use:
+database
+
+instead of finding the database container's IP manually.
+Backend
+   |
+   | DB_HOST=database
+   ↓
+Docker DNS
+   ↓
+database container
+
+
+
 
 
 
@@ -1899,32 +2204,21 @@ networks:
   mynetwork:
 
 without external: true, Compose will create a Compose-managed network if the required Compose network doesn't exist.
-
 Even if you already created a standalone Docker network called mynetwork, Compose does not automatically take ownership of that existing standalone network.
 
 Example
-
 You already created:
-
 docker network create mynetwork
 
 Then Compose has:
-
 networks:
   mynetwork:
-
 When you run:
-
 docker compose up -d
-
 Compose normally creates its own project-scoped network, such as:
-
 myproject_mynetwork
-
 The existing:
-
 mynetwork
-
 remains separate.
 
 If you want to use the existing one
@@ -1945,4 +2239,76 @@ no external: true → Compose manages its own network
 
 No external: true → Compose creates/manages/deletes it
 external: true → Compose only uses it; doesn't create/delete it
+
+
+So:
+
+docker compose down
+       ↓
+Containers       ❌ deleted
+Networks         ❌ deleted
+Volumes          ✅ remain
+Images           ✅ remain
+Source code      ✅ remain
+If you use -v
+docker compose down -v
+
+Then:
+
+Containers       ❌ deleted
+Networks         ❌ deleted
+Volumes          ❌ deleted
+Images           ✅ remain
+Source code      ✅ remain
+
+Easy to remember:
+
+down → containers + Compose networks
+
+down -v → containers + networks + volumes
+
+Images are not deleted by down.
+
+Example:
+
+volumes:
+  dbdata:
+
+Compose creates dbdata.
+
+Then:
+
+docker compose down -v
+
+➡️ dbdata is deleted.
+
+But external volume is different
+volumes:
+  dbdata:
+    external: true
+
+Then:
+
+docker compose down -v
+
+➡️ dbdata is NOT deleted, because Compose does not manage that external volume.
+
+So:
+
+Compose-managed volume
+        ↓
+docker compose down -v
+        ↓
+❌ Deleted
+
+
+
+
+External volume
+        ↓
+docker compose down -v
+        ↓
+✅ Remains
+
+
 
