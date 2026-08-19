@@ -653,7 +653,8 @@ backend  → not started
 database → not started
 
 
-
+docker compose logs -f           Show the logs of all services/containers in the Compose project and keep watching for new logs.
+-f               Means follow. It keeps the terminal open and continuously shows new log messages.
 docker compose logs backend    See backend logs
 docker compose logs frontend   See frontend logs
 docker compose logs -f backend  Follow logs continuously
@@ -2081,6 +2082,161 @@ Backend
 Docker DNS
    ↓
 database container
+---------------------------------------
+
+
+Because the MySQL Docker image needs some initial configuration when the database container is created.
+
+For example:
+database:
+  image: mysql:8.0
+
+  environment:
+    MYSQL_DATABASE: appdb
+    MYSQL_USER: appuser
+    MYSQL_PASSWORD: apppassword
+    MYSQL_ROOT_PASSWORD: rootpassword
+
+These environment variables are read by the MySQL image's startup process.
+
+What each one does
+MYSQL_DATABASE
+      ↓
+Creates database
+      ↓
+appdb
+MYSQL_USER
+      ↓
+Creates MySQL user
+      ↓
+appuser
+MYSQL_PASSWORD
+      ↓
+Sets password for appuser
+MYSQL_ROOT_PASSWORD
+      ↓
+Sets password for MySQL root user
+
+So when the container starts for the first time:
+
+MySQL image
+     ↓
+Environment variables
+     ↓
+Initialize MySQL
+     ↓
+Create:
+   database → appdb
+   user     → appuser
+   password → apppassword
+   root password → rootpassword
+
+Why does the backend also have environment variables?
+Because the backend needs to know how to connect to MySQL:
+
+So both sides have configuration:
+DATABASE
+environment
+    ↓
+Creates/configures MySQL
+
+BACKEND
+environment
+    ↓
+Tells application how to connect to MySQL
+
+
+So:
+
+MYSQL_DATABASE → creates database appdb
+MYSQL_USER → creates user appuser
+MYSQL_PASSWORD → sets password for appuser
+MYSQL_ROOT_PASSWORD → sets password for the root user
+
+Then your backend can connect using:
+
+Host: database
+Port: 3306
+Database: appdb
+User: appuser
+Password: apppassword
+
+
+One important point: these initialization variables are mainly applied when MySQL initializes an empty data directory. 
+If you already have a MySQL volume with an existing database, changing MYSQL_USER won't automatically recreate or change the existing users.
+this means :
+First time MySQL starts
+
+You have:
+
+environment:
+  MYSQL_DATABASE: appdb
+  MYSQL_USER: appuser
+  MYSQL_PASSWORD: apppassword
+  MYSQL_ROOT_PASSWORD: rootpassword
+
+If the MySQL volume is empty, MySQL initializes it:
+
+Empty volume
+    ↓
+MySQL starts
+    ↓
+Creates database → appdb
+Creates user     → appuser
+Sets password    → apppassword
+Next time the container starts
+
+Suppose you already have:
+
+dbdata volume
+     ↓
+database: appdb
+user: appuser
+
+You restart or recreate the container:
+
+docker compose down
+docker compose up -d
+
+The volume still contains the existing MySQL data.
+
+Therefore, MySQL sees:
+
+Volume is NOT empty
+       ↓
+Existing database found
+       ↓
+Don't initialize again
+
+So if you change:
+
+MYSQL_USER: newuser
+
+MySQL will not automatically create newuser because the database was already initialized.
+If you want newuser
+
+You have two choices:
+
+Option 1 — Delete the volume and initialize MySQL again:
+
+docker compose down -v
+docker compose up -d
+
+⚠️ This deletes the database volume and its data.
+
+Option 2 — Create/change the user manually inside MySQL.
+
+For example, connect to MySQL and run SQL to create the new user.
+
+So remember:
+
+MYSQL_USER is mainly for the initial MySQL setup when the data directory is empty.
+
+
+
+
+
+
 
 
 
