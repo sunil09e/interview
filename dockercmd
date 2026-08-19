@@ -1608,6 +1608,11 @@ environment:
 But this is a problem because the password is directly visible in compose.yaml. If you commit that file to Git, the password can be exposed.
 Instead, we can keep the password in a separate secret file.
 
+But the password is the problem
+This: DB_PASSWORD: apppassword
+puts the actual password directly in the Compose configuration. Don't use real production passwords this way.
+For local learning/testing, it's okay to understand it this way.
+
 
 1. Create the secret file
 Project:
