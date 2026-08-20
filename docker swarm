@@ -3,6 +3,9 @@ Docker Swarm
 Docker Swarm is Docker's built-in container orchestration tool.
 It allows you to run containers across multiple Docker machines (nodes) and manage them as one cluster.
 
+Orchestration means automatically managing and controlling containers
+Orchestration = managing containers automatically across multiple machines.
+
 Simple idea
 Without Swarm:
 Docker Host 1
@@ -337,9 +340,53 @@ So: VPC Peering connects the EC2 machines; Overlay Network connects the containe
 
 Create a service
 For example:
-docker service create --name web --replicas 3 -p 80:80 nginx
+
+docker service create \
+  --name web \
+  --replicas 3 \
+  --network mynetwork \
+  --publish published=8080,target=80 \
+  nginx
+
+Here:
+
+8080 → EC2/Swarm published port
+80   → nginx container port
+We are not changing the container's port 80 to 8080.
+
+-p 8080:80
+
+means:
+
+8080 → 80
+ ↑      ↑
+host   container
+port   port
+8080 = port users access on the EC2/Swarm node
+80 = port where Nginx is listening inside the container
+
+So:
+Browser
+   ↓
+EC2:8080
+   ↓
+Docker/Swarm
+   ↓
+Container:80
+   ↓
+Nginx
+
+The Nginx application is still listening on port 80 inside the container.
+For example:
+docker service create --name web --replicas 3 --network mynetwork -p 80:80 nginx         web is simply the name we gave to the Swarm service.
 every service going to have unique ID
-  
+
+-p 8080:80   Publish port 8080 → container port 80
+Yes — this: --publish published=8080,target=80
+is the long form of: -p 8080:80
+
+They mean the same thing.
+
 This means:
 Service: web
 Replicas: 3
@@ -351,16 +398,57 @@ Swarm tries to keep 3 nginx containers running across the cluster.
 docker service ls
 docker service ps web    detailed information
 
-
 Scale
 If you want 5 containers:
 docker service scale web=5
 Swarm creates additional replicas.
 
 
+You create one service called web.
+Swarm then creates 3 tasks, which run as 3 containers:
+
+             Manager
+                |
+          Service: web
+          replicas = 3
+                |
+       ┌────────┼────────┐
+       ↓        ↓        ↓
+    Task 1    Task 2    Task 3
+       ↓        ↓        ↓
+   Container Container Container
+
+So you don't normally create the individual containers yourself with docker run.
+
+You create the service → Swarm creates and manages the containers.
 
 
 
 
+1. Container crashes → Swarm automatically replaces it ✅
+Suppose you create:
+docker service create --name web --replicas 3 nginx
+Swarm wants 3 replicas:
+3 containers running
+     ↓
+1 container crashes
+     ↓
+Swarm detects it
+     ↓
+Swarm starts a replacement
+     ↓
+3 containers running again
 
+This is called self-healing, not autoscaling.
+
+2. Traffic increases → Swarm does NOT automatically increase replicas by itself ❌
+For example:
+Traffic increases
+     ↓
+CPU becomes high
+     ↓
+Swarm does NOT automatically say:
+"Create 5 more containers"
+You need to scale it yourself:
+docker service scale web=6
   
