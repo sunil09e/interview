@@ -1074,6 +1074,97 @@ healthy
 If no health check is configured, .State.Health will not contain health information.
 
 
+This command:
+docker exec -it containerid pkill nginx
+means go inside the running container and kill the Nginx process.
+
+If Nginx was the main process of the container, the container may then stop, because a Docker container normally runs as long as its main process (PID 1) is running.
+Why would we use this?
+It's commonly used for testing.
+
+For example, if you configured a Docker HEALTHCHECK, you can deliberately kill Nginx:
+docker exec -it containerid pkill nginx
+Then check: docker ps
+
+or:
+
+docker inspect --format='{{json .State.Health}}' containerid
+This lets you see how Docker reacts when the application inside the container becomes unhealthy.
+
+
+
+Nginx is not PID 1:
+Container
+├── PID 1 → application ✅
+└── nginx ❌
+              ↓
+        Container continues
+
+This distinction is important when testing Docker HEALTHCHECK: killing a non-PID-1 application process 
+can make the health check become unhealthy while the container itself remains running.
+if Nginx is only an additional component and your application does not depend on it, deleting Nginx does not affect the application.
+
+For example:
+
+Application Container
+└── Application → PID 1 ✅
+
+If you had:
+
+Application Container
+├── Application → PID 1 ✅
+└── Nginx → additional
+
+and you run:
+
+pkill nginx
+
+then:
+
+Application → still running ✅
+Nginx → stopped ❌
+Container → still running ✅
+
+So in this setup, don't worry about Nginx.
+So now it is healthy or unhealthy? What is the condition?
+
+It depends on what your HEALTHCHECK is checking.
+
+If your health check checks Nginx
+
+For example:
+
+HEALTHCHECK CMD curl -f http://localhost:80 || exit 1
+
+If you kill Nginx:
+
+docker exec -it containerid pkill nginx
+
+then:
+
+Container → RUNNING ✅
+Nginx     → NOT working ❌
+Healthcheck → UNHEALTHY ❌
+
+Because the health check is asking:
+
+"Is Nginx responding on port 80?"
+
+If your health check checks your actual application
+
+For example, your application runs on port 8080:
+
+HEALTHCHECK CMD curl -f http://localhost:8080/health || exit 1
+
+Then killing Nginx:
+
+Nginx       → NOT working ❌
+Application → Working ✅
+Healthcheck → HEALTHY ✅
+The important rule
+
+Healthy/unhealthy depends on what your health check tests.
+
 -----------------------------------------------
 1. SHELL
 SHELL changes the default shell used by shell-form commands such as RUN, CMD, and ENTRYPOINT.
