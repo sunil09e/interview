@@ -1,0 +1,187 @@
+A Docker multi-stage build lets you use multiple FROM statements in a single Dockerfile. This is useful for keeping the final image small by separating the build environment from the runtime environment.
+
+Why use multi-stage builds?
+Smaller final images
+Faster deployments
+Improved security (no build tools in production)
+Cleaner Dockerfiles
+
+ by separating the build environment from the runtime environment
+It means we use one environment to build the application and another environment to run it.
+Why separate them?
+Maven is needed to create the JAR, but after the JAR is created, Maven is not needed to run the application.
+
+So:
+Build stage → Maven + JDK + source code
+Runtime stage → JRE + JAR only
+
+This makes the final Docker image smaller and cleaner.
+
+
+Runtime environment means the environment where your application actually runs after it has been built.
+For example, in a Java multi-stage Dockerfile:
+
+# Build environment
+FROM maven:3.9-eclipse-temurin-21 AS build
+RUN mvn package
+
+Maven + JDK are used to build the application.
+
+Then:
+# Runtime environment
+FROM eclipse-temurin:21-jre
+COPY --from=build /app/target/app.jar app.jar
+CMD ["java", "-jar", "app.jar"]
+
+The second image is the runtime environment.
+
+Simply:
+Build environment  → Creates the application
+Runtime environment → Runs the application
+
+
+1. Normal Dockerfile problem
+Suppose you have a Java Maven application.
+To build it, you need:
+
+JDK
+Maven
+source code
+pom.xml
+dependencies
+build tools
+
+But after building, your application may only need:
+Java Runtime
+.jar file
+
+If you put everything into one image:
+
+FROM maven:3.9-eclipse-temurin-17
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn package -DskipTests
+CMD ["java", "-jar", "target/app.jar"]
+
+The final image contains Maven, source code, dependencies, build tools, etc.
+That is unnecessary for running the application.
+
+2. Multi-stage solution
+We divide it into stages.
+
+# Stage 1: Build   
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn package -DskipTests
+
+# Stage 2: Run
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+CMD ["java", "-jar", "app.jar"]
+
+
+Stage 1 — Build stage
+FROM maven:3.9-eclipse-temurin-17 AS build
+This stage contains Maven and JDK.
+It performs:
+Source code
+    ↓
+Maven
+    ↓
+JAR file
+
+For example: /app/target/myapp.jar
+
+Stage 2 — Runtime stage
+FROM eclipse-temurin:17-jre
+
+This is a separate image.
+It doesn't contain Maven.
+Then: COPY --from=build /app/target/*.jar app.jar
+means: Take the JAR file from the build stage and copy it into the runtime stage.
+
+So the final image looks conceptually like:
+Runtime Image
+│
+├── Java Runtime
+├── app.jar
+└── required runtime files
+
+Maven is not included.
+
+What does AS build mean?
+FROM maven:3.9-eclipse-temurin-17 AS build
+
+build is simply a name for that stage.
+You could use:    FROM maven:3.9-eclipse-temurin-17 AS builder
+Then:    COPY --from=builder ...
+Both are valid.
+
+
+
+
+
+
+Suppose your Dockerfile is:
+
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml .                          Because pom.xml is a file, while src is a directory.
+COPY src ./src                               COPY src .  ➡️ Result:  /app/...   COPY src ./src  ➡️ Result:  /app/src/...
+RUN mvn package -DskipTests
+
+
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+CMD ["java", "-jar", "app.jar"]
+
+You run:  docker build -t myapp:v1 .
+
+Docker does approximately:
+Docker build
+     │
+     ▼
+Stage 1
+Maven image
+     │
+     ├── pom.xml
+     ├── src/
+     │
+     └── mvn package
+             │
+             ▼
+        app.jar
+             │
+             ▼
+Stage 2
+Java Runtime image
+             │
+             └── COPY app.jar
+                     │
+                     ▼
+              Final Docker image
+
+
+
+Very important: Is Stage 1 included in the final image?
+No.
+
+The final image is based on:
+FROM eclipse-temurin:17-jre
+
+not:
+FROM maven:...
+The Maven build stage is used to produce the application artifact.
+The final image only contains what Stage 2 needs.
+
+
+
+
+
+
+
