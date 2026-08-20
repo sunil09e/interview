@@ -397,6 +397,7 @@ Swarm tries to keep 3 nginx containers running across the cluster.
 
 docker service ls
 docker service ps web    detailed information
+docker service update --image nginx:alpine web-app   to replace the image
 
 Scale
 If you want 5 containers:
