@@ -70,6 +70,10 @@ docker rm web         Remove a container
 docker rm -f web       Force remove a running container
 docker logs web        Show container logs
 docker logs -f web      Follow logs continuously
+docker exec -it containerid pkill nginx     means go inside the running container and kill the Nginx process.
+               If Nginx was the main process of the container, the container may then stop, because a Docker container normally 
+                runs as long as its main process (PID 1) is running.
+    If Nginx is not the main process (PID 1), killing Nginx does not normally stop the container.
 docker exec -it web bash    Execute a command inside a running container
 docker exec -it web sh       If Bash isn't available
     -i = allows you to send input/commands to the container.
