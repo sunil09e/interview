@@ -494,20 +494,13 @@ CMD runs as appuser
 Why use USER?
 
 Mainly for security.
-
 If your application runs as root, it has very high permissions inside the container.
-
-Instead:
-
-USER appuser
-
+Instead: USER appuser
 runs it with a normal user's permissions.
 
 Important
-
 USER does not create the user.
 You need to create it first:
-
 RUN useradd -m appuser
 USER appuser
 
@@ -516,7 +509,6 @@ RUN useradd → creates the user
 USER appuser → switches to that user for subsequent instructions/runtime.
 
 What happens?
-
 During build:
 RUN useradd -m appuser
         ↓
@@ -578,10 +570,8 @@ the user is created, but a home directory may not be created automatically.
 
 With -m: useradd -m appuser
 you get something like:
-
 /home/
 └── appuser/
-
 
 Not directly. A host/terminal user and a container user are different user accounts.
 Suppose your terminal/host has:
@@ -604,17 +594,13 @@ This does not mean Docker copies your host user into the container. It simply te
 Run the process with UID 1000.
 
 
-
-
 If you mean without writing USER appuser, then the default user depends on the base image.
-
 For your example:
 FROM ubuntu
 RUN useradd -m appuser
 CMD ["bash"]
 
 Since the Ubuntu base image defaults to root, the container runs as root.
-
 FROM ubuntu
     ↓
 Default user = root
@@ -634,10 +620,472 @@ root       ← current/default user
 appuser    ← created user, but not being used
 
 To make appuser the runtime user: USER appuser
+----------------------------------------------------
+Suppose your Dockerfile has:
+
+ARG NODE_VERSION=20
+FROM node:${NODE_VERSION}
+
+Now you run:
+
+docker build --build-arg NODE_VERSION=22 -t myapp:v2 .
+
+During this build only, Docker uses:
+
+NODE_VERSION = 22
+
+So effectively:
+
+FROM node:22
+
+But the actual Dockerfile still contains:
+
+ARG NODE_VERSION=20
+
+It is not changed.
+
+Next build
+
+If you run:
+
+docker build -t myapp:v3 .
+
+without --build-arg, Docker uses the Dockerfile's default:
+
+NODE_VERSION = 20
+Think of it like this
+Dockerfile:
+ARG NODE_VERSION=20
+          ↓
+     default value
+
+
+Build command:
+--build-arg NODE_VERSION=22
+          ↓
+temporarily overrides default
+          ↓
+this build uses 22
+
+So:
+
+Dockerfile value = default
+--build-arg value = override for that build only
+Dockerfile itself is never modified.
+
+Both are possible, but where you put ARG matters.
+
+1. ARG before FROM
+
+If you want to use the ARG inside the FROM, put it before FROM:
+
+ARG NODE_VERSION=20
+
+
+FROM node:${NODE_VERSION}
+
+Here:
+
+ARG NODE_VERSION=20
+        ↓
+FROM node:${NODE_VERSION}
+        ↓
+FROM node:20
+
+This is why ARG NODE_VERSION is placed at the top in this example.
+
+2. ARG in the middle
+
+You can also define an ARG after FROM:
+
+FROM ubuntu
+
+
+ARG VERSION=1.0
+
+
+RUN echo "Version is $VERSION"
+
+Here ARG is available to instructions after it, such as RUN, COPY, etc.
+
+Important rule
+ARG NODE_VERSION=20
+FROM node:${NODE_VERSION}
+
+ARG before FROM → can be used in FROM.
+
+But:
+FROM node
+ARG VERSION=1.0
+RUN echo $VERSION
+
+ARG after FROM → available from that point onward.
+
+Easy memory
+ARG before FROM
+     ↓
+Can be used by FROM
+
+
+ARG after FROM
+     ↓
+Can be used by later instructions
+
+So in your example:
+
+ARG NODE_VERSION=20
+FROM node:${NODE_VERSION}
+
+it must be before FROM because you're using the variable to decide which base image to use.
+
+
+
+But the important difference is:
+
+ARG
+ ↓
+Build-time variable
+ ↓
+Not automatically available in running container
+
+
+ENV
+ ↓
+Environment variable
+ ↓
+Available in running container
+
+
+ARG
+FROM ubuntu
+ARG VERSION=1.0
+RUN echo $VERSION
+
+VERSION is available to instructions after the ARG line.
+
+But:
+FROM ubuntu
+RUN echo $VERSION
+ARG VERSION=1.0
+
+❌ The RUN before ARG cannot use that ARG.
+
+
+ENV is available during both build time and runtime. ✅
+The RUN happens before ENV is defined, so $APP_VERSION is not available to that RUN.
+But any instruction after ENV can use it:
+
+FROM ubuntu
+ENV APP_VERSION=1.0
+RUN echo $APP_VERSION
+CMD ["bash"]
+
+Main difference
+ARG → build time only
+ENV → build time + runtime
+----------------------------------
+
+VOLUME ["/data"]
+Yes, VOLUME can be placed anywhere after FROM in a Dockerfile.
+
+For example, this is valid:
+
+FROM ubuntu
+RUN apt-get update
+RUN apt-get install -y nginx
+VOLUME ["/data"]
+CMD ["nginx", "-g", "daemon off;"]
+
+Or:
+
+FROM ubuntu
+VOLUME ["/data"]
+RUN apt-get update
+RUN apt-get install -y nginx
+CMD ["nginx", "-g", "daemon off;"]
+
+Both are valid.
+
+But remember the important rule
+VOLUME affects instructions after it.
+
+For example:
+
+FROM ubuntu
+VOLUME ["/data"]
+RUN echo "hello" > /data/file.txt
+
+The /data location is declared as a volume before the RUN.
+
+So the simple rule is:
+
+FROM
+ ↓
+Other Dockerfile instructions
+ ↓
+VOLUME can be declared
+ ↓
+Later instructions can use that location
+ ↓
+CMD / ENTRYPOINT
+
+Unlike ARG before FROM, VOLUME does not have to be at the top.
+
+so after other docker file instruction we can give volume
+
+Yes. ✅ You can put VOLUME after other Dockerfile instructions, as long as it comes after FROM.
+
+For example:
+
+FROM ubuntu
+RUN apt-get update
+RUN apt-get install -y nginx
+ENV APP_HOME=/app
+COPY . /app
+VOLUME ["/data"]
+CMD ["nginx", "-g", "daemon off;"]
+
+This is valid.
+
+Simple rule
+FROM
+ ↓
+RUN
+COPY
+ENV
+WORKDIR
+...
+ ↓
+VOLUME
+ ↓
+CMD / ENTRYPOINT
+
+VOLUME doesn't need to be at the top.
+Just remember one special case:
+ARG before FROM
+can be required when that ARG is used in FROM.
+But VOLUME can be declared later in the Dockerfile.
+
+
+In Dockerfile
+You cannot write: VOLUME ["mydata:/data"]   ❌
+Instead, Dockerfile uses: VOLUME ["/data"]
+This only declares /data as a volume mount point
+
+
+If you're specifically talking about:
+
+VOLUME ["/data"]
+
+then it depends on how you remove the container.
+
+Normal docker rm
+docker rm mycontainer
+
+➡️ Container is deleted.
+➡️ The anonymous volume created for /data is not automatically removed.
+
+docker rm -v
+docker rm -v mycontainer
+➡️ Container is deleted.
+➡️ Its anonymous volume is also removed.
+
+So:
+VOLUME ["/data"]
+        ↓
+Anonymous volume
+        ↓
+docker rm       → volume remains
+docker rm -v    → volume removed
+
+If you explicitly use a named volume:
+
+docker run -v mydata:/data myimage
+
+then:
+docker rm mycontainer
+➡️ mydata remains.
+You must explicitly remove it:
+docker volume rm mydata
+
+Yes. If you use VOLUME ["/data"] and don't provide a named volume yourself, Docker can create an anonymous volume with a generated name.
+
+For example:
+
+FROM ubuntu
+VOLUME ["/data"]
+
+Then: docker run -d --name mycontainer myimage
+
+Docker creates something like:
+Container
+└── /data
+      ↓
+Anonymous volume
+└── 7f3a8c9d...   ← generated name
+
+If you remove the container normally:   docker rm mycontainer
+the anonymous volume can remain.
+You can see it with:   docker volume ls
+You'll see a long generated volume name.
+---------------------------------------------------------
+HEALTHCHECK CMD curl -f http://localhost:8080/health || exit 1
+
+It means Docker will periodically check whether your application is working properly.
+
+Example:   HEALTHCHECK CMD curl -f http://localhost:8080/health || exit 1
+Break it down:
+HEALTHCHECK
+    ↓
+Tell Docker to check the container's health
+
+CMD
+    ↓
+Run this command for the health check
+
+curl -f http://localhost:8080/health
+    ↓
+Try to access the application's health URL
+
+|| exit 1
+    ↓
+If curl fails → return failure
+
+Example
+Suppose your application is running:
+Container
+└── Application
+    └── port 8080
+         └── /health
+
+Docker checks:
+http://localhost:8080/health
+If it responds successfully:  HEALTHY ✅
+If it doesn't respond/fails:  UNHEALTHY ❌
+
+You can see the result with: docker ps
+
+You may see:
+Up 2 minutes (healthy)
+or:
+Up 2 minutes (unhealthy)
+
+Important
+
+HEALTHCHECK does not restart the container by itself.
+It only tells Docker:    "Is my application healthy or not?"
+
+So:
+Application working
+       ↓
+healthcheck succeeds
+       ↓
+healthy ✅
+
+Application not responding
+       ↓
+healthcheck fails
+       ↓
+unhealthy ❌
+-----------------------------------------------
+1. SHELL
+SHELL changes the default shell used by shell-form commands such as RUN, CMD, and ENTRYPOINT.
+
+For Linux, the default shell is usually:  /bin/sh -c
+
+Example:
+
+FROM ubuntu
+SHELL ["/bin/bash", "-c"]
+RUN echo $BASH_VERSION
+Now Docker uses:
+/bin/bash -c
+
+instead of:
+/bin/sh -c
+Why use it?
+
+If your commands require Bash features:
+
+SHELL ["/bin/bash", "-c"]
+
+
+RUN source setup.sh && echo $PATH
+you can make Bash the shell.
+Easy memory: SHELL = which shell should Docker use for shell-form commands?
+
+2. ONBUILD
+
+ONBUILD is different. It says:
+"Don't execute this instruction in this image's own build. Execute it later when another Dockerfile uses this image as its base image."
+
+Example:
+FROM ubuntu
+ONBUILD COPY . /app
+ONBUILD WORKDIR /app
+
+You build this image:  mybase
+
+The ONBUILD instructions are saved as triggers inside mybase.
+Now another Dockerfile says:
+\FROM mybase
+
+At that point, Docker automatically executes:
+COPY . /app
+WORKDIR /app
+Think of it like this
+Build mybase
+     ↓
+ONBUILD instructions are stored
+     ↓
+mybase image
+     ↓
+Another Dockerfile uses:
+FROM mybase
+     ↓
+ONBUILD instructions execute
+Normal COPY vs ONBUILD COPY
+
+Normal:
+COPY . /app  ➡️ Runs while building this image.
+
+With:
+ONBUILD COPY . /app
+➡️ Does not run while building this image.
+➡️ Runs when another image uses this image as its FROM.
+
+Easy memory
+SHELL = change the shell Docker uses.
+ONBUILD = save an instruction for the next image that uses this image as its base.
 
 
 
 
+Then when would ONBUILD be useful?
+ONBUILD is mainly useful when you're creating a base image that other developers/applications will use.
+For example, you create:
+FROM alpine
+ONBUILD COPY . /app
+ONBUILD WORKDIR /app
 
+Build it as:  mybase:1.0
+Then another application's Dockerfile can do:
+
+FROM mybase:1.0
+and the ONBUILD instructions automatically execute for that new application.
+With ONBUILD
+
+Suppose you create this:
+
+FROM alpine
+ONBUILD COPY . /app
+
+Build it:   docker build -t mybase:1.0 .
+
+Now mybase:1.0 is your image.
+Another Dockerfile can then use: FROM mybase:1.0
+Here:
+alpine       → base image used to create mybase
+mybase:1.0   → your newly created image
 
 
