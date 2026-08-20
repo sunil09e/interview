@@ -1087,5 +1087,124 @@ Another Dockerfile can then use: FROM mybase:1.0
 Here:
 alpine       → base image used to create mybase
 mybase:1.0   → your newly created image
+-----------------------------------------------
+# ---------------------------------------------------------
+# 1. ARG before FROM
+#    Build-time variable
+# ---------------------------------------------------------
+ARG UBUNTU_VERSION=24.04
 
+
+# ---------------------------------------------------------
+# 2. FROM
+#    Base image
+# ---------------------------------------------------------
+FROM ubuntu:${UBUNTU_VERSION}
+
+
+# ---------------------------------------------------------
+# 3. LABEL
+#    Image metadata
+# ---------------------------------------------------------
+LABEL maintainer="devops@example.com"
+LABEL app="myapp"
+
+
+# ---------------------------------------------------------
+# 4. ARG after FROM
+#    Build-time variable
+# ---------------------------------------------------------
+ARG APP_VERSION=1.0
+
+
+# ---------------------------------------------------------
+# 5. ENV
+#    Available during build and runtime
+# ---------------------------------------------------------
+ENV APP_HOME=/app
+ENV APP_ENV=production
+
+
+# ---------------------------------------------------------
+# 6. SHELL
+#    Change default shell
+# ---------------------------------------------------------
+SHELL ["/bin/bash", "-c"]
+
+
+# ---------------------------------------------------------
+# 7. RUN
+#    Executes during image build
+# ---------------------------------------------------------
+RUN apt-get update && \
+    apt-get install -y nginx curl && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# ---------------------------------------------------------
+# 8. WORKDIR
+#    Set working directory
+# ---------------------------------------------------------
+WORKDIR ${APP_HOME}
+
+
+# ---------------------------------------------------------
+# 9. COPY
+#    Copy files from build context into image
+# ---------------------------------------------------------
+COPY target/*.jar ${APP_HOME}/app.jar
+
+
+# ---------------------------------------------------------
+# 10. ADD
+#     Copy/extract archive
+#     Example only
+# ---------------------------------------------------------
+# ADD app.tar.gz ${APP_HOME}/
+
+
+# ---------------------------------------------------------
+# 11. EXPOSE
+#     Documents application port
+# ---------------------------------------------------------
+EXPOSE 8080
+
+
+# ---------------------------------------------------------
+# 12. VOLUME
+#     Declare persistent-data location
+# ---------------------------------------------------------
+VOLUME ["/data"]
+
+
+# ---------------------------------------------------------
+# 13. USER
+#     Create and use a non-root user
+# ---------------------------------------------------------
+RUN useradd -m appuser && \
+    chown -R appuser:appuser ${APP_HOME}
+
+USER appuser
+
+
+# ---------------------------------------------------------
+# 14. HEALTHCHECK
+#     Check whether application is healthy
+# ---------------------------------------------------------
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+
+# ---------------------------------------------------------
+# 15. ENTRYPOINT
+#     Main executable
+# ---------------------------------------------------------
+ENTRYPOINT ["java", "-jar"]
+
+
+# ---------------------------------------------------------
+# 16. CMD
+#     Default argument
+# ---------------------------------------------------------
+CMD ["app.jar"]
 
