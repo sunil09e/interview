@@ -113,6 +113,50 @@ Base image = files + libraries + tools that the container needs.
 Host OS = provides the kernel that the container uses.
 
 That's why we need a base image: to give the container its basic environment.
+
+
+1. Suppose you have a private image in Docker Hub
+
+For example:
+Docker Hub
+└── siva/mybase:v1   ← PRIVATE
+Because it is private, anyone cannot pull it without authentication.
+
+2. You mention that image in your Dockerfile
+FROM sunil/mybase:v1
+WORKDIR /app
+COPY . .
+CMD ["python", "app.py"]
+
+Here:
+FROM sunil/mybase:v1
+means: "Use sunil/mybase:v1 as the base image for my new image."
+It doesn't matter whether the image is public or private. The FROM syntax is the same.
+But Docker needs permission to pull it
+
+Before building, login to Docker Hub:
+docker login
+Enter your Docker Hub username and password/token.
+Now Docker knows: "This user is authenticated and can access private images."
+
+4. Now build your image
+docker build -t myapp:v1 .
+
+Docker sees:
+FROM sunil/mybase:v1
+and tries to pull:
+sunil/mybase:v1
+Because you already did docker login, Docker can access the private image.
+
+Simple difference
+Image	docker login needed?	docker pull
+Public	❌ No	✅ Yes
+Private	✅ Yes	✅ Yes
+
+
+
+
+
   -----------------------------------------------------------
 # 2. LABEL or MAINTAINER
 # Add information about the image
