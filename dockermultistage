@@ -5,6 +5,18 @@ Smaller final images
 Faster deployments
 Improved security (no build tools in production)
 Cleaner Dockerfiles
+“Clean final image” means the final Docker image contains only what is needed to run the application, not the tools/files used to build it.
+So the final image is clean because it does not contain:
+❌ Maven
+❌ source code
+❌ pom.xml
+❌ unnecessary build dependencies
+
+It contains only:
+✅ Java runtime
+✅ app.jar
+That's one of the main reasons we use multi-stage Docker builds.
+
 
  by separating the build environment from the runtime environment
 It means we use one environment to build the application and another environment to run it.
@@ -38,6 +50,17 @@ The second image is the runtime environment.
 Simply:
 Build environment  → Creates the application
 Runtime environment → Runs the application
+
+
+Application             	Dependency folder                    	Dependency file	          Build command	           Build output
+React                        	node_modules/        	package.json + package-lock.json	         npm run build        	dist/ or build/
+Java/Maven	                 Maven local dependencies	      pom.xml	                         mvn package           	target/*.jar
+JavaScript/Node.js backend	        node_modules/	        package.json + package-lock.json	    npm start / npm run      build	Depends on application
+Python                         venv / site-packages          requirements.txt                    python app.py          Usually .py files
+
+
+
+
 
 
 1. Normal Dockerfile problem
@@ -94,7 +117,19 @@ Maven
     ↓
 JAR file
 
+Maven reads the pom.xml to understand:
+project information
+dependencies
+plugins
+Java version/configuration
+build configuration
+
+and creates:
+/app/target/app.jar
+
 For example: /app/target/myapp.jar
+
+
 
 Stage 2 — Runtime stage
 FROM eclipse-temurin:17-jre
@@ -123,6 +158,49 @@ Both are valid.
 
 
 
+For example:
+mvn package -DskipTests=true
+
+Maven will:
+Compile your Java code ✅
+Package it into a .jar ✅
+Skip running the tests ⏭️
+Without it
+mvn package
+
+Maven normally does:
+Compile → Test → Package
+With it
+mvn package -DskipTests=true
+
+Maven does:  Compile → Skip Test → Package
+
+
+If you want to skip both test compilation and test execution, use:
+mvn package -Dmaven.test.skip=true
+
+mvn package
+Maven will run the tests.
+
+Flow:
+mvn package
+    ↓
+Compile application ✅
+    ↓
+Compile tests ✅
+    ↓
+Run tests ✅
+    ↓
+Show test results in terminal ✅
+    ↓
+Create JAR ✅
+
+For example, you may see
+Tests run: 5, Failures: 0, Errors: 0
+BUILD SUCCESS
+
+
+
 
 
 
@@ -136,7 +214,7 @@ RUN mvn package -DskipTests
 
 
 FROM eclipse-temurin:17-jre
-WORKDIR /app
+WORKDIR /app                                      you can change the directory between the two stages. They do not have to be the same. In your Dockerfile
 COPY --from=build /app/target/*.jar app.jar
 CMD ["java", "-jar", "app.jar"]
 
@@ -178,6 +256,293 @@ not:
 FROM maven:...
 The Maven build stage is used to produce the application artifact.
 The final image only contains what Stage 2 needs.
+
+
+
+
+
+Node.js example
+This is similar to what you were asking about node_modules.
+
+# Stage 1: Build
+FROM node:22 AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+
+# Stage 2: Production
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+
+
+here
+In the Node/React example, Stage 2 does not have:  like this
+CMD ["java", "-jar", "app.jar"]
+
+because that was for a Java application.
+
+Why no CMD?
+Because Nginx's base image already has its own default startup command.
+When you run the container:     docker run myfrontend:v1
+Nginx starts automatically and serves:
+/usr/share/nginx/html
+        ↓
+      index.html
+        ↓
+    React application
+
+
+for here also we use nginx
+For the Java application shown here, we do not use Nginx.
+
+FROM amazoncorretto:17-alpine
+COPY --from=build /app/target/*.jar app.jar
+CMD ["java", "-jar", "app.jar"]
+
+This is a Java backend application.
+Java backend
+Stage 1
+Maven
+  ↓
+Build JAR
+  ↓
+Stage 2
+Amazon Corretto (Java runtime)
+  ↓
+app.jar
+  ↓
+java -jar app.jar
+  ↓
+Java application :8080
+
+So:
+Maven → builds the Java application
+Amazon Corretto → provides Java to run it
+app.jar → your application
+CMD → starts the application
+Nginx → ❌ not required
+When do we use Nginx?
+
+Usually for a frontend such as React:
+React source
+   ↓
+Node.js + npm build
+   ↓
+dist/
+   ↓
+Nginx
+   ↓
+Browser
+
+So remember:
+
+Java backend → Corretto/JRE → java -jar     FROM amazoncorretto:17.0.8-alpine3.18     FROM eclipse-temurin:17-jre
+React frontend → Nginx → serves dist files
+You can put Nginx in front of a Java backend as a reverse proxy, but it is an additional component, not required just to run the Java application.
+
+
+
+Here:
+Stage 1
+FROM node:22 AS build
+Node is needed to:
+
+package.json
+      ↓
+npm install
+      ↓
+node_modules
+      ↓
+npm run build
+      ↓
+dist/
+Stage 2
+FROM nginx:alpine
+
+Nginx serves the generated frontend files.
+Then:
+COPY --from=build /app/dist /usr/share/nginx/html
+Only dist is copied.
+The final image does not need Node.js or node_modules to serve the already-built frontend
+
+
+If you mean node_modules:
+node_modules is created when you run:
+npm install
+It contains the Node.js packages/dependencies required to build your React application
+So node_modules is not needed in the final Nginx image because Nginx only serves the already-built HTML/CSS/JS files.
+
+
+In Stage 1:
+RUN npm install
+creates:
+
+/app
+├── node_modules/
+├── package.json
+├── package-lock.json
+└── src/
+
+Then:  RUN npm run build
+creates the final frontend files, usually:
+/app/dist/
+
+In Stage 2:
+COPY --from=build /app/dist /usr/share/nginx/html
+only dist is copied.
+So the final Nginx image does not contain node_modules.
+That's one of the main purposes of a multi-stage Docker build:
+
+
+
+
+9. Java vs Node example
+Application     	Build stage	          Final stage
+Java Maven	       Maven + JDK         	JRE + JAR
+Node React	       Node + npm	         Nginx + dist
+Go	               Go compiler	      Small runtime image
+Python	      Python/build dependencies     	Python runtime
+
+
+
+
+
+
+
+this is a normal runtime Dockerfile, not a multi-stage Dockerfile.
+
+Your Dockerfile:
+FROM amazoncorretto:17.0.8-alpine3.18
+EXPOSE 8080
+ENV APP_HOME /usr/src/app
+COPY target/*.jar $APP_HOME/app.jar
+WORKDIR $APP_HOME
+CMD ["java", "-jar", "app.jar"]
+
+What is happening?
+The important line is:
+COPY target/*.jar $APP_HOME/app.jar
+It means Docker expects the JAR to already be built on your machine.
+
+Your project looks like:
+project/
+├── pom.xml
+├── src/
+└── target/
+    └── myapp.jar
+
+So before docker build, you would do:
+mvn package -DskipTests
+Maven reads:
+pom.xml
+   ↓
+builds application
+   ↓
+target/myapp.jar
+
+Then:    docker build -t myapp:v1 .
+
+Docker takes:
+target/myapp.jar
+
+and copies it into:   /usr/src/app/app.jar
+
+Then when the container starts:
+CMD ["java", "-jar", "app.jar"]
+
+Java runs the application.
+So where is pom.xml here?
+It is not copied into the image.
+Because Maven has already built the application outside Docker.
+
+Your machine
+────────────────────
+pom.xml
+   ↓
+mvn package
+   ↓
+target/app.jar
+   ↓
+docker build
+   ↓
+Docker image
+────────────────────
+amazoncorretto
++ app.jar
+
+This is why you don't see:  COPY pom.xml .
+
+
+
+
+Compare with multi-stage
+
+Your current Dockerfile:
+
+Your machine
+   │
+   ├── pom.xml
+   ├── src
+   │
+   └── mvn package
+          ↓
+      target/app.jar
+          ↓
+     Docker build
+          ↓
+     Final image
+
+Multi-stage Dockerfile:
+
+Docker build
+     │
+     ▼
+Build stage
+├── pom.xml
+├── src
+└── Maven
+     │
+     ▼
+target/app.jar
+     │
+     ▼
+Runtime stage
+├── Corretto
+└── app.jar
+
+So the key difference is:
+Your Dockerfile only runs the application. Multi-stage Dockerfile also builds the application inside Docker.
+
+Approach	          Maven build         	Dockerfile
+Your current     Dockerfile	Outside       Docker	Runtime only
+Multi-stage      	Inside Docker	          Build + Runtime
+Your current Dockerfile is actually a very common approach when Jenkins runs mvn package first and then Docker builds the image.
+
+
+
+
+If Maven build is inside Docker
+Then you need a multi-stage Dockerfile:
+
+# Build stage
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn package -DskipTests
+
+
+# Runtime stage
+FROM amazoncorretto:17.0.8-alpine3.18
+EXPOSE 8080
+ENV APP_HOME=/usr/src/app
+WORKDIR $APP_HOME
+COPY --from=build /app/target/*.jar app.jar
+CMD ["java", "-jar", "app.jar"]
+
 
 
 
