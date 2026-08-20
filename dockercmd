@@ -360,6 +360,8 @@ docker run -v /app/data ubuntu
 Docker generates a random volume name.
 Interview: “An anonymous volume is automatically created by Docker and doesn't have a user-defined name.”
 
+-v = runtime volume configuration.
+
 docker volume create my_volume         Create a volume
 docker volume ls                    List volumes:
 docker volume inspect my_volume    Inspect a volume
