@@ -1031,6 +1031,49 @@ Application not responding
 healthcheck fails
        ↓
 unhealthy ❌
+
+
+Correct command:  in outside
+docker inspect --format='{{json .State.Health}}' mycontainer
+Break it down
+docker inspect
+      ↓
+Get detailed information about the container
+
+--format
+      ↓
+Show only the information we request
+
+{{json .State.Health}}
+      ↓
+Show the container's health information as JSON
+
+mycontainer
+      ↓
+Container name
+Example output
+
+If you have a health check:
+
+{
+  "Status": "healthy",
+  "FailingStreak": 0,
+  "Log": []
+}
+
+The important part is: healthy
+Other possible statuses:
+starting
+healthy
+unhealthy
+One important requirement
+.State.Health exists only if the container has a HEALTHCHECK configured.
+For example in a Dockerfile: HEALTHCHECK CMD curl -f http://localhost:80 || exit 1
+Then Docker can report:
+healthy
+If no health check is configured, .State.Health will not contain health information.
+
+
 -----------------------------------------------
 1. SHELL
 SHELL changes the default shell used by shell-form commands such as RUN, CMD, and ENTRYPOINT.
