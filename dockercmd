@@ -22,11 +22,19 @@ docker build -f Dockerfile.dev -t myapp:dev .     Using a different Dockerfile:
 docker rmi myapp:v1                  Remove an image
 docker rmi -f myapp:v1               Force remove an image
 docker image inspect nginx           Inspect an image
-docker tag myapp:v1 username/myapp:v1   Tag an image
+
+push to docker hub
+docker login
+docker tag myapp:v1 username/myapp:v1   Tag an image       myapp:v1 to  username/myapp:v1 
+docker images
+docker push username/myapp:v1 
+
+to take backup and restore
+docker commit <container-id> myapp:v1(create a image name)     container to image
 docker save -o myapp.tar myapp:v1       Save image to a file    myapp.tar is created in your current directory.
 docker save -o ~/myapp.tar myapp:v1       ~ means your home directory.
 docker load -i ~/myapp.tar                 If the file is in your home directory
-docker load -i myapp.tar                Load image from a file
+docker load -i myapp.tar                Load image from a file  file to image  then run  docker run -it --name restored myapp:v1
        Important: -i specifies where the input .tar file is located.
        If myapp.tar is currently in your home directory and you want to move it into the dev directory, use mv.
         mv ~/myapp.tar ~/dev/
