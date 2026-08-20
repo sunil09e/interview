@@ -1,0 +1,366 @@
+Docker Swarm
+
+Docker Swarm is Docker's built-in container orchestration tool.
+It allows you to run containers across multiple Docker machines (nodes) and manage them as one cluster.
+
+Simple idea
+Without Swarm:
+Docker Host 1
+ ├── Container
+ ├── Container
+ └── Container
+
+With Swarm:
+              Swarm Cluster
+                   │
+        ┌──────────┼──────────┐
+        ↓          ↓          ↓
+     Manager     Worker     Worker
+        │          │          │
+   Containers  Containers  Containers
+Important terms
+
+1. Manager node
+The manager controls the Swarm:
+Creates services
+Decides where containers run
+Maintains the desired number of replicas
+Handles cluster management
+
+2. Worker node
+Workers actually run the containers/tasks assigned by the manager.
+
+Create a Swarm
+-------------------
+On the manager:  docker swarm init
+Docker will give you a command similar to:
+
+docker swarm join --token <TOKEN> <MANAGER-IP>:2377
+Run that command on another Docker machine to join it as a worker.
+
+
+You are referring to:
+docker swarm init --advertise-addr 16.22.x.x
+
+What is --advertise-addr?
+It tells the Swarm manager: "This is the IP address that other Swarm nodes should use to reach me."
+
+For example: docker swarm init --advertise-addr 10.0.1.10    10.0.1.10 is just an example private IP address of the Manager EC2 machine.
+Here:
+10.0.1.10
+    ↑
+Manager EC2's private IP
+Then Docker gives you a join command like:
+docker swarm join \
+  --token SWMTKN-... \
+  10.0.1.10:2377
+
+The worker uses:
+Worker EC2
+    |
+    | connect to
+    ↓
+10.0.1.10:2377
+    |
+    ↓
+Manager EC2
+
+
+Why do we specify it?
+An EC2 machine can have multiple IP addresses/interfaces. Swarm needs to know which IP address to advertise to the other nodes.
+For AWS EC2, you normally use the private IP that the other EC2 instances can reach.
+
+
+Without --advertise-addr
+docker swarm init
+Docker automatically chooses an IP address from the machine.
+
+With --advertise-addr
+docker swarm init --advertise-addr 10.0.1.10
+You explicitly tell Docker: "Use 10.0.1.10 as the address that other Swarm nodes should use to reach this manager."
+Then workers join using that address: docker swarm join --token <TOKEN> 10.0.1.10:2377
+Important: --advertise-addr does not create a network and does not make containers communicate. It only tells other Swarm nodes where to reach the manager.
+
+
+
+Docker Swarm commonly uses:
+
+Port	Purpose
+2377/TCP	Swarm management / joining the cluster   Worker/manager joins and Swarm management
+7946/TCP + UDP	Communication between Swarm nodes   
+4789/UDP	Overlay network traffic   Overlay network communication between containers on different nodes
+
+So 2377 is not your application port.
+For example, your application might use:
+8080 → application
+80   → HTTP
+
+while:
+2377 → Docker Swarm management
+On AWS, your Security Group must allow TCP 2377 between the Swarm nodes.
+
+docker swarm init → Manager
+docker swarm join ... → Worker
+docker service create ... → Manager
+docker service scale ... → Manager
+docker service ls → normally Manager
+
+
+When containers are running on different EC2 machines, Swarm uses an overlay network so those containers can communicate with each other across EC2 hosts.
+Example
+Suppose you have 3 EC2 machines:
+
+              Docker Swarm
+                   │
+       ┌───────────┼───────────┐
+       ↓           ↓           ↓
+    EC2-1        EC2-2        EC2-3
+   Manager       Worker       Worker
+       │           │           │
+   web-1        web-2        web-3
+
+Create an overlay network from the manager:       docker network create --driver overlay mynetwork
+
+
+Then create the service using that network:
+docker service create \
+  --name web \
+  --replicas 3 \
+  --network mynetwork \
+  nginx
+
+Now Swarm can place the containers on different EC2 machines:
+
+mynetwork (overlay)
+────────────────────────────────
+EC2-1              EC2-2              EC2-3
+web-1   ←────────→  web-2   ←────────→ web-3
+             communication
+
+How does EC2-1 communicate with EC2-2?
+The Docker Swarm networking layer handles this using the overlay network.
+You don't need to create a separate Docker network manually on every EC2 machine.
+The network is created as a Swarm-wide network, and Docker handles the networking between nodes.
+Important AWS requirement
+
+Your EC2 instances must be able to communicate with each other. The AWS Security Group needs to allow the required Swarm traffic, especially:
+TCP 2377  → Swarm management
+TCP/UDP 7946 → Node communication
+UDP 4789 → Overlay network traffic
+
+
+So the overall picture is:
+             Swarm Manager
+                   │
+          Overlay Network
+                   │
+       ┌───────────┼───────────┐
+       ↓           ↓           ↓
+     EC2-1       EC2-2       EC2-3
+    Container   Container   Container
+       ↕           ↕           ↕
+       └──── communication ────┘
+
+
+
+without network menas how they communicate with other ec2
+Exactly — without an overlay network, the containers cannot communicate with each other using Docker's normal container-networking mechanism across different EC2 machines.
+But there are two levels of networking to understand:
+
+1. EC2 machines can communicate
+AWS networking already connects the EC2 instances:
+EC2-1  ←──── AWS VPC network ────→  EC2-2
+For example, EC2-1 can reach EC2-2's private IP if the Security Group allows it.
+
+2. Containers on different EC2 machines
+Suppose:
+EC2-1                         EC2-2
+  │                             │
+web-1                         web-2
+
+Without an overlay network, web-1 doesn't automatically get a Swarm-wide Docker network path to web-2.
+With an overlay network:
+EC2-1                         EC2-2
+  │                             │
+web-1  ←── overlay network ──→ web-2
+Docker Swarm uses the EC2/VPC network underneath to transport the overlay-network traffic.
+
+
+
+
+EC2 level
+If both EC2 instances are in the same VPC/subnet and their Security Groups allow traffic:
+EC2-1 private IP  ←────────→  EC2-2 private IP
+        AWS VPC network
+
+So EC2-1 can communicate with EC2-2.
+But containers are separate
+Suppose:
+EC2-1                         EC2-2
+┌─────────────┐              ┌─────────────┐
+│  Container A│              │  Container B│
+│ 172.17.0.2  │              │ 172.17.0.2  │
+└─────────────┘              └─────────────┘
+
+Notice something important: Docker's bridge network is local to each EC2.
+
+EC2-1                         EC2-2
+Docker bridge                 Docker bridge
+    │                             │
+Container A                  Container B
+
+The two Docker bridge networks are not one common network.
+Even though the EC2 machines can communicate, Docker doesn't automatically tell Container A:
+"Send this container traffic through EC2-1's network to Container B on EC2-2."
+That's why Swarm creates an overlay network:
+
+EC2-1                         EC2-2
+Container A ←── Overlay ──→ Container B
+                  │
+                AWS VPC
+
+
+
+If your Manager EC2 and Worker EC2 are in the same AWS VPC, use the Manager's private IP for --advertise-addr, not its public IP.
+
+Example:
+Manager EC2
+Private IP: 10.0.1.10
+Public IP:   54.x.x.x
+
+
+Worker EC2
+Private IP: 10.0.1.20
+
+Use:
+docker swarm init --advertise-addr 10.0.1.10
+
+Then the Worker connects to:
+docker swarm join --token <TOKEN> 10.0.1.10:2377
+
+Why?
+Worker EC2
+    │
+    │ AWS VPC private network
+    ↓
+Manager EC2
+10.0.1.10:2377
+
+The private IP is used for communication between EC2 instances inside the VPC.
+So remember:
+Same VPC → use the Manager's private IP for Swarm communication.
+
+
+  
+If the Manager and Worker EC2 are in different VPCs, they cannot normally communicate using their private IPs automatically.
+Same VPC
+VPC
+ ├── Manager EC2: 10.0.1.10
+ └── Worker EC2:  10.0.2.10
+          ↕
+      Can communicate
+Different VPCs
+VPC-A                         VPC-B
+Manager                       Worker
+10.0.1.10                     10.0.1.20
+     ✕  ← no automatic connection →  ✕
+
+You need to establish connectivity between the VPCs, commonly using VPC Peering or Transit Gateway, plus the appropriate route tables and security-group/NACL rules.
+
+Then the Swarm nodes can communicate.
+
+VPC-A                    VPC-B
+Manager  ←────────────→  Worker
+          VPC connection
+
+For Docker Swarm, you must also allow the required ports between the nodes:
+2377/TCP
+7946/TCP + UDP
+4789/UDP
+So the important idea is:
+Different VPC ≠ impossible. It just requires network connectivity between the VPCs first.
+
+
+then now the conatiner can communicate overklay network or vpc peering
+Both work together, but they have different jobs.
+
+Think of 2 layers
+Container A
+    ↓
+Docker Overlay Network
+    ↓
+EC2-1
+    ↓
+AWS VPC / VPC Peering
+    ↓
+EC2-2
+    ↓
+Docker Overlay Network
+    ↓
+Container B
+What does each one do?
+
+VPC Peering provides the underlying connection between the EC2 machines:
+
+VPC-A                         VPC-B
+Manager EC2  ← VPC Peering →  Worker EC2
+
+Overlay network provides the Docker container-to-container network across those EC2 machines:
+
+Container A  ←── Overlay ──→  Container B
+
+So if your Manager and Worker are in different VPCs:
+
+Configure VPC Peering between the VPCs.
+Add the appropriate routes in both VPC route tables.
+Allow Swarm ports in Security Groups.
+Create the Docker overlay network.
+Swarm uses the VPC connection underneath to carry the overlay traffic.
+Full picture
+        VPC-A                         VPC-B
+┌──────────────────┐          ┌──────────────────┐
+│ Manager EC2      │          │ Worker EC2       │
+│                  │          │                  │
+│ Container A      │          │ Container B      │
+└───────┬──────────┘          └──────────┬───────┘
+        │                                │
+        └──── Docker Overlay Network ────┘
+                       │
+                  VPC Peering
+                       │
+                 AWS network
+
+So: VPC Peering connects the EC2 machines; Overlay Network connects the containers. The overlay network depends on the underlying EC2 network being reachable.
+
+
+
+
+Create a service
+For example:
+docker service create --name web --replicas 3 -p 80:80 nginx
+every service going to have unique ID
+  
+This means:
+Service: web
+Replicas: 3
+Image: nginx
+Port: 80
+
+Swarm tries to keep 3 nginx containers running across the cluster.
+
+docker service ls
+docker service ps web    detailed information
+
+
+Scale
+If you want 5 containers:
+docker service scale web=5
+Swarm creates additional replicas.
+
+
+
+
+
+
+
+  
