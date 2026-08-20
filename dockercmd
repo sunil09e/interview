@@ -637,6 +637,7 @@ services:
 Then: docker compose up -d
 Docker Compose will create and start all three containers.
 
+docker compose up       to execute a file  -d to run in background.
 docker compose up -d   Create and start containers in background.
 docker compose ps      See Compose containers.
 docker compose logs    See logs.
@@ -652,6 +653,8 @@ docker compose -f myapp/docker-compose.yml ps       you can see by Outside the f
 docker compose -f myapp/docker-compose.yml logs      You can stay outside and tell Compose exactly where the file is using -f.
 docker compose -f myapp/docker-compose.yml stop
 docker compose -f myapp/docker-compose.yml down
+
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 docker compose images means:   👉 Show the Docker images that are being used by your Docker Compose services.
 If you only want to start frontend:
