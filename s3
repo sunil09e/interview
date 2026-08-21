@@ -1,0 +1,123 @@
+1. S3 Standard
+
+Use frequently.
+
+Example: Website images, videos, application files.
+
+Use often → Standard
+2. S3 Intelligent-Tiering
+
+You don't know how often you'll use the file.
+
+S3 automatically moves the object between appropriate access tiers based on access patterns.
+
+Don't know usage
+      ↓
+Intelligent-Tiering
+      ↓
+AWS automatically optimizes
+
+Example: A file that might be accessed frequently now but rarely later.
+
+3. S3 Standard-IA
+
+Use rarely, but need it quickly when required.
+
+IA = Infrequent Access.
+
+Example: Monthly backup.
+
+Use rarely
+    ↓
+Standard-IA
+4. S3 One Zone-IA
+
+Same idea as Standard-IA, but the data is stored in one Availability Zone.
+
+Use it when the data is not critical and can be recreated.
+
+Example:
+
+Re-creatable data
+       ↓
+One Zone-IA
+
+So:
+
+Standard-IA → Infrequent + multi-AZ design
+One Zone-IA → Infrequent + single AZ
+
+
+
+It means if the data is lost, you can create it again.
+
+For example, suppose your application generates temporary reports:
+
+Application
+    ↓
+Generates report.pdf
+    ↓
+S3 One Zone-IA
+
+If that file is deleted or lost, you can run the application again and generate the report again.
+
+So the data is re-creatable.
+
+Example
+
+Re-creatable data:
+
+Processed images
+Temporary files
+Generated reports
+Backup copies that exist somewhere else
+
+Not easily re-creatable:
+
+Important customer documents
+Original photos
+Important company records
+
+So:
+
+One Zone-IA is suitable when the data is accessed infrequently and you can recreate it if the single Availability Zone has a problem.
+
+
+
+5. S3 Glacier Instant Retrieval
+
+For archive data that you rarely access, but when you need it, you want very fast retrieval.
+
+Example:
+
+Old files
+   ↓
+Rarely accessed
+   ↓
+But need quickly when requested
+   ↓
+Glacier Instant Retrieval
+6. S3 Glacier Flexible Retrieval
+
+For archive data where you can wait for retrieval.
+
+Example:
+
+Old backup
+    ↓
+Rarely needed
+    ↓
+Can wait for retrieval
+    ↓
+Glacier Flexible Retrieval
+7. S3 Glacier Deep Archive
+
+For data that you almost never access and need to keep for a very long time.
+
+Example:
+
+10-year-old records
+       ↓
+Almost never accessed
+       ↓
+Glacier Deep Archive
