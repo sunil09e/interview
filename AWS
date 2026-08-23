@@ -1,1 +1,1061 @@
+“On-demand service” means you can use an AWS resource whenever you need it, without buying the hardware beforehand.
 
+For example:
+
+You need a server → create an EC2 instance
+You don't need it → stop/delete it
+You generally pay based on the usage/pricing model applicable to that resource.
+
+Remember these four:
+
+Scalability → Handle more users by adding resources.
+Elasticity → Automatically add/remove resources based on demand.
+High Availability → Minimize downtime.
+Fault Tolerance → Continue working even when something fails.
+1. What is AWS?
+
+AWS (Amazon Web Services) is a cloud computing platform provided by Amazon.
+
+It provides services such as:
+
+EC2 → Virtual servers
+S3 → Object/file storage
+RDS → Managed databases
+VPC → Virtual network
+IAM → Access and permissions
+EKS → Managed Kubernetes
+
+Interview answer:
+
+AWS is a cloud platform provided by Amazon that offers on-demand services like compute, storage, databases, networking, and security over the internet.
+
+2. What are the main advantages of AWS?
+
+Main advantages are:
+
+Pay-as-you-go – Pay only for what you use.
+Scalability – Increase or decrease resources based on demand.
+Elasticity – Resources can automatically adjust according to workload.
+High availability – Applications can run across multiple locations.
+Global infrastructure – AWS has Regions and Availability Zones around the world.
+Security – Provides services such as IAM, Security Groups, KMS, etc.
+Fast deployment – Resources can be created within minutes.
+
+Interview answer:
+
+The main advantages of AWS are scalability, elasticity, pay-as-you-go pricing, high availability, global infrastructure, security, and fast deployment.
+
+3. What is a Region?
+
+An AWS Region is a geographical area where AWS has multiple data centers.
+
+For example:
+
+Mumbai → ap-south-1
+Singapore → ap-southeast-1
+Frankfurt → eu-central-1
+
+A Region contains multiple Availability Zones.
+
+Simple example:
+
+AWS Region: Mumbai
+       |
+       +--- AZ 1
+       +--- AZ 2
+       +--- AZ 3
+
+Interview answer:
+
+An AWS Region is a geographical location containing multiple isolated Availability Zones.
+
+4. What is an Availability Zone?
+
+An Availability Zone (AZ) is one or more physically separate data centers within an AWS Region.
+
+For example:
+
+Mumbai Region
+     |
+     +--- ap-south-1a
+     +--- ap-south-1b
+     +--- ap-south-1c
+
+Each AZ has independent infrastructure such as power and networking.
+
+The purpose is to improve availability and fault tolerance.
+
+5. Difference between Region and Availability Zone
+Region	Availability Zone
+Geographical location	Isolated location inside a Region
+Contains multiple AZs	Belongs to one Region
+Example: Mumbai	Example: ap-south-1a
+Used for geographical deployment	Used for high availability
+
+Easy way to remember:
+
+Region
+  ↓
+Multiple Availability Zones
+  ↓
+Data centers
+
+Interview answer:
+
+A Region is a geographical area containing multiple Availability Zones, while an Availability Zone is an isolated infrastructure location within that Region.
+
+6. What is the AWS Free Tier?
+
+The AWS Free Tier allows eligible customers to use certain AWS services within specified usage limits at no cost or with free usage allowances.
+
+For example, some AWS services provide free usage for a certain period or amount.
+
+⚠️ Important: Free Tier does not mean every AWS service is completely free. If you exceed the applicable free usage limits or use chargeable resources, you can be billed.
+
+Interview answer:
+
+AWS Free Tier provides eligible customers with limited free usage of certain AWS services so they can learn and experiment with AWS.
+
+7. What is Scalability?
+
+Scalability means the ability of a system to handle increased workload by adding resources.
+
+There are two types:
+
+Vertical scaling:
+
+Small EC2
+   ↓
+Larger EC2
+
+Example: t2.micro → t3.medium
+
+Horizontal scaling:
+
+1 EC2
+ ↓
+3 EC2 instances
+
+You add more servers.
+
+Interview answer:
+
+Scalability is the ability of an application or infrastructure to handle increasing workload by adding resources.
+
+8. What is Elasticity?
+
+Elasticity means automatically increasing or decreasing resources based on demand.
+
+Example:
+
+Normal traffic
+    ↓
+2 EC2 instances
+
+High traffic
+    ↓
+5 EC2 instances
+
+Traffic decreases
+    ↓
+2 EC2 instances
+
+AWS Auto Scaling can help achieve this.
+
+Scalability vs Elasticity
+
+Scalability:
+
+Ability to handle increased workload by adding resources.
+
+Elasticity:
+
+Ability to automatically add or remove resources according to demand.
+
+Easy memory trick:
+
+Scalability = Can grow
+Elasticity = Can grow AND shrink automatically
+
+9. What is High Availability?
+
+High Availability (HA) means designing an application so that it remains available with minimal downtime, even if some infrastructure fails.
+
+For example:
+
+              Load Balancer
+                    |
+          -------------------
+          |                 |
+        EC2-A             EC2-B
+        AZ-1              AZ-2
+
+If EC2-A or its AZ has a problem, traffic can be sent to EC2-B.
+
+Interview answer:
+
+High availability means keeping an application available and minimizing downtime by using redundant resources across multiple Availability Zones.
+
+10. What is Fault Tolerance?
+
+Fault tolerance means a system can continue operating even when a component fails.
+
+Example:
+
+        Application
+             |
+       Load Balancer
+        /         \
+     EC2-A       EC2-B
+       ❌           ✅
+                    |
+              Application
+               continues
+
+If EC2-A fails, EC2-B continues serving the application.
+
+
+11. What is EC2?
+
+EC2 = Elastic Compute Cloud.
+
+It is an AWS service that provides virtual servers in the cloud.
+
+You can use an EC2 server to run:
+
+Applications
+Websites
+Docker containers
+Jenkins
+Web servers like Nginx
+Databases (though managed databases like RDS are usually preferred)
+Simple example
+
+Instead of buying a physical server:
+
+Physical Server
+      ↓
+AWS EC2
+      ↓
+Virtual Server
+
+Interview answer:
+
+EC2 is an AWS compute service that provides resizable virtual servers in the cloud.
+
+12. What is an EC2 Instance?
+
+An EC2 instance is a virtual server created using EC2.
+
+For example:
+
+AWS EC2
+   ↓
+Create instance
+   ↓
+Ubuntu server
+   ↓
+EC2 Instance
+
+You can SSH into that instance and install software.
+
+Easy difference:
+
+EC2 = AWS service
+EC2 instance = Virtual server created using EC2
+
+13. What are EC2 Instance Types?
+
+EC2 instance types define the CPU, memory, network, and other resources available to an instance.
+
+Common categories:
+
+Type	Main purpose
+General Purpose	Balanced CPU + memory
+Compute Optimized	CPU-intensive applications
+Memory Optimized	Memory-intensive applications
+Storage Optimized	High-performance storage
+Accelerated Computing	GPU/AI/ML workloads
+
+Examples:
+
+t3.micro       → General purpose
+t3.medium      → General purpose
+c7i.large      → Compute optimized
+r7i.large      → Memory optimized
+
+Interview answer:
+
+EC2 instance types are different hardware configurations optimized for different workloads, such as general purpose, compute, memory, storage, and accelerated computing.
+
+14. What is an AMI?
+
+AMI = Amazon Machine Image.
+
+An AMI is a template used to create an EC2 instance.
+
+It contains things such as:
+
+Operating system
+Software/configuration
+Root volume information
+
+Example:
+
+AMI
+ ↓
+Ubuntu + required configuration
+ ↓
+Create EC2
+ ↓
+EC2 Instance
+
+AWS provides AMIs such as Ubuntu and Amazon Linux, and you can also create your own custom AMI.
+
+Interview answer:
+
+An AMI is a template containing the information required to launch an EC2 instance.
+
+15. Difference between Stopping and Terminating an EC2 Instance
+Stop
+
+When you stop an instance:
+
+Running
+   ↓
+Stopped
+
+The instance is shut down, but you can start it again.
+
+Example:
+
+EC2 Running
+     ↓ Stop
+EC2 Stopped
+     ↓ Start
+EC2 Running
+Terminate
+
+When you terminate an instance:
+
+Running
+   ↓
+Terminated
+
+The instance is permanently deleted and cannot be started again.
+
+Easy difference
+Stop	Terminate
+Temporarily shuts down	Permanently deletes instance
+Can start again	Cannot start again
+EBS volumes may remain	Root EBS volume is commonly deleted by default
+Instance is retained	Instance is destroyed
+
+Interview answer:
+
+Stopping temporarily shuts down an EC2 instance and allows it to be started again, while terminating permanently deletes the instance.
+
+16. What is a Security Group?
+
+A Security Group acts like a virtual firewall for an EC2 instance.
+
+It controls network traffic using rules such as:
+
+Port 22  → SSH
+Port 80  → HTTP
+Port 443 → HTTPS
+Port 8080 → Application
+
+Example:
+
+Internet
+   ↓
+Security Group
+   ↓
+EC2
+
+If the Security Group allows:
+
+TCP 22 from your IP
+
+you can SSH into the server.
+
+Important point
+
+Security Groups are stateful.
+
+If incoming traffic is allowed, the corresponding response traffic is automatically allowed.
+
+Interview answer:
+
+A Security Group is a stateful virtual firewall that controls inbound and outbound traffic for AWS resources such as EC2 instances.
+
+17. Difference between Security Group and Network ACL
+
+Both control network traffic, but they work at different levels.
+
+Security Group
+
+Works at the instance/ENI level.
+
+Internet
+   ↓
+Security Group
+   ↓
+EC2
+Network ACL
+
+Works at the subnet level.
+
+Internet
+   ↓
+Network ACL
+   ↓
+Subnet
+   ↓
+EC2
+Important differences
+Security Group	Network ACL
+Instance/ENI level	Subnet level
+Stateful	Stateless
+Supports allow rules	Supports allow and deny rules
+Rules are evaluated together	Rules evaluated by rule number
+Commonly used for instance access control	Used for subnet-level network control
+Easy memory
+
+Security Group → EC2
+NACL → Subnet
+
+18. What is an Elastic IP?
+
+An Elastic IP (EIP) is a static public IPv4 address that you can associate with an AWS resource such as an EC2 instance.
+
+Normally, an EC2 public IP can change when you stop and start the instance.
+
+With an Elastic IP:
+
+EC2
+ ↓
+Elastic IP
+ ↓
+Same public IPv4 address
+
+It is useful when you need a stable public IP.
+
+Interview answer:
+
+An Elastic IP is a static public IPv4 address that can be associated with an EC2 instance and remapped when required.
+
+⚠️ AWS billing for Elastic IP addresses has changed over time, so don't assume an EIP is always free.
+
+19. What is EBS?
+
+EBS = Elastic Block Store.
+
+It provides persistent block storage for EC2 instances.
+
+Think of it like a hard disk attached to your virtual server.
+
+EC2
+ |
+ +---- EBS Volume
+        |
+     Data
+
+For example:
+
+EC2
+ ↓
+EBS 20 GB
+ ↓
+Application files
+
+If you stop the EC2 instance, the EBS data normally remains.
+
+Interview answer:
+
+EBS is a persistent block storage service used with EC2 instances to store operating system, applications, and data.
+
+20. Difference between EBS and Instance Store
+EBS
+
+EBS is persistent storage.
+
+EC2
+ ↓
+EBS
+ ↓
+Data remains after instance stop
+Instance Store
+
+Instance Store provides temporary local storage physically associated with the host.
+
+If the EC2 instance is stopped/terminated or the underlying host fails, data in instance store can be lost.
+
+Comparison
+EBS	Instance Store
+Persistent	Temporary/ephemeral
+Network-attached block storage	Local storage on the host
+Can usually survive instance stop	Data can be lost when instance stops/terminates or host fails
+Can be detached/reattached where supported	Cannot be detached like EBS
+
+Easy memory:
+
+EBS = Persistent
+Instance Store = Temporary
+
+21. How do you connect to a Linux EC2 instance?
+
+Usually, you can connect using SSH.
+
+Example:
+
+ssh -i mykey.pem ec2-user@<public-ip>
+
+For Ubuntu, the username is commonly:
+
+ubuntu
+
+So:
+
+ssh -i mykey.pem ubuntu@<public-ip>
+Requirements
+
+You generally need:
+
+EC2 instance running
+Public/reachable network path
+Correct username
+Private key
+Security Group allowing TCP port 22
+Proper routing/network configuration
+
+Flow:
+
+Your Computer
+      |
+     SSH
+      ↓
+Security Group : 22
+      ↓
+EC2 Instance
+
+Interview answer:
+
+I connect to a Linux EC2 instance using SSH with the instance's private key, username, and reachable IP address, while ensuring SSH port 22 is allowed.
+
+22. What happens when an EC2 instance is stopped?
+
+When you stop an EC2 instance:
+
+Running
+   ↓
+Stop
+   ↓
+Stopped
+
+The operating system shuts down and the instance stops running.
+
+Generally:
+
+You stop paying for the instance's compute usage while it is stopped.
+Attached EBS volumes continue to exist and can still incur storage charges.
+The instance can be started again.
+Its private IPv4 address is generally retained while stopped.
+Its public IPv4 address can change when it is started again unless you use an Elastic IP.
+
+Interview answer:
+
+When an EC2 instance is stopped, the compute instance is shut down but its EBS volumes remain, so the instance can be started again later.
+
+23. How can you install software on an EC2 instance?
+
+After connecting to the EC2 instance, use the operating system's package manager.
+
+Amazon Linux
+sudo dnf install nginx
+Ubuntu
+sudo apt update
+sudo apt install nginx
+
+Then start the service, for example:
+
+sudo systemctl start nginx
+
+Check status:
+
+sudo systemctl status nginx
+Other ways
+
+You can also install software using:
+
+Docker
+Shell scripts
+Ansible
+AWS Systems Manager
+User Data during instance launch
+Example
+Create EC2
+    ↓
+SSH into EC2
+    ↓
+Install Docker
+    ↓
+Run application
+
+Interview answer:
+I can install software on an EC2 instance using the operating system's package manager, such as 
+apt for Ubuntu or dnf for Amazon Linux, or use automation tools such as Ansible or AWS Systems Manager.
+
+
+Here, stateful and stateless describe how the firewall handles response traffic.
+
+Stateful — Security Group
+
+If you allow an incoming connection, the response is automatically allowed.
+
+Example:
+
+Your PC
+  ↓  Request
+Security Group
+  ↓
+EC2
+  ↑
+  Response
+
+You only need to allow the incoming rule:
+
+Port 22 → Allow
+
+The response from EC2 is automatically allowed.
+
+Security Group = Stateful
+
+Stateless — Network ACL
+
+NACL does not remember the connection.
+
+You need rules for both directions.
+
+Your PC
+  ↓ Request
+NACL
+  ↓
+EC2
+  ↑ Response
+NACL
+
+You need to allow the incoming traffic and the outgoing response traffic.
+
+NACL = Stateless
+
+Easy memory
+
+Stateful = Remembers the connection
+Stateless = Doesn't remember the connection
+
+So:
+
+Security Group → Stateful
+NACL           → Stateless
+
+What is EFS?
+
+EFS = Elastic File System.
+
+EFS is an AWS shared file storage service. Multiple EC2 instances can access the same files at the same time.
+
+Think of it like a shared network folder.
+
+              EFS
+           /   |   \
+          /    |    \
+       EC2-1 EC2-2 EC2-3
+          \    |    /
+           Same files
+EBS vs EFS
+
+EBS:
+
+EC2-1 → EBS
+
+Usually used as storage for one EC2 instance at a time (though some specialized multi-attach scenarios exist).
+
+EFS:
+
+EC2-1 ─┐
+EC2-2 ─┼→ EFS
+EC2-3 ─┘
+
+Multiple EC2 instances can access the same file system.
+
+Simple example
+
+Suppose you have 3 web servers:
+
+EC2-1 → website files
+EC2-2 → website files
+EC2-3 → website files
+
+If all three need to access the same uploaded images/files, you can use EFS:
+
+EC2-1 ─┐
+EC2-2 ─┼── EFS → shared files
+EC2-3 ─┘
+Interview answer
+
+EFS is a managed, scalable file storage service that allows multiple EC2 instances to access the same files concurrently.
+
+Easy memory:
+
+EBS = storage attached to EC2
+EFS = shared file storage for multiple EC2s
+
+
+24. What is S3?
+
+S3 = Simple Storage Service.
+
+Amazon S3 is an AWS service used to store and retrieve files/data as objects.
+
+You can store:
+
+Images
+Videos
+PDFs
+Backup files
+Application files
+Logs
+Static website files
+
+Example:
+
+Application
+    ↓
+    S3
+    ↓
+Images / Videos / PDFs / Backups
+Interview answer
+
+Amazon S3 is a highly scalable object storage service used to store and retrieve data such as files, images, videos, backups, and logs.
+
+25. What is a Bucket?
+
+A bucket is a container in S3 where objects are stored.
+
+Think of it like a folder/container.
+
+S3
+ |
+ └── Bucket
+      |
+      ├── image.jpg
+      ├── resume.pdf
+      └── video.mp4
+
+Example bucket name:
+
+my-company-backup
+Interview answer
+
+An S3 bucket is a container used to store objects in Amazon S3.
+
+26. What is an S3 Object?
+
+An object is the actual data/file stored inside an S3 bucket.
+
+For example:
+
+Bucket
+   |
+   ├── photo.jpg       ← Object
+   ├── resume.pdf      ← Object
+   └── video.mp4       ← Object
+
+An S3 object consists of things such as:
+
+Data → actual file content
+Key → name/path used to identify the object
+Metadata → information about the object
+Interview answer
+
+An S3 object is the actual file or data stored inside an S3 bucket.
+
+27. Difference between Bucket and Object
+Bucket	Object
+Container	Actual file/data
+Holds objects	Stored inside a bucket
+Example: my-bucket	Example: photo.jpg
+Has a globally unique bucket name	Identified by its object key within a bucket
+
+Simple:
+
+Bucket = Container
+Object = File
+
+Think:
+
+Bucket = Box
+Object = Item inside the box
+
+28. What are S3 Storage Classes?
+
+S3 Storage Classes are different storage options designed for different access patterns and cost requirements.
+
+Common classes include:
+
+Storage class	Used for
+S3 Standard	Frequently accessed data
+S3 Intelligent-Tiering	Data with changing/unknown access patterns
+S3 Standard-IA	Infrequently accessed data
+S3 One Zone-IA	Infrequently accessed, recreatable data
+S3 Glacier Instant Retrieval	Archive data needing fast retrieval
+S3 Glacier Flexible Retrieval	Archive data with flexible retrieval times
+S3 Glacier Deep Archive	Long-term archival
+Easy example
+Frequently used
+      ↓
+S3 Standard
+
+Rarely used
+      ↓
+S3 Standard-IA
+
+Long-term backup
+      ↓
+S3 Glacier
+Interview answer
+
+S3 storage classes are different storage options optimized for different access patterns, availability requirements, retrieval needs, and costs.
+
+29. What is S3 Versioning?
+
+Versioning allows S3 to keep multiple versions of the same object.
+
+Example:
+
+You upload:
+
+resume.pdf → Version 1
+
+Then update it:
+
+resume.pdf → Version 2
+
+Then update again:
+
+resume.pdf → Version 3
+
+S3 can keep the previous versions.
+
+resume.pdf
+   |
+   ├── Version 1
+   ├── Version 2
+   └── Version 3
+
+So if you accidentally overwrite or delete an object, previous versions can help you recover it, subject to your configuration and lifecycle rules.
+
+Interview answer
+
+S3 Versioning keeps multiple versions of an object, helping protect against accidental deletion or overwriting.
+
+30. What is S3 Lifecycle Management?
+
+Lifecycle management automatically moves or deletes objects based on rules you define.
+
+For example:
+
+Day 0
+ ↓
+S3 Standard
+
+After 30 days
+ ↓
+S3 Standard-IA
+
+After 90 days
+ ↓
+S3 Glacier
+
+After 365 days
+ ↓
+Delete
+
+This helps reduce storage costs and manage old data automatically.
+
+Interview answer
+
+S3 Lifecycle Management allows you to automatically transition objects between storage classes or delete them based on predefined rules.
+
+31. How do you make an S3 object private?
+
+By default, S3 uses Block Public Access settings to help prevent unintended public access.
+
+To keep an object private, you should:
+
+Keep S3 Block Public Access enabled unless public access is specifically required.
+Don't grant public s3:GetObject access through bucket policies or ACLs.
+Use IAM permissions or other controlled access mechanisms for authorized users/applications.
+
+Example:
+
+User
+  ↓
+IAM permission
+  ↓
+Private S3 Object
+
+Only authorized users/services can access it.
+
+Interview answer
+
+I keep S3 Block Public Access enabled and grant access only to authorized IAM users or roles through appropriate policies.
+
+32. What is an S3 Bucket Policy?
+
+An S3 bucket policy is a resource-based policy attached to an S3 bucket.
+
+It controls who can perform actions on the bucket or its objects.
+
+For example:
+
+Bucket
+  ↓
+Bucket Policy
+  ↓
+Allow specific AWS account/role
+  ↓
+GetObject
+
+A bucket policy can specify:
+
+Who → Principal
+What action → s3:GetObject
+Which resource → Bucket/object
+Allow or Deny
+Example concept
+Allow
+Role A
+   ↓
+s3:GetObject
+   ↓
+my-bucket/*
+Interview answer
+
+An S3 bucket policy is a resource-based policy attached to a bucket that controls access to the bucket and its objects.
+
+33. Difference between IAM Policy and Bucket Policy
+
+This is an important interview question.
+
+IAM Policy
+
+An IAM policy is generally attached to an IAM identity, such as:
+
+IAM user
+IAM group
+IAM role
+
+Example:
+
+IAM Role
+   ↓
+IAM Policy
+   ↓
+Allow s3:GetObject
+   ↓
+S3
+Bucket Policy
+
+A bucket policy is attached directly to the S3 bucket.
+
+S3 Bucket
+   ↓
+Bucket Policy
+   ↓
+Who can access?
+Difference
+IAM Policy	Bucket Policy
+Identity-based policy	Resource-based policy
+Attached to user/group/role	Attached to S3 bucket
+Defines what the identity can do	Defines who can access the bucket/resource and what they can do
+Commonly used to grant permissions to IAM identities	Can grant access to specific principals, including cross-account access
+Easy memory
+
+IAM Policy → Who is making the request?
+Bucket Policy → What access is allowed on this bucket?
+
+Simple example
+
+Suppose you have:
+
+IAM Role: AppRole
+S3 Bucket: company-data
+
+IAM policy:
+
+AppRole
+   ↓
+Can read S3 objects
+
+Bucket policy:
+
+company-data bucket
+   ↓
+Allows AppRole to read objects
+
+For access to actually work, AWS evaluates the applicable policies together; an explicit Deny can override an Allow.
+
+🔥 S3 Interview Revision
+
+Remember these 10 lines:
+
+S3 → Object storage
+Bucket → Container for objects
+Object → Actual file/data
+Storage Class → Different storage/cost options
+Versioning → Keeps previous versions
+Lifecycle → Automatically transition/delete objects
+Private Object → Don't allow public access; use controlled permissions
+Bucket Policy → Resource-based policy on bucket
+IAM Policy → Identity-based policy
+Bucket vs IAM → Resource-based vs identity-based permissions
+
+
+
+Bucket Policy
+
+A bucket policy is created on the S3 bucket itself.
+
+S3 Bucket
+    ↓
+Bucket Policy
+    ↓
+Defines who can access the bucket
+
+For example:
+
+Bucket: my-bucket
+       ↓
+Bucket Policy
+       ↓
+Allow IAM Role "AppRole"
+       ↓
+Read objects
+Main difference
+IAM Policy
+User / Group / Role
+       ↓
+     S3
+
+Bucket Policy
+     S3 Bucket
+       ↓
+   Who can access?
+
+So remember:
+
+IAM Policy → Attach to User/Group/Role
+Bucket Policy → Attach to S3 Bucket
