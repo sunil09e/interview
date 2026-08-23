@@ -1059,3 +1059,352 @@ So remember:
 
 IAM Policy → Attach to User/Group/Role
 Bucket Policy → Attach to S3 Bucket
+
+
+
+
+34. What is IAM?
+
+IAM = Identity and Access Management.
+
+IAM is an AWS service used to control:
+
+Who can access AWS resources and what they can do.
+
+Example:
+
+IAM
+ |
+ +-- User
+ |
+ +-- Group
+ |
+ +-- Role
+ |
+ +-- Policy
+
+For example:
+
+User: Siva
+     ↓
+Policy
+     ↓
+Can access S3
+
+Interview answer:
+
+IAM is an AWS service used to securely manage identities and control access to AWS resources.
+
+35. What is an IAM User?
+
+An IAM user represents a person or application that needs to interact with AWS.
+
+Example:
+
+IAM
+ |
+ └── User: Siva
+
+A user can have permissions through policies.
+
+For example:
+
+Siva
+ ↓
+IAM Policy
+ ↓
+s3:GetObject
+ ↓
+Can read S3 objects
+
+An IAM user can have credentials such as a password for console access and/or access keys for programmatic access.
+
+Interview answer:
+
+An IAM user is an identity created in AWS for a person or application that needs specific permissions to access AWS resources.
+
+36. What is an IAM Group?
+
+An IAM group is a collection of IAM users.
+
+Instead of giving the same policy separately to 10 users, you can put them in a group and attach the policy to the group.
+
+Example:
+
+Developers Group
+       |
+   ┌───┼────┐
+   ↓   ↓    ↓
+ User1 User2 User3
+
+Attach policy:
+
+Developers Group
+       ↓
+S3 Read Policy
+
+Now the users in the group receive that group's permissions.
+
+Why use groups?
+
+It makes permission management easier.
+
+Interview answer:
+
+An IAM group is a collection of IAM users used to manage common permissions for multiple users.
+
+37. What is an IAM Role?
+
+An IAM role is an identity that provides temporary permissions to whoever or whatever assumes the role.
+
+The important idea is:
+
+A role is meant to be assumed, rather than permanently used by one person.
+
+Example with EC2:
+
+EC2
+ ↓
+IAM Role
+ ↓
+Permission to access S3
+ ↓
+S3
+
+The EC2 instance can obtain temporary credentials through the role.
+
+You don't need to store permanent AWS access keys inside the EC2 server.
+
+Example
+
+Suppose your application running on EC2 needs to read files from S3.
+
+Create:
+
+IAM Role: EC2-S3-Role
+
+Give it:
+
+s3:GetObject
+
+Attach the role to EC2.
+
+Then:
+
+EC2
+ ↓
+Assumes IAM Role
+ ↓
+Temporary credentials
+ ↓
+S3
+ ↓
+Read objects ✅
+
+Interview answer:
+
+An IAM role is an identity with permissions that can be assumed by AWS services, applications, or users to obtain temporary credentials.
+
+38. What is an IAM Policy?
+
+An IAM policy is a JSON document that defines permissions.
+
+It answers:
+
+Who can do what with which resource?
+
+Example:
+
+{
+  "Effect": "Allow",
+  "Action": "s3:GetObject",
+  "Resource": "arn:aws:s3:::my-bucket/*"
+}
+
+Meaning:
+
+Allow
+  ↓
+s3:GetObject
+  ↓
+Objects in my-bucket
+
+So the user/role can read objects from that bucket.
+
+Interview answer:
+
+An IAM policy is a JSON document that defines permissions for AWS resources.
+
+39. Difference between User and Role
+
+This is important.
+
+IAM User
+
+A user represents a specific identity, commonly a person.
+
+Siva
+ ↓
+IAM User
+IAM Role
+
+A role is an identity that can be assumed by a user, AWS service, or application.
+
+EC2
+ ↓
+IAM Role
+ ↓
+Temporary credentials
+Comparison
+User	Role
+Represents a specific identity	Assumable identity
+Often used for individual people	Commonly used by AWS services/applications
+Can have long-term credentials	Provides temporary credentials when assumed
+Example: Siva	Example: EC2-S3-Role
+Easy memory
+
+User = Who you are
+Role = What you can temporarily assume
+
+40. Why should we avoid using the Root User?
+
+The root user has extremely powerful permissions over the AWS account.
+
+If its credentials are compromised, the entire AWS account can be at serious risk.
+
+Therefore:
+
+Root User
+   ↓
+Use only when required
+
+For normal work:
+
+IAM User / IAM Identity Center / IAM Role
+   ↓
+Use required permissions
+
+You should also enable MFA for the root user.
+
+Interview answer:
+
+We should avoid using the root user for daily tasks because it has unrestricted access to the AWS account. We should use appropriately permissioned identities instead.
+
+41. What is the Principle of Least Privilege?
+
+It means:
+
+Give only the permissions that are actually required, and nothing more.
+
+Example:
+
+Your application only needs to read S3 objects.
+
+Don't give:
+
+s3:*
+
+Instead give only:
+
+s3:GetObject
+
+Example:
+
+❌ Too much permission
+
+Application
+   ↓
+s3:*
+   ↓
+Everything
+
+Better:
+
+✅ Least privilege
+
+Application
+   ↓
+s3:GetObject
+   ↓
+Read objects only
+
+Interview answer:
+
+The principle of least privilege means giving users, applications, and services only the minimum permissions required to perform their tasks.
+
+42. How does an EC2 instance access S3 without storing AWS access keys?
+
+This is a very important DevOps interview question.
+
+We use an IAM role attached to the EC2 instance.
+
+Step 1
+
+Create an IAM role:
+
+EC2-S3-Role
+Step 2
+
+Give the role the required permission:
+
+s3:GetObject
+Step 3
+
+Attach the role to the EC2 instance.
+
+EC2
+ ↓
+IAM Role
+ ↓
+S3 permissions
+Step 4
+
+The application on EC2 can access S3 using temporary credentials provided through the EC2 instance metadata service.
+
+EC2 Application
+      ↓
+IAM Role
+      ↓
+Temporary credentials
+      ↓
+S3
+      ↓
+Access granted ✅
+
+There is no need to put permanent AWS access keys in the application code or configuration file.
+
+Why is this better?
+
+Instead of:
+
+EC2
+ ↓
+Hard-coded Access Key ❌
+ ↓
+S3
+
+Use:
+
+EC2
+ ↓
+IAM Role
+ ↓
+Temporary credentials ✅
+ ↓
+S3
+
+This is more secure and follows the principle of least privilege.
+
+🔥 IAM Interview Revision
+
+Remember these:
+
+IAM → Controls AWS access
+User → Individual identity
+Group → Collection of users
+Role → Assumable identity providing temporary credentials
+Policy → Defines permissions
+User vs Role → User is an identity; role is assumed
+Root → Avoid for daily work
+Least Privilege → Give only required permissions
+EC2 → S3 → Use an IAM role, not hard-coded access keys
