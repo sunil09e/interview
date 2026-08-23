@@ -2325,4 +2325,112 @@ So you enter:
 Port = 8080
 
 
+63. What is Auto Scaling?
 
+Auto Scaling is an AWS feature that automatically increases or decreases the number of EC2 instances based on demand.
+
+Example:
+
+Normal traffic → 2 EC2 instances
+Traffic increases → Auto Scaling launches more instances, e.g. 4
+Traffic decreases → Auto Scaling terminates unnecessary instances, e.g. back to 2
+
+Interview answer:
+
+Auto Scaling automatically adjusts the number of EC2 instances according to application demand, helping maintain performance and control cost.
+
+64. What is an Auto Scaling Group?
+
+An Auto Scaling Group (ASG) is a group that manages EC2 instances automatically.
+
+It defines things like:
+
+Minimum capacity → minimum number of instances
+Desired capacity → normal number of instances
+Maximum capacity → maximum number of instances
+
+Example:
+
+Minimum = 2
+Desired = 2
+Maximum = 5
+
+If traffic increases:
+
+2 EC2 → 3 EC2 → 4 EC2 → 5 EC2
+
+If traffic decreases:
+
+5 EC2 → 4 EC2 → 3 EC2 → 2 EC2
+
+The ASG can also replace an EC2 instance if it becomes unhealthy.
+
+65. What is Scaling Out?
+
+Scaling out means adding more EC2 instances to handle increased traffic.
+
+Before:
+[EC2] [EC2]
+
+Traffic ↑
+
+After:
+[EC2] [EC2] [EC2] [EC2]
+
+This is also called horizontal scaling.
+
+66. What is Scaling In?
+
+Scaling in means removing EC2 instances when traffic decreases.
+
+Before:
+[EC2] [EC2] [EC2] [EC2]
+
+Traffic ↓
+
+After:
+[EC2] [EC2]
+
+This reduces unnecessary resource usage and cost.
+
+67. Difference Between Vertical and Horizontal Scaling
+Scaling	Meaning	Example
+Vertical scaling	Increase/decrease the power of one server	t3.micro → t3.large
+Horizontal scaling	Add/remove servers	2 EC2 → 4 EC2
+Easy way to remember:
+
+Vertical = Bigger machine
+
+Small EC2 → Large EC2
+
+Horizontal = More machines
+
+1 EC2 → 2 EC2 → 3 EC2
+
+Auto Scaling Groups mainly use horizontal scaling.
+
+68. How does Auto Scaling improve availability?
+
+Auto Scaling improves availability by maintaining the required number of healthy EC2 instances.
+
+For example:
+
+Load Balancer
+      |
+ ┌────┼────┐
+ ↓    ↓    ↓
+EC2  EC2  EC2
+
+Suppose one EC2 instance fails:
+
+EC2 ❌
+
+The Auto Scaling Group can detect the unhealthy instance and launch a replacement EC2 instance.
+
+EC2 ❌  →  New EC2 ✅
+
+Also, you can configure the ASG across multiple Availability Zones, so if one AZ has a problem, instances in another AZ can continue serving traffic.
+
+Interview answer:
+
+Auto Scaling improves availability by maintaining the desired number of healthy instances, replacing unhealthy instances automatically, and distributing instances across multiple Availability Zones.
