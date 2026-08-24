@@ -2150,7 +2150,7 @@ The Load Balancer communicates with the EC2 through the VPC's private network.
 The EC2 does not need a public IP.
 
 
-explain tghis
+explain this
 
 “Listeners and routing” is a section of an Application Load Balancer (ALB). It controls how the ALB receives requests and where it sends them.
 
