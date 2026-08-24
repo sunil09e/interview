@@ -1839,6 +1839,716 @@ Private IP → Internal network IP.
 Security Group → Stateful firewall for resources.
 NACL → Stateless firewall for subnets.
 
+A Load Balancer distributes incoming user traffic across multiple application servers.
+
+Example:
+
+                 Users
+                   │
+                   ▼
+            Load Balancer
+              /         \
+             ▼           ▼
+          EC2-1         EC2-2
+        Application   Application
+
+Instead of every user request going to one EC2, the Load Balancer distributes requests among available EC2 instances.
+
+57. Why do we use a Load Balancer?
+
+Main reasons:
+
+1. Distribute traffic
+              Load Balancer
+              /     |      \
+             ↓      ↓       ↓
+           EC2-1  EC2-2   EC2-3
+2. High availability
+
+If one EC2 fails, traffic can go to another healthy EC2.
+
+3. Scalability
+
+If traffic increases, you can add more EC2 instances.
+
+Low traffic:
+
+ALB → EC2-1
+
+High traffic:
+
+ALB → EC2-1
+    → EC2-2
+    → EC2-3
+4. Health checking
+
+The Load Balancer checks whether the application servers are healthy.
+
+58. What is an Application Load Balancer?
+
+ALB = Application Load Balancer.
+
+It operates at Layer 7 (application layer) and understands HTTP/HTTPS traffic.
+
+It can make routing decisions based on:
+
+URL path
+Host name
+HTTP headers
+Query strings
+
+Example:
+
+User
+  ↓
+ALB
+ ├── /api/*     → Backend EC2
+ └── /images/*  → Image server
+
+Another example:
+
+app.example.com     → Application A
+api.example.com     → Application B
+Your architecture
+Internet
+    ↓
+Internet-facing ALB
+    ↓
+Target Group
+    ↓
+Private EC2
+    ↓
+Application
+
+The ALB can be in public subnets, while your application EC2 instances can remain in private subnets.
+
+59. What is a Target Group?
+
+A Target Group is a collection of targets that the Load Balancer sends traffic to.
+
+Targets can include:
+
+EC2 instances
+IP addresses
+Lambda functions
+Containers, depending on the configuration
+
+For your EC2 example:
+
+                 ALB
+                  │
+                  ▼
+             Target Group
+              /        \
+             ↓          ↓
+          EC2-1       EC2-2
+         Private      Private
+          Subnet       Subnet
+
+The ALB does not simply randomly choose every EC2.
+
+It sends traffic to the healthy targets registered in the Target Group.
+
+60. What is a Health Check?
+
+A health check allows the Load Balancer to determine whether an application server is working properly.
+
+For example, you configure:
+
+Protocol: HTTP
+Port: 8080
+Path: /health
+
+The Load Balancer periodically sends:
+
+GET /health
+
+to the EC2.
+
+If the application responds correctly:
+
+EC2-1 → Healthy
+
+If it doesn't respond correctly:
+
+EC2-2 → Unhealthy
+
+The ALB stops sending normal user traffic to the unhealthy target.
+
+Example:
+
+                ALB
+                 │
+          Target Group
+          /           \
+         ↓             ↓
+      EC2-1          EC2-2
+     Healthy        Unhealthy
+        ↑
+   Traffic goes here
+61. Difference between ALB and NLB?
+ALB — Application Load Balancer
+
+Works at Layer 7.
+
+It understands application protocols such as HTTP/HTTPS.
+
+Good for:
+
+Web applications
+REST APIs
+URL-based routing
+Host-based routing
+
+Example:
+
+ALB
+ ├── /users → User service
+ └── /orders → Order service
+NLB — Network Load Balancer
+
+Works mainly at Layer 4.
+
+It handles TCP, UDP, and TLS traffic.
+
+Good when you need:
+
+Very high performance
+Very low latency
+TCP/UDP applications
+Static IP support/use cases
+Simple comparison
+ALB	NLB
+Layer 7	Layer 4
+HTTP/HTTPS	TCP/UDP/TLS
+Understands URLs	Doesn't perform URL-based routing like ALB
+Path-based routing	No path-based routing
+Host-based routing	No host-based routing
+Web applications	Network-level applications
+
+For a normal HTTP/HTTPS web application, you would commonly choose an ALB.
+
+62. What happens if one EC2 instance becomes unhealthy?
+
+This is very important.
+
+Suppose you have:
+
+                 ALB
+                  │
+             Target Group
+             /           \
+            ↓             ↓
+         EC2-1          EC2-2
+        Healthy        Healthy
+
+Both receive traffic.
+
+Now EC2-1 has a problem:
+
+                 ALB
+                  │
+             Target Group
+             /           \
+            ↓             ↓
+         EC2-1          EC2-2
+       Unhealthy        Healthy
+
+The ALB's health check detects that EC2-1 is unhealthy.
+
+The ALB then stops sending new requests to EC2-1.
+
+                 ALB
+                  │
+                  │
+                  ▼
+                EC2-2
+               Healthy
+
+Users can continue accessing the application through EC2-2.
+
+With two Availability Zones
+
+This becomes even better:
+
+                     ALB
+                  /       \
+                 /         \
+              AZ-1         AZ-2
+               │             │
+          Private Subnet  Private Subnet
+               │             │
+             EC2-1         EC2-2
+           Unhealthy       Healthy
+                              ↑
+                         User traffic
+
+If EC2-1 fails, the ALB can continue sending traffic to EC2-2.
+
+⭐ Interview answers to remember
+
+56. What is a Load Balancer?
+
+A Load Balancer distributes incoming traffic across multiple healthy application servers.
+
+57. Why use it?
+
+For load distribution, high availability, scalability, and health checking.
+
+58. What is ALB?
+
+Application Load Balancer is a Layer 7 load balancer designed mainly for HTTP/HTTPS applications.
+
+59. What is a Target Group?
+
+A Target Group contains the backend targets, such as EC2 instances, to which the Load Balancer forwards traffic.
+
+60. What is a Health Check?
+
+A health check periodically checks whether a target is healthy and able to receive traffic.
+
+61. ALB vs NLB?
+
+ALB works at Layer 7 for HTTP/HTTPS and supports application-level routing.
+NLB works at Layer 4 for TCP/UDP/TLS and is designed for high-performance network traffic.
+
+
+Network Load Balancer (NLB)
+
+NLB = Network Load Balancer.
+
+It is an AWS Load Balancer that works mainly at Layer 4 (Transport Layer) and distributes network traffic based on IP address and port.
+
+Simple flow
+User
+  ↓
+Internet
+  ↓
+Network Load Balancer
+  ↓
+Target Group
+  ↓
+EC2
+
+For example:
+
+User
+ ↓
+NLB : 443
+ ↓
+Target Group : 8080
+ ↓
+EC2 : 8080
+NLB vs ALB
+ALB	NLB
+Layer 7	Layer 4
+HTTP/HTTPS	TCP/UDP/TLS
+Understands HTTP requests	Works with network connections
+Path routing: /users	No HTTP path-based routing
+Host routing: api.example.com	No HTTP host-based routing
+Web applications	TCP/UDP/high-performance applications
+Example of ALB
+ALB
+ ↓
+IF path = /users
+ ↓
+Users Target Group
+
+NLB doesn't look at /users. It mainly looks at things such as:
+
+Destination IP
+Destination Port
+Protocol
+When would you use NLB?
+
+For example, if your application needs:
+
+TCP traffic
+UDP traffic
+Very high throughput
+Very low latency
+Static IP addresses
+Non-HTTP applications
+Easy interview answer
+A Network Load Balancer is a Layer 4 load balancer that distributes TCP, UDP, and TLS traffic to healthy targets based on network-level information such as IP addresses and ports.
+
+
+We use an NLB (Network Load Balancer) when we need fast, high-performance network-level traffic handling, especially for TCP, UDP, or TLS traffic.
+
+Main reasons to use NLB
+
+1. TCP/UDP applications
+
+If your application doesn't use HTTP/HTTPS:
+
+Client
+  ↓
+NLB
+  ↓
+TCP application
+
+For example, an application using TCP on port 5000.
+
+2. Very high traffic
+
+NLB is designed to handle very large amounts of traffic with low latency.
+
+Many users
+    ↓
+   NLB
+  / | \
+ ↓  ↓  ↓
+EC1 EC2 EC3
+
+3. Very low latency
+
+NLB operates at Layer 4, so it doesn't need to understand HTTP requests like an ALB does.
+
+NLB
+ ↓
+IP + Port
+ ↓
+Target
+
+4. Static IP requirements
+
+NLB can provide static IP addresses, which can be useful when clients need to whitelist a fixed IP.
+
+ALB vs NLB — simple example
+
+If you have a normal website:
+
+User
+ ↓
+HTTPS : 443
+ ↓
+ALB
+ ↓
+Web application
+
+Use ALB.
+
+If you have a TCP application:
+
+Client
+ ↓
+TCP : 5000
+ ↓
+NLB
+ ↓
+Application
+
+Use NLB.
+
+Interview answer
+
+We use an NLB when we need Layer 4 load balancing for TCP/UDP/TLS traffic, very high throughput, low latency, or static IP addresses.
+
+For your normal HTTP/HTTPS application, remember:
+
+ALB → web applications
+NLB → network-level TCP/UDP/high-performance applications
+
+
+Example: Online Gaming Server
+
+Suppose you have a multiplayer game:
+
+Game Players
+   │
+   │ TCP : 5000
+   ▼
+NLB
+   │
+   ├─────────────┐
+   ▼             ▼
+Game Server 1  Game Server 2
+EC2 : 5000     EC2 : 5000
+
+The players need a persistent TCP connection to the game servers.
+
+Here, an NLB is suitable because it works at Layer 4 and can handle TCP traffic without needing to understand HTTP.
+
+Another example: Database proxy
+
+Suppose applications connect to a database service through TCP:
+
+Applications
+     ↓
+NLB : 5432
+     ↓
+Database/Proxy Servers
+     ├── Server 1 : 5432
+     └── Server 2 : 5432
+
+5432 is commonly used by PostgreSQL.
+
+Another example: IoT
+
+IoT devices can send data using TCP or UDP:
+
+IoT Devices
+    ↓
+NLB
+    ↓
+EC2 Servers
+    ↓
+IoT Application
+Easy way to remember
+
+ALB example:
+
+Browser → ALB → Web application
+          ↓
+        HTTP/HTTPS
+
+NLB example:
+
+Game/IoT/TCP client → NLB → TCP application
+                      ↓
+                    TCP/UDP
+
+So if the application is a normal website using HTTP/HTTPS, think ALB. If it's a TCP/UDP network application, think NLB.
+
+62. What if one EC2 becomes unhealthy?
+
+The Load Balancer detects it through health checks and stops sending new traffic to that unhealthy instance, sending traffic to healthy targets instead.
+
+
+So what should you enter?
+
+Look at where your application is running.
+
+ALB Listener	Application	Target Group Port
+80	Port 80	80
+80	Port 8080	8080
+443	Port 8080	8080
+443	Port 80	80
+443	Port 5000	5000
+
+Not only 80 or 443. An ALB listener can listen on other ports too, such as 8080, 3000, etc.
+
+But for normal web applications, we commonly use:
+
+80 → HTTP
+443 → HTTPS
+
+
+To connect an EC2 instance to an AWS Load Balancer, you normally use a Target Group.
+
+The flow is:
+
+User → Load Balancer → Target Group → EC2
+
+Steps
+Create EC2
+EC2 must be running.
+Your application should be running on a port, for example 8080.
+Create a Target Group
+AWS Console → EC2 → Target Groups
+Click Create target group
+Target type: Instances
+Protocol: HTTP
+Port: 8080 (if your application uses 8080)
+Health check path: / or /health
+Register your EC2
+In the target group, choose Register targets
+Select your EC2 instance
+Select port 8080
+Click Include as pending
+Click Register pending targets
+Create the Load Balancer
+EC2 → Load Balancers
+Create Application Load Balancer
+Select your VPC
+Select at least 2 Availability Zones/subnets
+Select the Load Balancer Security Group.
+
+Connect Load Balancer to Target Group
+When creating the ALB:
+
+Listener: HTTP : 80
+Forward to your target group.
+
+So:
+
+Client → ALB :80 → Target Group :8080 → EC2 :8080
+
+Security Groups
+
+Load Balancer SG:
+
+Inbound
+HTTP 80 → 0.0.0.0/0
+
+EC2 SG:
+
+Inbound
+TCP 8080 → Source: Load Balancer Security Group
+
+This is important: don't allow port 8080 from everyone if only the load balancer needs to access your application.
+
+Example
+
+Suppose:
+
+EC2 private IP = 10.0.2.15
+Application = running on port 8080
+ALB = port 80
+
+The request goes:
+
+Browser
+   ↓
+ALB :80
+   ↓
+Target Group
+   ↓
+EC2 10.0.2.15:8080
+   ↓
+Application
+
+The Target Group is the connection between the Load Balancer and EC2.
+
+
+From the AWS console:
+
+Go to EC2
+Click Load Balancers
+Select your Application Load Balancer
+Go to Listeners and rules
+Click HTTP:80
+You should see Rules
+Click Add rule / Manage rules
+Click Add condition
+Select Path
+Enter:
+/users/*
+Then choose Forward to target groups
+Select your Users target group.
+
+It will look like:
+
+HTTP:80
+   |
+   |-- Rule: /users/*  → Users-TG → EC2-1
+   |
+   |-- Rule: /admin/*  → Admin-TG → EC2-2
+   |
+   |-- Rule: /api/*    → API-TG   → EC2-3
+   |
+   └-- Default rule    → Default-TG
+
+The screenshot you sent is the Listener creation page. The /users/* path is configured later under the listener's Rules.
+
+
+
+so login mens ec2 so 1 target the admin means another target grpup
+
+Yes, if login and admin are separate applications running on separate EC2 instances, then you can use separate target groups.
+
+For example:
+
+                    ALB
+                 HTTP :80
+                    |
+          Listener Rules
+          /             \
+     /login/*         /admin/*
+        |                |
+     Login-TG          Admin-TG
+        |                |
+      EC2-1            EC2-2
+     Login App        Admin App
+But important
+
+A target group is not necessarily one EC2.
+
+For example, Login application can have 2 EC2 instances:
+
+Login-TG
+   ├── EC2-1
+   └── EC2-2
+
+Then the ALB distributes /login/* traffic between those EC2s.
+
+Similarly:
+
+Admin-TG
+   ├── EC2-3
+   └── EC2-4
+
+So:
+
+Application → Target Group → one or more EC2 instances
+
+And the ALB rule decides which target group receives the request.
+
+What is a Load Balancer?
+
+A Load Balancer receives requests from users and forwards those requests to available backend servers (such as EC2 instances).
+
+                Users
+                  |
+                  v
+          +----------------+
+          | Load Balancer  |
+          +----------------+
+             /     |     \
+            /      |      \
+           v       v       v
+        EC2-1    EC2-2    EC2-3
+
+The user normally sends the request to the Load Balancer, not directly to a particular EC2 instance.
+
+2. Why do we need a Load Balancer?
+
+Suppose you have only one EC2:
+
+100 users
+    |
+    v
+  EC2
+
+If 1,000 or 10,000 users come at the same time, that one EC2 may become overloaded.
+
+So we create multiple EC2 instances:
+
+              Load Balancer
+             /      |      \
+            v       v       v
+          EC2-1   EC2-2   EC2-3
+
+Now the traffic can be spread across multiple servers.
+
+Main reasons:
+
+Handle more traffic
+Prevent one server from becoming overloaded
+Improve availability
+Automatically avoid unhealthy servers
+Allow scaling by adding/removing EC2 instances
+3. How does it distribute traffic?
+
+Suppose three EC2 instances are available:
+
+EC2-1
+EC2-2
+EC2-3
+
+Users send requests:
+
+Request 1 ──> Load Balancer ──> EC2-1
+Request 2 ──> Load Balancer ──> EC2-2
+Request 3 ──> Load Balancer ──> EC2-3
+Request 4 ──> Load Balancer ──> EC2-1
+Request 5 ──> Load Balancer ──> EC2-2
+
+The exact algorithm depends on the type/configuration of load balancer and routing rules.
+For an AWS Application Load Balancer, it uses the configured target group and distributes requests among healthy targets.
+
+
+
 
 Yes. For one VPC with one public subnet and one private subnet, the structure is like this:
 
