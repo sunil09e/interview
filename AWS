@@ -2434,3 +2434,257 @@ Also, you can configure the ASG across multiple Availability Zones, so if one AZ
 Interview answer:
 
 Auto Scaling improves availability by maintaining the desired number of healthy instances, replacing unhealthy instances automatically, and distributing instances across multiple Availability Zones.
+
+
+
+
+
+
+8. Database
+69. What is RDS?
+
+Amazon RDS (Relational Database Service) is an AWS managed service for running relational databases.
+
+It supports databases such as:
+
+MySQL
+PostgreSQL
+MariaDB
+Oracle
+SQL Server
+Aurora
+
+AWS manages many administrative tasks such as backups, patching, and infrastructure maintenance.
+
+Interview answer:
+
+Amazon RDS is a managed relational database service in AWS that makes it easier to set up, operate, and scale relational databases.
+
+70. Difference between RDS and DynamoDB?
+RDS	DynamoDB
+Relational database	NoSQL database
+Uses tables with rows and columns	Uses tables with items and attributes
+Supports SQL	Does not use traditional SQL as its primary query model
+Supports relationships between data	Designed for key-value/document data
+Examples: MySQL, PostgreSQL	AWS DynamoDB
+Good for structured relational applications	Good for highly scalable applications with flexible data
+Simple example
+
+RDS:
+
+Customers
+-------------------------
+ID | Name | Email
+1  | Siva | siva@gmail.com
+2  | Ravi | ravi@gmail.com
+
+DynamoDB:
+
+Customer
+{
+  "id": 1,
+  "name": "Siva",
+  "email": "siva@gmail.com"
+}
+
+Easy memory:
+
+RDS = SQL / relational
+DynamoDB = NoSQL / highly scalable
+
+71. What is a Multi-AZ deployment?
+
+Multi-AZ means having a database deployment across multiple Availability Zones for high availability.
+
+Example:
+
+             RDS
+              |
+       ┌──────┴──────┐
+       ↓             ↓
+   AZ-1           AZ-2
+ Primary         Standby
+    DB              DB
+
+If the primary database fails, RDS can fail over to the standby.
+
+The standby is mainly for high availability, not for handling normal read traffic.
+Primary = currently active database
+Standby = ready to take over if Primary fails
+Interview answer:
+
+Multi-AZ provides high availability by maintaining a standby database in another Availability Zone and automatically failing over when the primary database has a problem.
+
+72. What is a Read Replica?
+
+A Read Replica is a copy of a database that is used mainly to handle read requests.
+
+Example:
+
+              Application
+             /           \
+          Write          Read
+            ↓              ↓
+        Primary DB     Read Replica
+
+Suppose your application receives many SELECT queries.
+
+Instead of sending all reads to the primary database, you can send some reads to the Read Replica.
+
+This helps improve read performance and reduce load on the primary database.
+
+73. Difference between Multi-AZ and Read Replica?
+
+This is an important interview question.
+
+Multi-AZ	Read Replica
+Mainly for high availability	Mainly for read performance/scaling
+Has a standby database	Has a readable replica
+Used for failover	Used to handle read traffic
+Standby generally doesn't serve normal read traffic	Replica can serve read requests
+Automatic failover	Not primarily a failover mechanism
+Easy memory:
+Multi-AZ      → Availability
+Read Replica  → Read performance
+
+Example:
+
+Multi-AZ:
+
+Primary DB ─────→ Standby DB
+     ↓
+   Failure
+     ↓
+Standby becomes primary
+Read Replica:
+
+             ┌→ Read Replica 1
+Primary DB ──┼→ Read Replica 2
+             └→ Application reads
+74. What is Amazon Aurora?
+
+Amazon Aurora is an AWS-managed relational database engine designed to be compatible with MySQL and PostgreSQL.
+
+It is part of Amazon RDS.
+
+Amazon RDS
+   |
+   ├── MySQL
+   ├── PostgreSQL
+   ├── Oracle
+   ├── SQL Server
+   ├── MariaDB
+   └── Aurora
+          ├── Aurora MySQL
+          └── Aurora PostgreSQL
+
+Aurora is designed for high performance, availability, and scalability.
+
+Interview answer:
+
+Amazon Aurora is a fully managed relational database engine from AWS that is compatible with MySQL and PostgreSQL and is designed for high performance and high availability.
+
+What is a Read Replica?
+
+A Read Replica is a copy of your primary database that is mainly used to handle READ requests.
+
+Suppose your application has one database:
+
+             Application
+                  |
+                  ↓
+             Primary DB
+                  |
+        ┌─────────┴─────────┐
+        ↓                   ↓
+      READ                WRITE
+   SELECT query       INSERT/UPDATE
+
+If thousands of users are reading data, the Primary DB has to handle all those requests.
+
+A Read Replica helps by taking some of the read traffic away from the Primary.
+
+Why do we need it?
+
+Imagine your application gets:
+
+10,000 READ requests
+   +
+1,000 WRITE requests
+
+If everything goes to one database:
+
+              Application
+                   |
+                   ↓
+              Primary DB
+                   ↑
+          11,000 requests
+
+The Primary DB has a lot of work.
+
+Instead, we can use Read Replicas:
+
+                 Application
+                /     |      \
+               ↓      ↓       ↓
+             Reads   Reads   Writes
+               ↓      ↓       ↓
+            Replica  Replica  Primary
+
+Now the Read Replicas handle many of the read requests.
+
+Common READ operations
+SELECT → READ
+View product details → READ
+View profile → READ
+View order history → READ
+
+It takes a copy of the database. It does not use the same database storage.
+
+Read Replica
+             Primary Database
+             (original data)
+                    |
+                    | copies/replicates data
+                    ↓
+             Read Replica
+             (copy of data)
+
+The Read Replica is a separate database instance containing a copy of the primary database's data.
+
+Then the application can do:
+
+READ request
+     ↓
+Read Replica
+     ↓
+Gets the data
+
+You create a Read Replica from the RDS console, using your existing primary database.
+
+Steps in AWS
+Go to AWS Console
+Search RDS
+Select Databases
+Click your existing DB instance
+Click Actions
+Choose Create read replica
+Select the settings for the replica
+Click Create read replica
+
+If you create RDS MySQL, you're using:
+
+AWS RDS service
+       ↓
+MySQL database engine
+
+If you create Aurora, you're using:
+
+AWS RDS service
+       ↓
+Aurora database engine
+       ↓
+AWS's own technology
+
+So RDS itself is AWS, but some of the database engines that RDS supports were developed by other organizations.
