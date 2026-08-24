@@ -649,6 +649,38 @@ CloudWatch
  ├── Disk
  └── Logs
 
+We attach the IAM role to EC2 so the CloudWatch Agent has permission to send information to CloudWatch.
+
+Think of it like this:
+
+EC2
+ │
+ │ "I want to send my logs,
+ │  memory and disk information"
+ ↓
+IAM Role
+ │
+ │ gives permission
+ ↓
+CloudWatch
+Without the role
+
+The CloudWatch Agent may be installed on EC2, but AWS can say:
+
+❌ "This EC2 is not authorized to send this data."
+
+With the role
+
+The role contains:
+
+CloudWatchAgentServerPolicy
+
+This policy gives the EC2/CloudWatch Agent the required permissions to communicate with CloudWatch.
+The IAM role does not collect the logs.
+
+CloudWatch Agent → collects logs, memory, disk, etc.
+IAM Role → gives the agent permission to send them to CloudWatch.
+
 Important: Creating and attaching the role gives the agent permission to send data. You still need to install/configure the CloudWatch Agent to collect memory, disk usage, and logs.
 
 If you want, I can now show you exactly how to install the CloudWatch Agent after attaching this role, including what to select in the configuration wizard.
