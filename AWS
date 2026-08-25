@@ -3493,3 +3493,183 @@ Whereas:
 RDS → SQL → Table → Rows → Columns
 
 So, yes, when learning DynamoDB, think of each item as a JSON-like object.
+
+
+DynamoDB — Interview Answer
+
+Amazon DynamoDB is a fully managed, serverless NoSQL database service provided by AWS. It stores data as items with attributes, which can be represented in a JSON-like format. It is designed for fast and scalable data access without managing database servers.
+
+Example:
+
+{
+  "UserID": 101,
+  "Name": "Siva",
+  "Email": "siva@gmail.com"
+}
+
+Key points to remember:
+
+NoSQL database
+Fully managed by AWS
+Serverless
+Stores items and attributes
+Supports key-value and document data models
+Provides fast performance and automatic scaling
+No need to manage database servers
+
+One-line interview answer:
+
+DynamoDB is AWS's serverless NoSQL database that stores data as items and attributes and provides fast, scalable access without managing servers.
+
+RDS — Interview Answer
+
+Amazon RDS (Relational Database Service) is a fully managed relational database service provided by AWS. It allows us to run databases such as MySQL, PostgreSQL, MariaDB, Oracle, and SQL Server without managing the underlying database infrastructure.
+
+Example
+
+RDS stores data in tables, rows, and columns:
+
+Users Table
+
+
+UserID | Name | Email
+-------|------|----------------
+101    | Siva | siva@gmail.com
+102    | Arun | arun@gmail.com
+Key points
+Relational / SQL database
+Fully managed by AWS
+Data stored in tables, rows, and columns
+Supports relationships between tables
+Supports SQL queries
+AWS handles tasks such as backups, patching, and infrastructure management
+Supports MySQL, PostgreSQL, MariaDB, Oracle, SQL Server, and Db2
+One-line interview answer
+
+Amazon RDS is a fully managed AWS relational database service that allows us to run SQL databases without managing the underlying servers and database infrastructure.
+
+without managing the underlying servers and database infrastructure.
+
+means
+
+It means AWS manages the database server for you.
+
+For example, normally if you install MySQL yourself:
+
+You
+ ↓
+EC2 server
+ ↓
+Install MySQL
+ ↓
+Configure MySQL
+ ↓
+Backups
+ ↓
+Patching
+ ↓
+Maintenance
+
+With RDS:
+
+You
+ ↓
+RDS
+ ↓
+MySQL
+
+AWS manages much of the infrastructure and routine database operations, such as:
+
+Server provisioning
+Database installation
+Automated backups
+Software patching
+Monitoring
+High availability options
+
+You mainly focus on your database, tables, and application.
+
+So when we say:
+
+"without managing the underlying servers and database infrastructure"
+
+it means:
+
+You don't have to create and maintain the EC2 server yourself just to run your database. AWS provides and manages that infrastructure through RDS.
+
+
+
+Exactly — DynamoDB goes one step further than RDS in terms of server management.
+
+RDS
+
+You don't manage the physical server, but you choose/manage a database instance.
+
+Your application
+       ↓
+      RDS
+       ↓
+   MySQL/PostgreSQL
+       ↓
+   AWS-managed server
+
+You still choose things like instance class, storage, database engine, etc.
+
+DynamoDB
+
+You don't manage database servers or database instances at all.
+
+Your application
+       ↓
+   DynamoDB
+       ↓
+     Table
+       ↓
+    Items
+
+You simply create a table and store/retrieve items.
+
+Main difference
+	RDS	DynamoDB
+Type	Relational	NoSQL
+Data	Tables/rows/columns	Items/attributes
+SQL	✅ Yes	❌ No traditional SQL
+Server management	AWS manages infrastructure	AWS manages everything
+Database instance	You select/manage configuration	❌ No instance
+Scaling	Configure scaling	Designed for automatic scaling
+
+Simple interview line:
+
+RDS is a managed relational database where AWS manages the infrastructure, while DynamoDB is a serverless NoSQL database where we don't manage database servers or instances at all.
+
+
+RDS
+
+RDS runs on AWS-managed infrastructure, but you do not get or manage the EC2 instance yourself.
+
+Your Application
+       ↓
+      RDS
+       ↓
+AWS-managed infrastructure
+
+You don't SSH into the underlying server.
+
+DynamoDB
+
+DynamoDB also runs on AWS infrastructure, but you don't manage EC2 instances there either.
+
+Your Application
+       ↓
+   DynamoDB
+       ↓
+AWS-managed infrastructure
+So:
+
+❌ RDS uses EC2 and DynamoDB doesn't — not the right way to say it.
+
+✅ Better interview answer:
+
+Both RDS and DynamoDB are AWS-managed services. With RDS, AWS manages the underlying database infrastructure and you choose database configurations such as instance class. DynamoDB is serverless, so you don't manage database instances or servers at all.
+
+The key difference is RDS is relational/SQL, while DynamoDB is NoSQL/serverless.
