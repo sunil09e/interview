@@ -1,0 +1,450 @@
+Elastic IP (EIP)
+-----------------
+An Elastic IP (EIP) is a static public IPv4 address in Amazon Web Services (AWS).
+
+Unlike a normal public IP that may change when an EC2 instance is stopped and started, an Elastic IP remains yours until you release it. 
+You can associate it with an EC2 instance or network interface and quickly remap it to another resource if needed.
+
+A common setup is:
+
+Internet → Elastic IP → EC2 instance
+
+AWS generally charges for public IPv4 addresses, including Elastic IPs, so you typically want to allocate only what you need.
+
+If you meant how to create and attach an Elastic IP to EC2, I can give you the exact AWS Console steps.
+
+is a region based service
+
+
+What is ENI?
+
+ENI = Elastic Network Interface
+
+Think of ENI as the network card of your EC2.
+
+Your laptop:
+
+Laptop
+  ↓
+Wi-Fi card
+  ↓
+Internet
+
+AWS:
+
+EC2
+ ↓
+ENI
+ ↓
+VPC network
+What does the ENI contain?
+
+The ENI holds the network details for the EC2:
+
+ENI
+├── Private IP → 10.0.1.20
+├── Security Group
+└── MAC address
+
+So when you create an EC2, AWS automatically does this:
+
+You create EC2
+      ↓
+AWS creates ENI automatically
+      ↓
+ENI gets Private IP
+      ↓
+ENI is attached to EC2
+Why do we need it?
+
+Because the EC2 needs a network connection.
+
+Without a network interface:
+
+EC2 ❌ → VPC
+
+With an ENI:
+
+EC2 → ENI → VPC ✅
+Very important
+
+You don't usually create or manage the ENI yourself.
+
+For a beginner, remember:
+
+ENI = the network card attached to an EC2 that gives it network connectivity and a private IP.
+
+Then Elastic IP is simply an additional public IP associated with that network connection:
+
+Internet
+   ↓
+Elastic IP
+   ↓
+ENI
+   ↓
+EC2
+
+That's all you need to understand about ENI for now.
+
+
+Why is this useful?
+
+The Elastic IP is actually associated with the ENI, not directly with the physical server.
+
+If you replace/move an EC2 instance, you can associate the same Elastic IP with another ENI/instance, so users can continue using the same public IP.
+
+Simple example:
+
+EC2-A → Elastic IP 13.x.x.x
+EC2-A fails
+Associate 13.x.x.x with EC2-B
+Users still access 13.x.x.x
+
+That's why Elastic IP is useful when you need a fixed public IP.
+
+
+
+No. Elastic IP only moves the IP address — it does NOT move the data from the old EC2 to the new EC2.
+
+For example:
+
+Old EC2
+├── Data: files, application, database, etc.
+└── Elastic IP: 13.207.214.133
+
+If the old EC2 fails and you move the Elastic IP:
+
+13.207.214.133
+        ↓
+     New EC2
+
+The result is:
+
+New EC2
+├── Same Elastic IP ✅
+└── Old EC2 data ❌
+
+The data remains on the old EC2's storage (EBS volume).
+
+If you want the data on the new EC2
+
+You need to separately use something like:
+
+EBS snapshot → create/attach volume to new EC2
+
+or use shared/external storage such as S3, EFS, or a database service, depending on the application.
+
+So remember:
+
+Elastic IP = moves the address, not the data.
+
+then why we moving
+
+We move the Elastic IP so that users can continue reaching the application using the same public IP address when the old EC2 is replaced.
+
+Example
+
+Suppose your application is running on:
+
+Users
+  ↓
+13.207.214.133  ← Elastic IP
+  ↓
+EC2-A
+
+EC2-A has a problem, so you create EC2-B:
+
+Users
+  ↓
+13.207.214.133
+  ↓
+EC2-B
+
+Now users don't need a new IP address.
+
+But what about the application/data?
+
+That's a separate issue.
+
+You would normally have the application/data stored or restored separately, for example:
+
+Elastic IP
+    ↓
+EC2-B
+    ↓
+EBS / Database / S3
+
+So the purpose of moving the Elastic IP is:
+
+Keep the same fixed public address while changing the EC2 server.
+
+It's especially useful when an application must be reachable at a known IP address.
+-------------------------------------------------
+
+
+In AWS EC2, metadata and user data are two different things.
+
+1. Metadata = Information about the EC2 instance
+Metadata of EC2 means some information you might being able to check about your instance ID. You are just provided with key pair and IP address.
+You don't have console access, only server access. So how will you check the public or private IP of your instance? We can do curl.
+Metadata is information AWS provides about the instance itself.
+
+169.254.169.254 is NOT a global/public IP.
+It is a link-local IPv4 address reserved for accessing the EC2 Instance Metadata Service (IMDS).
+Why do every EC2 instances use the same IP?
+
+Because 169.254.169.254 is a special metadata endpoint. It doesn't identify a particular EC2 instance.
+
+For example:
+EC2-A → 169.254.169.254 → EC2-A's metadata
+EC2-B → 169.254.169.254 → EC2-B's metadata
+The same address gives different information depending on which EC2 instance is making the request.
+So remember:
+169.254.169.254 = special link-local metadata address
+It is not your EC2's public/private IP address.
+
+
+curl http://169.254.169.254/latest/meta-data/instance-id
+
+For private IP:
+curl http://169.254.169.254/latest/meta-data/local-ipv4
+
+For public IP:
+curl http://169.254.169.254/latest/meta-data/public-ipv4
+
+Examples:
+Instance ID
+Private IP address
+Public IP address
+Availability Zone
+IAM role information
+Security credentials information
+Hostname
+
+You can access it from inside the EC2 instance through the Instance Metadata Service.
+
+Example:
+
+curl http://169.254.169.254/latest/meta-data/
+
+Think:
+
+Metadata = "Tell me information about this EC2."
+
+
+
+Yes 👍 AWS Console also shows many metadata details.
+
+For example:
+
+EC2 → Instances → Select your instance
+
+You can see:
+
+Instance ID
+Instance type
+Private IPv4 address
+Public IPv4 address
+Availability Zone
+VPC
+Subnet
+Security groups
+IAM role
+
+But there is an important difference:
+
+AWS Console: shows instance information through AWS management APIs.
+
+Inside EC2: you can access the actual Instance Metadata Service (IMDS) using:
+
+curl http://169.254.169.254/latest/meta-data/
+
+So:
+
+Metadata can be viewed from the Console, and metadata can also be accessed from inside the EC2.
+
+
+
+They are related, but not exactly the same.
+
+Think of it like this:
+
+AWS Console
+→ Shows information about your EC2 to you.
+
+EC2 Metadata Service
+→ Gives information to the EC2 itself.
+
+For example:
+
+AWS Console
+     ↓
+EC2 Instance
+     ↓
+Instance ID, IP, AZ, VPC, etc.
+
+And inside EC2:
+
+EC2 Instance
+     ↓
+Metadata Service (169.254.169.254)
+     ↓
+Instance ID, IP, AZ, IAM role info, etc.
+
+So some information overlaps, but the way you access it and its purpose are different.
+
+Easy interview answer:
+
+"EC2 metadata is information about the instance available through IMDS. The AWS Console also displays many instance details, but the Console and IMDS are different ways of accessing that information."
+
+
+
+
+The AWS Console can show metadata/information about your EC2 instance to you.
+
+The Metadata Service (IMDS) gives metadata to the EC2 instance itself.
+
+Simple example
+AWS Console
+     ↓
+You can see EC2 information
+(instance ID, IP, AZ, etc.)
+
+
+EC2
+ ↓
+IMDS
+ ↓
+EC2 gets information about itself
+(instance ID, IP, AZ, IAM role, etc.)
+
+So remember:
+
+Console → information about EC2 for YOU
+IMDS → information about EC2 for the EC2 ITSELF
+
+
+
+
+IMDS means Instance Metadata Service.
+
+It is an AWS service running at a special IP address:
+
+169.254.169.254
+
+It allows an EC2 instance to ask AWS for information about itself.
+
+Example:
+
+EC2
+ ↓
+IMDS
+ ↓
+"My Instance ID?"
+ ↓
+i-123456789
+
+It can provide things like:
+
+Instance ID
+Private IP
+Availability Zone
+IAM role credentials
+Instance type
+
+Simple meaning:
+
+IMDS = a service inside AWS that lets an EC2 instance get its own metadata.
+
+
+
+
+If you mean “Is 169.254.169.254 permanent?” — yes, the IMDS address is a fixed link-local address used to access EC2 instance metadata.
+
+169.254.169.254
+
+You don't change it for different EC2 instances.
+
+For example, inside any EC2 instance:
+
+curl http://169.254.169.254/latest/meta-data/
+
+The address stays the same, but the information returned is different for each EC2 instance.
+
+Example:
+
+EC2-A → 169.254.169.254 → EC2-A's metadata
+EC2-B → 169.254.169.254 → EC2-B's metadata
+
+So:
+
+IP address = fixed
+Metadata returned = specific to that EC2
+
+
+2. User Data = Instructions/script you give to EC2
+
+User data is something you provide when launching the EC2.
+
+For example:
+
+#!/bin/bash
+yum install -y httpd
+systemctl start httpd
+
+When the EC2 starts, this script can automatically install and configure software.
+
+Think:
+
+User data = "When you start, do these things."
+
+Simple example
+
+You launch an EC2:
+
+User Data:
+
+#!/bin/bash
+yum install -y httpd
+systemctl start httpd
+
+EC2 starts → reads the user data → installs Apache → starts Apache.
+
+
+Yes, you can use sudo with user-data commands, but usually you don't need to.
+
+Why?
+
+EC2 User Data scripts normally run as the root user.
+
+So this:
+
+#!/bin/bash
+yum install -y httpd
+systemctl start httpd
+
+works directly.
+
+You don't need:
+
+sudo yum install -y httpd
+sudo systemctl start httpd
+But if you manually run commands after logging in
+
+You are usually a normal user, so you may need sudo:
+
+sudo yum install -y httpd
+sudo systemctl start httpd
+
+Remember:
+
+User Data → runs as root → usually no sudo needed.
+SSH login → normal user → sudo may be needed.
+
+
+
+
+
+
+
+
