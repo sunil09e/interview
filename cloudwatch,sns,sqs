@@ -939,6 +939,216 @@ The worker is a program, not a person.
 Consumer means the application/program that receives and processes messages from an SQS queue.
 
 
+
+The worker/consumer is usually a program running somewhere, and that program can run on an EC2 instance, Lambda, ECS container, etc.
+
+For example, if you use EC2:
+
+Application
+     ↓
+    SQS
+     ↓
+   Queue
+     ↓
+EC2 Instance
+ ┌──────────────────────┐
+ │ Worker Program       │
+ │                      │
+ │ 1. Read message      │
+ │ 2. Process order     │
+ │ 3. Delete message    │
+ └──────────────────────┘
+What is actually inside EC2?
+
+Your EC2 instance can have a program such as:
+
+EC2
+ └── Worker Program
+       ↓
+   Poll SQS
+       ↓
+   Get "Process Order #101"
+       ↓
+   Process the order
+       ↓
+   Delete message from SQS
+
+The worker is the program, not the EC2 itself.
+
+Another option: Lambda
+
+You don't need an EC2 instance at all:
+
+Application
+     ↓
+    SQS
+     ↓
+   Queue
+     ↓
+   Lambda
+     ↓
+Process message
+     ↓
+Delete message
+
+So remember:
+
+SQS → stores/waits for messages
+Consumer/Worker → program that takes the message and processes it
+EC2 → one place where you can run that worker program
+Lambda → another way to run the worker program without managing an EC2 server
+
+Interview answer:
+“The SQS consumer is an application or worker program that receives and processes messages from the queue. It can run on EC2, Lambda, ECS, or another compute service. After successful processing, the consumer deletes the message from SQS.”
+
+
+The application sends a message to SQS using the AWS SDK/API.
+
+For example, suppose you have an e-commerce application and a user places an order.
+
+User
+ ↓
+Application
+ ↓
+AWS SDK / SQS API
+ ↓
+SQS Queue
+Example
+
+User clicks "Place Order".
+
+Your application creates a message:
+
+{
+  "order_id": 101,
+  "product": "Laptop",
+  "quantity": 1
+}
+
+Then the application calls the SQS SendMessage API.
+
+Application
+    ↓
+SendMessage()
+    ↓
+SQS Queue
+    ↓
+{
+  "order_id": 101,
+  "product": "Laptop",
+  "quantity": 1
+}
+How does AWS know the application is allowed to send?
+
+The application needs AWS permissions through IAM.
+
+Application
+     ↓
+IAM Role / Credentials
+     ↓
+Permission: sqs:SendMessage
+     ↓
+SQS
+
+For example, if the application is running on an EC2 instance, you normally attach an IAM role to the EC2 instance. The application uses that role's permissions to send messages to SQS.
+
+So, very simply:
+
+Application → AWS SDK → SQS SendMessage API → Queue
+
+And later:
+
+Worker → SQS ReceiveMessage → Process → DeleteMessage
+
+
+Yes. You configure the application to use SQS, but you don't manually configure SQS inside the application itself.
+
+You typically configure:
+
+SQS Queue URL/name
+AWS region
+AWS permissions — usually through an IAM role
+AWS SDK in your application
+
+Example:
+
+Application
+   │
+   ├── AWS SDK
+   ├── Queue URL
+   └── IAM Role → sqs:SendMessage
+          │
+          ↓
+       SQS Queue
+
+Then your application code calls:
+
+SendMessage()
+
+to put a message into SQS.
+
+Example with EC2
+EC2
+ └── Your Application
+       │
+       │ SendMessage()
+       ↓
+     SQS
+
+The important point is:
+
+SQS doesn't automatically know that your application wants to send messages. Your application must be coded/configured to call SQS.
+
+Similarly, the consumer/worker must be configured to read from SQS.
+
+Yes, similar to SNS, the application needs to be configured to interact with SNS.
+
+The main difference is what the application is doing.
+
+SNS
+
+Application publishes a message to an SNS topic:
+
+Application
+     ↓
+AWS SDK
+     ↓
+SNS Topic
+     ↓
+ ┌───────┬────────┬────────┐
+ ↓       ↓        ↓
+SQS   Lambda   Email
+
+The application calls something like:
+
+Publish()
+SQS
+
+Application sends a message to an SQS queue:
+
+Application
+     ↓
+AWS SDK
+     ↓
+SQS Queue
+     ↓
+Worker / Lambda
+
+The application calls:
+
+SendMessage()
+Easy interview difference
+SNS	SQS
+Publish message	Send message
+Uses Topic	Uses Queue
+Mainly push/fan-out	Mainly queue/process
+One message can go to multiple subscribers	Message is processed by a consumer
+API: Publish()	API: SendMessage()
+
+So yes: both require your application to be configured/coded to use the AWS service and have the required IAM permissions.
+
+
+
 In SQS, after the consumer successfully processes the message, it deletes the message from the queue.
 
 Example:
