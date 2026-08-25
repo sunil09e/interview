@@ -3398,3 +3398,98 @@ Aurora database engine
 AWS's own technology
 
 So RDS itself is AWS, but some of the database engines that RDS supports were developed by other organizations.
+
+
+
+What is DynamoDB?
+
+Amazon DynamoDB is a fully managed NoSQL database service in AWS.
+
+It is used by applications to store and retrieve data quickly at large scale.
+
+Simple example
+
+Suppose your application needs to store users:
+
+DynamoDB
+   ↓
+Users Table
+   ↓
+Item
+{
+   UserID: 101,
+   Name: "Siva",
+   Email: "siva@gmail.com"
+}
+
+Here:
+
+Table → Users
+Item → one user's data
+Attributes → UserID, Name, Email
+Partition key → uniquely identifies/finds the item, such as UserID
+Why do we use DynamoDB?
+
+For applications that need:
+
+Very fast data access
+Large numbers of users/requests
+Automatic scaling
+High availability
+No database server management
+DynamoDB vs RDS
+RDS
+ ↓
+Relational / SQL
+ ↓
+Tables + Rows + Columns
+ ↓
+MySQL, PostgreSQL, etc.
+
+
+
+
+DynamoDB
+ ↓
+NoSQL
+ ↓
+Tables + Items + Attributes
+ ↓
+Fast key-based access
+
+Interview answer:
+
+DynamoDB is a fully managed, serverless NoSQL database service provided by AWS. It provides fast and scalable data storage and retrieval without requiring us to manage database servers.
+
+in josn fornay
+
+Yes. DynamoDB data is commonly represented in JSON-like format because each item is made of attributes.
+
+For example, a Users table:
+
+{
+  "UserID": 101,
+  "Name": "Siva",
+  "Email": "siva@gmail.com",
+  "Age": 25
+}
+
+Another item can be:
+
+{
+  "UserID": 102,
+  "Name": "Arun",
+  "Phone": "9876543210"
+}
+
+Notice that the second item doesn't have to contain Email or Age.
+
+Simple understanding
+
+DynamoDB → NoSQL → Item → Attributes → JSON-like data
+
+Whereas:
+
+RDS → SQL → Table → Rows → Columns
+
+So, yes, when learning DynamoDB, think of each item as a JSON-like object.
