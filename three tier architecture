@@ -1,0 +1,622 @@
+What is Round Robin?
+
+Suppose you have 3 EC2 instances:
+
+        Load Balancer
+             |
+     ┌───────┼───────┐
+     ↓       ↓       ↓
+    EC2-1   EC2-2   EC2-3
+
+Users send requests:
+
+User 1 → EC2-1
+User 2 → EC2-2
+User 3 → EC2-3
+User 4 → EC2-1
+User 5 → EC2-2
+User 6 → EC2-3
+
+It goes one by one in a circular order.
+
+That's Round Robin.
+
+Other common methods
+
+1. Round Robin
+
+1 → 2 → 3 → 1 → 2 → 3
+
+Distributes requests equally.
+
+2. Least Connections
+
+EC2-1 = 10 connections
+EC2-2 = 5 connections   ← new request goes here
+EC2-3 = 8 connections
+
+Goes to the server with the fewest active connections.
+
+3. IP Hash
+
+User A → EC2-1
+User A → EC2-1
+User A → EC2-1
+
+Uses the client's IP to determine the target, helping keep the same client on the same server.
+
+4. Weighted Round Robin
+
+EC2-1 = weight 3
+EC2-2 = weight 1
+
+EC2-1 gets approximately 3 times more traffic because it has a higher weight.
+
+Remember
+
+Round Robin = take turns.
+
+Request → 1 → 2 → 3 → 1 → 2 → 3
+
+And Load Balancer is the component that receives the request and chooses a target according to the routing algorithm.
+
+Weighted Round Robin
+
+example
+Weighted Round Robin — simple example
+
+Suppose you have 3 EC2 servers:
+
+EC2-1 → Weight 3   (powerful server)
+EC2-2 → Weight 2
+EC2-3 → Weight 1   (less powerful)
+
+The Load Balancer distributes 6 requests like this:
+
+Request 1 → EC2-1
+Request 2 → EC2-1
+Request 3 → EC2-1
+
+Request 4 → EC2-2
+Request 5 → EC2-2
+
+Request 6 → EC2-3
+
+So approximately:
+
+EC2-1 → 3 requests
+EC2-2 → 2 requests
+EC2-3 → 1 request
+
+Why? Because EC2-1 has more capacity, so we give it a higher weight.
+
+Think of the weight as:
+
+Higher weight = more traffic
+
+Normal Round Robin vs Weighted
+
+Round Robin:
+
+EC2-1 → EC2-2 → EC2-3 → EC2-1 → EC2-2 → EC2-3
+
+Everyone gets roughly equal traffic.
+
+Weighted Round Robin:
+
+EC2-1 → EC2-1 → EC2-1
+EC2-2 → EC2-2
+EC2-3
+
+Traffic is distributed according to the assigned weight.
+
+-----------------------------------------------------------------
+
+3-Tier AWS Architecture
+
+Assume this architecture:
+
+                         USER
+                           |
+                           | www.example.com
+                           ↓
+                       Route 53
+                           |
+                           ↓
+                      Internet
+                           |
+                           ↓
+                 Internet Gateway
+                           |
+              ┌──────────────────────┐
+              │     PUBLIC SUBNET    │
+              │                      │
+              │  Application         │
+              │  Load Balancer (ALB) │
+              └──────────┬───────────┘
+                         |
+                         | VPC internal network
+                         ↓
+              ┌──────────────────────┐
+              │    PRIVATE SUBNET    │
+              │                      │
+              │   Backend EC2        │
+              │   10.0.2.10          │
+              └──────────┬───────────┘
+                         |
+                         | VPC internal network
+                         ↓
+              ┌──────────────────────┐
+              │    PRIVATE SUBNET    │
+              │                      │
+              │      Amazon RDS      │
+              │   MySQL/PostgreSQL   │
+              └──────────────────────┘
+
+Now let's understand exactly what happens at every step.
+
+1. User → Domain Name
+
+The user opens:
+
+https://www.example.com
+
+The user doesn't know the IP address of the load balancer.
+
+The domain is managed by Route 53.
+
+User
+ ↓
+www.example.com
+ ↓
+Route 53
+
+Route 53 finds where the domain should go.
+
+For example:
+
+www.example.com
+       ↓
+Application Load Balancer
+
+So:
+
+Route 53 is responsible for DNS resolution.
+
+2. Route 53 → Load Balancer
+
+After DNS resolution, the request reaches the Application Load Balancer (ALB).
+
+The ALB is placed in public subnets.
+
+Why public?
+
+Because the user is coming from the Internet.
+
+Internet
+   ↓
+Internet Gateway
+   ↓
+Public Subnet
+   ↓
+ALB
+
+The Internet Gateway provides a path between the VPC and the Internet.
+
+3. Internet Gateway → Public Subnet
+
+Your public subnet has a route like:
+
+0.0.0.0/0 → Internet Gateway
+
+This means:
+
+Traffic destined for the Internet can go through the Internet Gateway.
+
+For example:
+
+Public Subnet Route Table
+
+0.0.0.0/0 → igw-xxxx
+10.0.0.0/16 → local
+
+The important route for the ALB's Internet connectivity is:
+
+0.0.0.0/0 → Internet Gateway
+4. Load Balancer → Private Application
+
+This is the part shown in your screenshot.
+
+The ALB receives the request.
+
+Suppose your backend EC2 has:
+
+Private IP = 10.0.2.10
+
+The ALB sends the request to:
+
+10.0.2.10
+
+The flow is:
+
+Load Balancer
+      ↓
+VPC internal network
+      ↓
+Private IP: 10.0.2.10
+      ↓
+Backend EC2
+
+The important thing is:
+
+The ALB does NOT need the backend EC2 to have a public IP.
+
+The backend can remain completely private.
+
+5. How does ALB reach the private EC2?
+
+This happens because both the ALB and EC2 are inside the same VPC.
+
+Suppose your VPC is:
+
+10.0.0.0/16
+
+The VPC automatically has a local route:
+
+10.0.0.0/16 → local
+
+This means resources inside the VPC can communicate with each other using private IP addresses, subject to security controls.
+
+For example:
+
+ALB
+ ↓
+10.0.0.0/16 → local
+ ↓
+10.0.2.10
+ ↓
+Backend EC2
+
+So you don't need an Internet Gateway between ALB and EC2.
+
+6. Security Group between ALB and EC2
+
+Now we need to control who is allowed to talk to the backend.
+
+Suppose:
+
+ALB Security Group
+        |
+        ↓
+Backend Security Group
+
+Backend Security Group:
+
+Inbound:
+
+HTTP
+Port: 80
+Source: ALB-SG
+
+This means:
+
+Only the ALB is allowed to send HTTP traffic to the backend.
+
+Not the whole Internet.
+
+So:
+
+Internet → Backend EC2
+             ❌
+
+ALB → Backend EC2
+      ✅
+
+This is an important security concept.
+
+7. Backend EC2 → Database
+
+Now the backend needs some data.
+
+For example, user requests:
+
+www.example.com/users
+
+The backend needs to retrieve users from the database.
+
+The backend EC2 connects to Amazon RDS.
+
+For example:
+
+Backend EC2
+Private IP: 10.0.2.10
+       |
+       ↓
+RDS Endpoint
+       |
+       ↓
+Amazon RDS
+
+The backend does not connect to RDS using a public IP.
+
+It uses the RDS endpoint.
+
+Example:
+
+mydatabase.xxxxxx.ap-south-1.rds.amazonaws.com
+8. How does Backend reach RDS?
+
+Again, the communication happens through the VPC's private network.
+
+Suppose:
+
+VPC = 10.0.0.0/16
+
+The VPC has:
+
+10.0.0.0/16 → local
+
+So the backend can communicate with RDS privately.
+
+Conceptually:
+
+Backend EC2
+      ↓
+VPC internal network
+      ↓
+10.0.0.0/16 → local
+      ↓
+RDS
+
+You don't need:
+
+Backend
+   ↓
+Internet Gateway
+   ↓
+Internet
+   ↓
+RDS
+
+❌ That is not how you normally connect to RDS.
+
+9. Database Security Group
+
+The database should also be protected.
+
+Suppose you use MySQL.
+
+MySQL uses:
+
+Port 3306
+
+The RDS Security Group can have:
+
+Inbound Rule:
+
+Type: MySQL
+Port: 3306
+Source: Backend-SG
+
+This means:
+
+Backend EC2
+     |
+     | TCP 3306
+     ↓
+RDS
+
+is allowed.
+
+But:
+
+Internet
+    |
+    ↓
+RDS
+
+is blocked.
+
+So the database is private.
+
+10. Complete request flow
+
+Now put everything together.
+
+User requests:
+
+https://www.example.com/users
+Step 1 — DNS
+User
+ ↓
+www.example.com
+ ↓
+Route 53
+Step 2 — Internet
+Route 53
+ ↓
+Internet
+ ↓
+Internet Gateway
+Step 3 — Load Balancer
+Internet Gateway
+ ↓
+Public Subnet
+ ↓
+ALB
+Step 4 — Backend
+ALB
+ ↓
+VPC internal network
+ ↓
+Private IP: 10.0.2.10
+ ↓
+Backend EC2
+Step 5 — Database
+
+Backend needs data:
+
+Backend EC2
+ ↓
+RDS Endpoint
+ ↓
+VPC internal network
+ ↓
+RDS
+Step 6 — Response
+
+Database returns data:
+
+RDS
+ ↓
+Backend EC2
+ ↓
+ALB
+ ↓
+Internet
+ ↓
+User
+Final architecture
+                         USER
+                           |
+                           | HTTPS
+                           ↓
+                  www.example.com
+                           |
+                           ↓
+                       Route 53
+                           |
+                           ↓
+                        Internet
+                           |
+                           ↓
+                  Internet Gateway
+                           |
+                           ↓
+              ┌──────────────────────┐
+              │      PUBLIC SUBNET   │
+              │                      │
+              │        ALB           │
+              └──────────┬───────────┘
+                         |
+                         | VPC internal network
+                         | local route
+                         ↓
+              ┌──────────────────────┐
+              │     PRIVATE SUBNET  │
+              │                      │
+              │    Backend EC2       │
+              │    10.0.2.10         │
+              └──────────┬───────────┘
+                         |
+                         | VPC internal network
+                         | local route
+                         | TCP 3306
+                         ↓
+              ┌──────────────────────┐
+              │     PRIVATE SUBNET  │
+              │                      │
+              │       RDS            │
+              │  MySQL/PostgreSQL   │
+              └──────────────────────┘
+The 4 things to remember
+Connection	What is used?
+User → ALB	Internet + Internet Gateway
+ALB → Backend EC2	VPC private network + local route + Security Group
+Backend → RDS	RDS endpoint + VPC private network + Security Group
+Internet → RDS	❌ Not allowed
+
+The key concept is: Public subnet is for the entry point (ALB), private subnet is for the application, and private database subnet is for RDS.
+
+
+Simple AWS 3-tier architecture
+                 USER
+                   |
+             Domain Name
+                   |
+              Route 53
+                   |
+              ALB (Public)
+                   |
+             Private Subnet
+                   |
+          Backend EC2 / ECS
+                   |
+            Security Group
+                   |
+             Private Subnet
+                   |
+              Amazon RDS
+             (MySQL/PostgreSQL)
+What connects Backend to DB?
+
+There is no separate AWS service called "DB connector."
+
+The connection is mainly through:
+
+VPC networking → provides private network connectivity.
+Route tables → control network routing.
+Security Groups → allow the backend to access the database port.
+RDS endpoint → the backend uses this hostname to connect to RDS.
+
+For example, if your database is MySQL:
+
+Backend EC2
+     |
+     | MySQL connection
+     | Port 3306
+     ↓
+RDS MySQL
+
+The RDS endpoint might look like:
+
+mydb.xxxxxxxxx.ap-south-1.rds.amazonaws.com
+
+Your backend application uses:
+
+Host     = RDS endpoint
+Port     = 3306
+Username = admin
+Password = ********
+Database = myapp
+Security Group is especially important
+
+You can configure:
+
+Backend-SG
+     |
+     | allowed
+     ↓
+Database-SG
+
+Database Security Group:
+
+Inbound rule:
+
+Type: MySQL
+Port: 3306
+Source: Backend-SG
+
+So the flow is:
+
+Backend EC2
+     ↓
+VPC private network
+     ↓
+RDS endpoint
+     ↓
+Database Security Group
+     ↓
+RDS Database
+
+Key point: You normally do NOT use Internet Gateway, NAT Gateway, or Load Balancer to connect the backend to RDS. The backend and RDS communicate privately inside the VPC.
+
+
+
+
+
+
+
+
+
+
