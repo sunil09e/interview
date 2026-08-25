@@ -443,7 +443,9 @@ SSH login → normal user → sudo may be needed.
 
 ---------------------------------------
 
+AWS Lambda
 
+AWS Lambda is a serverless compute service that lets you run your code without creating or managing EC2 servers.
 
 
 
