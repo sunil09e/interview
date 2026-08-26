@@ -812,3 +812,434 @@ CloudFront = CDN.
 India Edge = one location/server of the CDN.
 -------------------------------------------------
 
+Route 53 in AWS
+
+Amazon Route 53 is AWS's DNS (Domain Name System) service.
+
+Simple meaning
+
+Route 53 converts a domain name into the destination where your application is running.
+
+For example:
+
+User
+  ↓
+www.myapp.com
+  ↓
+Route 53
+  ↓
+Load Balancer
+  ↓
+EC2 instances
+
+The user doesn't need to remember an IP address like:
+
+13.234.56.78
+
+They simply enter:
+
+www.myapp.com
+
+Route 53 finds where www.myapp.com should go.
+
+Real-world example
+
+Suppose your application has:
+
+Domain:
+www.amazon-example.com
+
+Load Balancer:
+my-alb-123456.ap-south-1.elb.amazonaws.com
+
+You configure Route 53:
+
+www.amazon-example.com
+        ↓
+Route 53
+        ↓
+ALB
+        ↓
+EC2
+
+When the user enters the domain:
+
+User enters www.amazon-example.com
+DNS lookup happens.
+Route 53 receives the DNS query.
+Route 53 returns the configured destination.
+The user's request reaches the Load Balancer.
+Load Balancer sends it to the appropriate EC2 instance.
+Important distinction
+
+Route 53 is not a Load Balancer.
+
+Route 53
+   ↓
+Finds where the application is
+   ↓
+Load Balancer
+   ↓
+Distributes traffic
+   ↓
+EC2
+
+So for an interview:
+Route 53 is AWS's highly available and scalable DNS service. It translates domain names into destinations such as load balancers,
+EC2 instances, or other AWS resources, and it can also perform DNS-based routing and health checks.
+
+
+If you mean how Route 53 health checks work, think of it like this:
+
+              Route 53
+                 |
+        Checks server health
+          /             \
+       Healthy        Unhealthy
+          |                |
+       Send user       Don't send user
+Example
+
+Suppose you have two servers:
+
+www.myapp.com
+      ↓
+  Route 53
+   /      \
+EC2-A     EC2-B
+Healthy   Healthy
+
+Route 53 can periodically check whether an endpoint is working.
+
+For example:
+
+Route 53 → EC2-A
+          "Are you healthy?"
+             ↓
+          HTTP 200 OK
+             ↓
+          HEALTHY ✅
+
+If EC2-A stops responding:
+
+Route 53 → EC2-A
+             ↓
+        No response ❌
+             ↓
+        UNHEALTHY
+
+Then, depending on the routing policy, Route 53 can stop returning that unhealthy endpoint and direct users to a healthy one.
+
+User
+ ↓
+Route 53
+ ↓
+EC2-A ❌  ← unhealthy, avoid
+ ↓
+EC2-B ✅  ← healthy, use
+Very important
+
+Route 53 doesn't fix the unhealthy EC2 server.
+
+It only checks its health and makes DNS routing decisions based on the result.
+
+Interview answer:
+"Route 53 health checks periodically check whether an endpoint is healthy. If an endpoint becomes unhealthy, 
+Route 53 can stop routing DNS traffic to it and route users to a healthy endpoint, depending on the routing policy."
+
+1. Hosted Zone — "Where is my domain?"
+
+A Hosted Zone contains the DNS records for your domain.
+
+Example:
+
+myapp.com
+   ↓
+Hosted Zone
+   ↓
+Records
+   ├── www → Load Balancer
+   ├── api → EC2 / Load Balancer
+   └── mail → Mail server
+
+So:
+
+Hosted Zone = place where you manage DNS records for a domain.
+
+2. Health Check — "Is my server working?"
+
+Route 53 can check whether your application/server is healthy.
+
+Route 53 Health Check
+        ↓
+    Application
+        ↓
+   Healthy? ✅ / ❌
+
+For example, Route 53 can check:
+
+https://myapp.com/health
+
+If it gets a successful response → Healthy.
+
+If the endpoint fails → Unhealthy.
+
+Health Check = checks whether your endpoint is available.
+
+3. Registered Domain — "Who owns the domain?"
+
+Suppose you want:
+
+myapp.com
+
+You need to register that domain.
+
+Route 53 can act as a domain registrar, where you register/manage the domain.
+
+Registered Domain = the domain name you own/manage.
+
+How they work together
+
+Suppose you have:
+
+Domain:
+myapp.com
+       ↓
+Registered Domain
+       ↓
+Hosted Zone
+       ↓
+DNS Records
+       ↓
+Load Balancer
+       ↓
+EC2
+
+And you can add:
+
+Health Check
+       ↓
+Checks Load Balancer / application
+Easy way to remember
+Route 53 feature	Meaning
+Registered Domain	Your domain name
+Hosted Zone	DNS records for that domain
+Health Check	Checks whether an endpoint is healthy
+
+Interview shortcut:
+
+Registered domain = name, Hosted Zone = DNS records, Health Check = server health.
+
+
+Registered Domain → the domain name you registered, e.g. mycompany.com
+Hosted Zone → where you configure DNS records for that domain
+Health Check → checks whether your application endpoint is healthy.
+
+In Route 53 Hosted Zone, you create DNS records. Each record tells Route 53 where or how a domain should resolve.
+
+The main record types you should know for interviews are:
+
+Record	Meaning	Example
+A	Domain → IPv4 address	example.com → 13.234.50.10
+AAAA	Domain → IPv6 address	example.com → IPv6 address
+CNAME	Domain → another domain name	www.example.com → example.com
+MX	Specifies mail servers	example.com → mail server
+TXT	Stores text/verification information	Domain verification, SPF
+NS	Specifies authoritative name servers	Hosted zone name servers
+SOA	Contains basic DNS/zone information	Zone's authoritative DNS information
+Alias	AWS-specific routing to supported AWS resources	example.com → ALB
+
+Easy interview memory
+
+A = IPv4
+AAAA = IPv6
+CNAME = another domain
+MX = email
+TXT = text/verification
+NS = name servers
+SOA = zone information
+Alias = AWS resource
+
+-------------------------
+What is Alias in Route 53?
+
+Alias is an AWS-specific DNS feature that lets you point your domain directly to a supported AWS resource.
+We use Alias mainly when we want our domain to point directly to an AWS resource, especially when using the root domain.
+Remember this for interview
+Alias is used in Route 53 to point a domain directly to supported AWS resources, such as an ALB or CloudFront,
+without manually managing their IP addresses. It is especially useful for the root domain because CNAME cannot be used at the root.
+CNAME = point a subdomain to another DNS name.
+Alias = point a Route 53 record directly to a supported AWS resource, including when using the root domain.
+For example, your ALB has an AWS DNS name:
+
+my-alb-123.ap-south-1.elb.amazonaws.com
+
+Instead of manually managing the ALB's IP addresses, you can do:
+
+hi.com
+   ↓
+Route 53
+   ↓
+A Record + Alias ON
+   ↓
+Application Load Balancer
+   ↓
+EC2
+
+without Alias, you can use the ALB's DNS name with CNAME, but not for the root domain.
+Example:
+
+www.myapp.com
+      ↓
+CNAME
+      ↓
+my-alb-123.ap-south-1.elb.amazonaws.com
+
+Here:
+
+www.myapp.com → subdomain ✅
+myapp.com → root/apex domain ❌ with CNAME
+
+For the root domain, use Alias:
+
+myapp.com
+   ↓
+A record + Alias
+   ↓
+ALB
+
+
+
+
+
+
+
+Why Alias instead of CNAME?
+For the root domain:
+myapp.com
+you generally use A Alias → ALB.
+For a subdomain:
+www.myapp.com
+you can use either A Alias → ALB or a CNAME → ALB DNS name.
+So the important idea is:
+ALB gives you an AWS DNS name. Route 53 lets your own domain name point to that ALB.
+
+
+
+Alias can point to particular supported AWS resources, not just a Load Balancer.
+What about EC2?
+For a normal EC2 instance, you generally don't use an Alias record directly to the EC2 instance.
+So when I said "Alias = AWS resource", I meant supported AWS resources, not every AWS resource.
+Easy interview answer:
+"A Route 53 Alias record can point a domain to supported AWS resources such as an ALB, NLB, CloudFront distribution, or S3 website endpoint."
+When Alias is ON, CNAME is not used. That's because an Alias record is used with certain record types, typically A or AAAA.
+CNAME works for a subdomain.
+
+
+What is happening here?
+
+You are saying to Route 53:
+
+mydomain.com
+      ↓
+A Record
+      ↓
+192.0.2.235
+
+192.0.2.235 is an IPv4 address.
+
+So:
+
+Alias OFF → you manually provide an IP address.
+
+If you turn Alias ON
+
+The screen changes. Instead of entering an IP address like:
+
+192.0.2.235
+
+you can select a supported AWS resource, for example:
+
+Alias: ON ✅
+
+Route traffic to:
+Application Load Balancer
+        ↓
+my-alb-xxxxx.elb.amazonaws.com
+
+Then the architecture is:
+
+User
+ ↓
+www.myapp.com
+ ↓
+Route 53
+ ↓
+A Record + Alias
+ ↓
+ALB
+ ↓
+EC2
+
+
+
+Your screenshot shows:
+
+Record type: CNAME
+Alias: OFF
+Value: www.example.com
+
+You can put the ALB DNS name in Value:
+
+Record name: www
+Record type: CNAME
+Alias: OFF
+
+Value:
+my-alb-123456.ap-south-1.elb.amazonaws.com
+
+Then:
+
+User
+ ↓
+www.hi.com
+ ↓
+Route 53
+ ↓
+CNAME
+ ↓
+ALB DNS name
+ ↓
+ALB
+ ↓
+EC2
+So why use Alias?
+
+Because CNAME has a limitation: you cannot use a CNAME for the root domain.
+
+For example:
+
+www.hi.com  → CNAME → ALB DNS name ✅
+
+But:
+
+hi.com → CNAME → ALB DNS name ❌
+
+For the root domain, use:
+
+hi.com
+ ↓
+A record + Alias ON
+ ↓
+ALB
+
+
+
+
+
+
+
+
+
+
+
