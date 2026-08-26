@@ -815,7 +815,7 @@ India Edge = one location/server of the CDN.
 Route 53 in AWS
 
 Amazon Route 53 is AWS's DNS (Domain Name System) service.
-
+Route 53 is a global AWS service.
 Simple meaning
 
 Route 53 converts a domain name into the destination where your application is running.
@@ -989,6 +989,371 @@ Health Check = checks whether your endpoint is available.
 ALB health check → chooses healthy EC2.
 Route 53 health check → helps choose a healthy destination such as an ALB/endpoint.
 
+1. Load Balancer Health Check
+
+This checks the EC2 instances behind the Load Balancer.
+
+             ALB
+              |
+       Health Check
+        /          \
+     EC2-A        EC2-B
+      ✅            ❌
+    Healthy      Unhealthy
+
+If EC2-B is unhealthy, the ALB stops sending traffic to EC2-B.
+
+So:
+
+ALB health check = "Which backend EC2 should I send traffic to?"
+
+2. Route 53 Health Check
+
+This checks the endpoint/application itself.
+
+User
+ ↓
+Route 53
+ ↓
+Health Check
+ ↓
+Application / Endpoint
+
+It can be used with Route 53 routing policies.
+
+For example, you have two ALBs:
+
+                 Route 53
+                /         \
+             ALB-1       ALB-2
+               ↓            ↓
+             EC2s         EC2s
+
+If ALB-1/application becomes unhealthy:
+
+Route 53
+    ↓
+ALB-1 ❌
+    ↓
+ALB-2 ✅
+
+Route 53 can direct DNS traffic to ALB-2 when configured for failover/health-based routing.
+The easiest way to remember
+Health Check	Checks	Purpose
+Load Balancer health check	EC2 targets	Decide which EC2 receives traffic
+Route 53 health check	Endpoint/application	Decide which DNS destination should receive traffic
+
+Example: Two ALBs
+
+Suppose you have:
+
+             Route 53
+             /      \
+          ALB-1     ALB-2
+            ↓         ↓
+          EC2s      EC2s
+
+Route 53 health checks can check ALB-1/application.
+
+If:
+
+ALB-1 → ❌ Unhealthy
+ALB-2 → ✅ Healthy
+
+Route 53 can send users to ALB-2.
+
+User
+ ↓
+Route 53
+ ↓
+ALB-2 ✅
+ ↓
+EC2
+Why would we have two ALBs?
+
+Usually for different locations/regions or backup/failover.
+
+For example:
+
+India Region                 US Region
+
+   ALB-India                   ALB-US
+       ↓                          ↓
+      EC2                        EC2
+
+Route 53 can help decide:
+
+"Which application endpoint should this user be directed to?"
+
+But with only one ALB?
+
+If you have:
+
+Route 53
+   ↓
+One ALB
+   ↓
+EC2-1
+EC2-2
+EC2-3
+
+You generally don't need a Route 53 health check for the EC2s. The ALB health check already handles EC2 health.
+
+Simple distinction:
+
+ALB health check → chooses healthy EC2.
+Route 53 health check → helps choose a healthy destination such as an ALB/endpoint.
+
+ALB-1 and ALB-2 can be for the same application, but deployed in different AWS Regions.
+Why do this?
+
+For high availability / disaster recovery.
+
+
+
+this is the important part. One domain can point to two ALBs. Route 53 can return different ALB destinations depending on the routing policy.
+
+For example, same application in two Regions:
+
+                  myapp.com
+                      ↓
+                  Route 53
+                  /       \
+                 /         \
+        ALB-India          ALB-US
+             ↓                ↓
+           EC2s             EC2s
+How does Route 53 know about both ALBs?
+
+You create two DNS records with the same name:
+
+Record 1:
+Name: myapp.com
+Type: A
+Alias: ON
+Target: ALB-India
+
+and
+
+Record 2:
+Name: myapp.com
+Type: A
+Alias: ON
+Target: ALB-US
+
+But you also configure a routing policy telling Route 53 when to use each ALB.
+
+For example, with Failover routing:
+
+myapp.com
+   ↓
+Route 53
+   ↓
+Primary ALB → India
+   ↓
+Health Check
+   ↓
+Healthy? ✅
+   ↓
+Send users here
+
+If India becomes unhealthy:
+
+myapp.com
+   ↓
+Route 53
+   ↓
+India ALB ❌
+   ↓
+US ALB ✅
+   ↓
+Send users to US
+So the domain is not permanently pointing to only one ALB. Route 53 has both ALBs configured as possible destinations and chooses which one to return based on the routing policy.
+In one sentence:
+One domain can have multiple Route 53 records with the same name, and the routing policy determines which ALB the user is directed to.
+
+
+
+Let’s make it very simple. You don't point the domain to two ALBs manually at the same time. Route 53 decides which ALB to return.
+
+Suppose the same application is deployed in two Regions:
+
+India Region                 US Region
+     ALB-India                   ALB-US
+         ↓                          ↓
+       EC2s                       EC2s
+Step 1: Create two Route 53 records
+
+Both have the same domain name:
+
+myapp.com
+
+Record 1:
+
+Name: myapp.com
+Type: A
+Alias: ON
+Target: ALB-India
+Routing: Primary
+
+Record 2:
+
+Name: myapp.com
+Type: A
+Alias: ON
+Target: ALB-US
+Routing: Secondary
+
+This is possible because Route 53 uses the routing policy to distinguish the records.
+
+Step 2: Add health check
+                 myapp.com
+                     ↓
+                  Route 53
+                  /       \
+              Primary    Secondary
+                 ↓           ↓
+             ALB-India     ALB-US
+                 ↓           ↓
+               EC2s        EC2s
+
+Normally:
+
+India ALB → Healthy ✅
+US ALB → Backup
+
+User requests:
+
+User → myapp.com → Route 53 → India ALB
+
+If India ALB becomes unhealthy:
+
+India ALB ❌
+     ↓
+Route 53
+     ↓
+US ALB ✅
+
+Then:
+
+User → myapp.com → Route 53 → US ALB
+The key idea
+
+The domain name stays the same:
+
+myapp.com
+
+Route 53 has two possible destinations for that domain and uses the routing policy + health check to decide which ALB to return.
+
+This particular setup is called Failover Routing.
+
+
+
+Suppose your application is deployed in India and US.
+
+                 myapp.com
+                     ↓
+                 Route 53
+                 /       \
+                /         \
+       India Region       US Region
+            ↓                  ↓
+        ALB-India           ALB-US
+            ↓                  ↓
+        EC2 instances      EC2 instances
+How do we create this?
+
+1. Deploy the same application in both Regions
+
+ap-south-1 (Mumbai)
+     ↓
+ALB-India
+     ↓
+EC2 instances
+
+and:
+
+us-east-1 (N. Virginia)
+     ↓
+ALB-US
+     ↓
+EC2 instances
+
+These are two separate ALBs, because an ALB is regional.
+
+2. In Route 53, use the same domain
+
+For example:
+
+myapp.com
+
+You create two records for the same domain using a routing policy such as Failover or Latency-based routing.
+
+For failover:
+
+myapp.com
+    ↓
+Route 53
+    ↓
+Primary → ALB-India
+Secondary → ALB-US
+
+If India is healthy:
+
+User
+ ↓
+myapp.com
+ ↓
+Route 53
+ ↓
+India ALB ✅
+
+If India becomes unhealthy:
+
+User
+ ↓
+myapp.com
+ ↓
+Route 53
+ ↓
+India ALB ❌
+ ↓
+US ALB ✅
+If you want users to go to the nearest Region
+
+You can instead use Latency-based routing:
+
+Indian user
+    ↓
+Route 53
+    ↓
+India ALB
+
+US user
+    ↓
+Route 53
+    ↓
+US ALB
+
+So there are two different ideas:
+
+Failover routing → primary Region fails → use backup Region.
+Latency-based routing → send users to the Region that gives them the lowest network latency.
+
+And Route 53 is what makes the DNS decision; the ALBs themselves remain separate regional load balancers.
+
+
+Remember
+2 AZs in ONE ALB
+       ↓
+ALB health check
+       ↓
+Checks EC2 targets
+2 DIFFERENT ALBs / Regions
+       ↓
+Route 53 health check
+       ↓
+Helps Route 53 choose destination
 
 
 
