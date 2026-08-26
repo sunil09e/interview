@@ -316,6 +316,22 @@ Interview answer:
 
 An AMI is a template containing the information required to launch an EC2 instance.
 
+“Root volume information” means the AMI contains information about the main disk (root volume) that the EC2 instance will use when it starts.
+
+For example:
+
+AMI
+ ├── OS: Ubuntu
+ ├── Apache installed
+ └── Root volume information
+       ↓
+     EBS Volume
+       ↓
+     EC2
+
+When you launch an EC2 from the AMI, AWS uses that information to create/attach the root EBS volume containing the OS and files captured in the AMI.
+
+
 15. Difference between Stopping and Terminating an EC2 Instance
 Stop
 
