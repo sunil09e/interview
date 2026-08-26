@@ -444,10 +444,892 @@ SSH login → normal user → sudo may be needed.
 ---------------------------------------
 
 AWS Lambda
+AWS Lambda is a serverless compute service.
+AWS Lambda has a maximum execution time of 15 minutes per invocation.
+S3 bucket = Region-specific, but bucket name = globally unique
 
+It allows you to run your application code without creating or managing an EC2 server.
 AWS Lambda is a serverless compute service that lets you run your code without creating or managing EC2 servers.
+Interview answer
+
+AWS Lambda is a serverless compute service used to run code in response to events without managing servers. 
+It is useful for event-driven tasks such as API processing, S3 file processing, SQS message processing, scheduled jobs,
+and backend operations. We generally pay based on the number of requests and the time our functions execute.
+Think of it like:
+
+User
+  ↓
+API Gateway
+  ↓
+AWS Lambda
+  ↓
+DynamoDB / RDS
+Why use Lambda?
+
+With EC2:
+
+You create EC2
+     ↓
+Install OS/software
+     ↓
+Run your application
+     ↓
+Manage server
+     ↓
+Pay for running server
+
+With Lambda:
+
+Event happens
+     ↓
+Lambda runs your code
+     ↓
+Code finishes
+     ↓
+Lambda stops
+
+AWS manages the servers for you.
+
+Simple example
+
+Suppose a user uploads an image to S3:
+
+User
+ ↓
+S3 bucket
+ ↓
+Lambda triggered
+ ↓
+Resize image
+ ↓
+Save resized image
+
+You don't need to keep an EC2 server running just to wait for uploads.
+
+Interview answer
+
+AWS Lambda is a serverless compute service that runs code in response to events without requiring us to provision or manage servers such as EC2. We pay based on the compute time and requests used.
+
+Important: Lambda doesn't mean there are no servers. AWS manages the servers for you.
+
+
+AWS Lambda is paid, but you generally pay only when your Lambda function is used.
+
+Example:
+
+User request
+     ↓
+Lambda runs for 2 seconds
+     ↓
+Function finishes
+     ↓
+You are charged for the request + execution time
+Lambda vs EC2
+	EC2	Lambda
+Server	You manage it	AWS manages it
+Payment	Usually while instance is running	Based mainly on requests + execution time
+Scaling	You configure it	AWS handles scaling
+Server maintenance	Yes	No
+
+Simple interview line:
+
+"Lambda follows a serverless, pay-per-use model. We are charged based on the number of requests and the compute duration of the function."
+
+There is also an AWS Lambda free tier, subject to AWS's current pricing terms.
+
+
+
+Why do we use Lambda?
+
+The main reason is:
+
+We don't want to continuously run a server for a small piece of work.
+
+Example without Lambda
+
+Suppose your application needs to send a welcome email whenever a new user registers.
+
+You could use:
+
+User
+ ↓
+EC2 Server
+ ↓
+Application
+ ↓
+Send Email
+
+But the EC2 server needs to keep running even when nobody registers.
+
+10:00 AM → No user
+11:00 AM → No user
+12:00 PM → No user
+01:00 PM → New user → Send email
+
+You are keeping the server available all the time.
+
+With Lambda
+New User Registers
+        ↓
+      Lambda
+        ↓
+ Send Welcome Email
+        ↓
+      Finish
+
+Lambda runs only when needed.
+
+That's one of the biggest reasons we use Lambda.
+
+Lambda is event-driven
+
+Lambda usually runs because of an event.
+
+For example:
+
+S3 upload
+   ↓
+Lambda
+
+API request
+   ↓
+Lambda
+
+DynamoDB change
+   ↓
+Lambda
+
+Scheduled time
+   ↓
+Lambda
+
+SQS message
+   ↓
+Lambda
+
+So Lambda is commonly used for event-driven applications.
+
+
+4. Real-world example — S3
+
+Suppose you have a website where users upload profile pictures.
+
+User
+ ↓
+Upload image
+ ↓
+S3 Bucket
+ ↓
+Lambda
+ ↓
+Resize image
+ ↓
+Save resized image to S3
+What happens?
+
+User uploads:
+
+photo.jpg
+
+S3 receives the file.
+
+S3 generates an event:
+
+"New object uploaded"
+
+That event triggers Lambda.
+
+Lambda executes your image-processing code.
+
+For example:
+
+photo.jpg
+     ↓
+Lambda
+     ↓
+photo-thumbnail.jpg
+
+You don't need an EC2 server running 24/7 just for this task.
+
+5. Lambda with API Gateway
+
+This is another very common architecture.
+
+Suppose you have a web application:
+
+User
+ ↓
+Domain
+ ↓
+API Gateway
+ ↓
+Lambda
+ ↓
+DynamoDB
+Example
+
+User clicks:
+
+"View my profile"
+
+The request goes:
+
+Browser
+   ↓
+API Gateway
+   ↓
+Lambda
+   ↓
+DynamoDB
+   ↓
+Lambda
+   ↓
+API Gateway
+   ↓
+Browser
+
+Lambda might execute:
+
+def lambda_handler(event, context):
+    # get user data from DynamoDB
+    # return user data
+
+Here Lambda is acting as the backend code.
+
+6. Lambda with DynamoDB
+
+Suppose you have an e-commerce application.
+
+Frontend
+   ↓
+API Gateway
+   ↓
+Lambda
+   ↓
+DynamoDB
+
+User places an order:
+
+User
+ ↓
+API Gateway
+ ↓
+Lambda
+ ↓
+DynamoDB
+
+Lambda can:
+
+validate the order
+calculate the total
+save the order
+update inventory
+return a response
+7. Lambda with SQS
+
+Suppose your application receives thousands of orders.
+
+Instead of processing everything immediately:
+
+Application
+     ↓
+    SQS
+     ↓
+  Lambda
+     ↓
+Process order
+
+SQS stores the messages.
+
+Lambda receives messages from SQS and processes them.
+
+For example:
+
+Order 1
+Order 2
+Order 3
+Order 4
+   ↓
+  SQS
+   ↓
+ Lambda
+   ↓
+Process orders
+
+This is useful when you want asynchronous/background processing.
+
+8. Lambda with CloudWatch
+
+You can also schedule Lambda.
+
+For example:
+
+"Every night at 12 AM, clean old data."
+
+Architecture:
+
+EventBridge / Schedule
+        ↓
+      Lambda
+        ↓
+ Delete old data
+
+Another example:
+
+"Every morning, generate a report."
+
+Schedule
+   ↓
+Lambda
+   ↓
+Generate report
+   ↓
+Store in S3
+9. Lambda vs EC2
+
+This is very important for interviews.
+
+EC2
+You
+ ↓
+EC2
+ ↓
+Install OS
+ ↓
+Install application
+ ↓
+Manage server
+ ↓
+Run application
+
+You are responsible for the server.
+
+Lambda
+You
+ ↓
+Write code
+ ↓
+Lambda
+ ↓
+AWS manages infrastructure
+
+You don't manage the underlying server.
+
+10. Why not use Lambda for everything?
+
+Lambda has limitations.
+
+It's best for short, event-driven tasks, not every type of application.
+
+For example:
+
+Small task
+ ↓
+Lambda ✅
+Event processing
+ ↓
+Lambda ✅
+API backend
+ ↓
+Lambda ✅
+
+But if you need:
+
+Long-running application
+ ↓
+EC2 / ECS / other service
+
+you may choose a different compute service.
 
 
 
 
+how application connect lambda
+
+An application connects to Lambda through a trigger/event. The most common way for a web application is API Gateway.
+
+Web application → Lambda
+User
+  ↓
+Frontend
+  ↓
+API Gateway
+  ↓
+Lambda
+  ↓
+Database
+Example: Login
+
+Suppose your website has a login page.
+
+User enters:
+username = Siva
+password = ****
+       ↓
+Frontend
+       ↓
+API Gateway
+       ↓
+Lambda
+       ↓
+DynamoDB / RDS
+       ↓
+Check username & password
+       ↓
+Lambda
+       ↓
+API Gateway
+       ↓
+Frontend
+       ↓
+"Login successful"
+What connects them?
+
+The API Gateway endpoint connects your application to Lambda.
+
+For example, your frontend might send:
+
+POST https://api.example.com/login
+
+API Gateway receives this request and invokes the Lambda function.
+
+POST /login
+      ↓
+API Gateway
+      ↓
+Lambda function: LoginFunction
+Other ways an application can trigger Lambda
+
+Lambda doesn't only work with API Gateway.
+
+API Gateway ───────→ Lambda
+S3 upload ─────────→ Lambda
+SQS message ───────→ Lambda
+DynamoDB change ───→ Lambda
+EventBridge schedule → Lambda
+SNS message ───────→ Lambda
+
+So remember:
+
+Application → API Gateway → Lambda is a very common architecture for using Lambda as a backend.
+
+And Lambda can then connect to DynamoDB, RDS, S3, SQS, SNS, etc. depending on what the application needs.
+
+
+
+how we configure them now i createda lmbada function then what
+
+Yes. If you already created the Lambda function, the next step depends on how your application will call it.
+
+For a normal web application, let's configure:
+
+Frontend
+   ↓
+API Gateway
+   ↓
+Lambda
+   ↓
+Database
+Step 1 — Your Lambda function
+
+You already have:
+
+Lambda
+└── MyFunction
+
+First, test that Lambda itself works.
+
+Go to:
+
+AWS Console → Lambda → Functions → MyFunction → Test
+
+Create a test event, for example:
+
+{
+  "name": "Siva"
+}
+
+Click Test.
+
+You should see your Lambda response.
+
+Step 2 — Create API Gateway
+
+Now we need something that the frontend can call.
+
+Go to:
+
+AWS Console → API Gateway → Create API
+
+Choose:
+
+HTTP API
+
+Then create the API.
+
+Step 3 — Connect API Gateway to Lambda
+
+While creating the API, you'll see an option for Integration.
+
+Choose:
+
+Integration type → Lambda
+Lambda function → MyFunction
+
+So now:
+
+API Gateway
+      ↓
+MyFunction
+
+API Gateway knows:
+
+"When someone calls this API, invoke this Lambda function."
+
+Step 4 — Create a route
+
+Suppose your application needs a login API.
+
+Create:
+
+Method: POST
+Path: /login
+
+So your API looks like:
+
+POST /login
+      ↓
+MyFunction
+
+For another operation:
+
+GET /users
+      ↓
+MyFunction
+
+You can have different Lambda functions too:
+
+POST /login
+      ↓
+LoginLambda
+
+GET /users
+      ↓
+UserLambda
+
+POST /orders
+      ↓
+OrderLambda
+Step 5 — Get the API URL
+
+After deploying the API, API Gateway gives you an Invoke URL, something like:
+
+https://abc123.execute-api.ap-south-1.amazonaws.com
+
+Your frontend can call:
+
+POST https://abc123.execute-api.ap-south-1.amazonaws.com/login
+
+Then the request travels:
+
+Browser
+   ↓
+API URL
+   ↓
+API Gateway
+   ↓
+Lambda
+   ↓
+Lambda executes code
+   ↓
+Response
+   ↓
+API Gateway
+   ↓
+Browser
+Step 6 — What does Lambda receive?
+
+Suppose the frontend sends:
+
+{
+  "username": "Siva",
+  "password": "1234"
+}
+
+API Gateway passes information to Lambda through the event.
+
+Your Lambda can read the request and process it.
+
+Conceptually:
+
+def lambda_handler(event, context):
+
+    # Get request data
+    # Check user
+    # Access database
+    # Return response
+
+    return {
+        "statusCode": 200,
+        "body": "Login successful"
+    }
+Complete architecture
+
+For a simple AWS application:
+
+                    AWS
+                     │
+User ──→ Frontend ──→ API Gateway
+                         │
+                         ↓
+                       Lambda
+                         │
+                         ↓
+                    DynamoDB / RDS
+The important part
+
+You do not directly connect the frontend to Lambda in the usual API architecture.
+
+You configure:
+
+Frontend → API Gateway → Lambda
+
+And Lambda can then access your database.
+
+If you're doing this in the AWS Console right now, the next thing you should configure after creating Lambda is API Gateway.
+
+
+AWS Lambda has a maximum execution time of 15 minutes per invocation.
+
+That means:
+
+Lambda starts
+   ↓
+Runs your code
+   ↓
+Maximum = 15 minutes
+   ↓
+Lambda execution stops
+Example
+
+If your Lambda takes:
+
+2 seconds → ✅
+5 minutes → ✅
+14 minutes → ✅
+15 minutes → ✅ (at the limit)
+16 minutes → ❌ Lambda times out
+
+You configure the timeout in:
+
+AWS Console → Lambda → Your Function → Configuration → General configuration → Timeout
+
+Why is there a 15-minute limit?
+
+Lambda is designed mainly for short, event-driven tasks, rather than continuously running applications.
+
+For example:
+
+S3 upload
+   ↓
+Lambda
+   ↓
+Resize image
+   ↓
+Finish
+
+or:
+
+API request
+   ↓
+Lambda
+   ↓
+Process request
+   ↓
+Return response
+
+If you have a task that takes more than 15 minutes, you would normally consider services such as EC2, ECS/Fargate,
+AWS Batch, or Step Functions, depending on the workload.
+
+
+
+
+Example: Automatically resize an uploaded image
+
+Suppose a user uploads:
+
+photo.jpg
+
+to an S3 bucket.
+
+We want Lambda to automatically create:
+
+photo-thumbnail.jpg
+Architecture
+User
+ ↓
+S3 Bucket
+ ↓
+S3 Event
+ ↓
+Lambda
+ ↓
+Resize Image
+ ↓
+S3 Bucket
+ ├── original/photo.jpg
+ └── thumbnails/photo-thumbnail.jpg
+1. Create an S3 bucket
+
+For example:
+
+my-image-bucket
+
+You upload images into:
+
+original/
+
+So:
+
+my-image-bucket
+└── original/
+    └── photo.jpg
+2. Create your Lambda function
+
+You can create a Python Lambda function.
+
+The Lambda receives information about the uploaded file through the S3 event.
+
+Conceptually:
+
+def lambda_handler(event, context):
+
+    # Get bucket name
+    # Get uploaded file name
+
+    # Download image from S3
+
+    # Resize image
+
+    # Upload resized image back to S3
+
+    return "Image resized"
+
+But Lambda needs an image-processing library such as Pillow.
+
+3. Connect S3 to Lambda
+
+Go to:
+
+Lambda → Your Function → Add trigger
+
+Select:
+
+Trigger → S3
+Bucket → my-image-bucket
+Event type → Object Created
+
+Now AWS knows:
+
+Whenever a new object is uploaded to this bucket, invoke this Lambda.
+
+So:
+
+Upload photo.jpg
+       ↓
+S3 detects new object
+       ↓
+S3 triggers Lambda
+4. Lambda gets the uploaded file information
+
+The S3 event tells Lambda something like:
+
+Bucket:
+my-image-bucket
+
+Object:
+original/photo.jpg
+
+Lambda then downloads that image from S3.
+
+5. Lambda resizes it
+
+For example:
+
+Original:
+1920 × 1080
+
+       ↓ Lambda
+
+Thumbnail:
+300 × 169
+
+Then Lambda uploads the new image:
+
+my-image-bucket
+├── original/
+│   └── photo.jpg
+│
+└── thumbnails/
+    └── photo.jpg
+6. Important: avoid an infinite loop
+
+This is very important.
+
+If Lambda is triggered whenever any file is uploaded:
+
+S3
+ ↓
+Lambda
+ ↓
+creates thumbnail
+ ↓
+S3
+ ↓
+Lambda again
+ ↓
+creates another thumbnail
+ ↓
+...
+
+You don't want that.
+
+Instead, configure the S3 trigger to only respond to:
+
+original/
+
+Then:
+
+original/photo.jpg
+       ↓
+     Lambda
+       ↓
+thumbnails/photo.jpg
+
+The thumbnail is placed in thumbnails/, so it doesn't trigger the function again.
+
+Final picture
+                AWS
+                 │
+User uploads     │
+photo.jpg        │
+   ↓             │
+┌─────────┐      │
+│   S3    │      │
+│ original│      │
+└────┬────┘      │
+     │ S3 Event  │
+     ↓           │
+┌──────────┐     │
+│  Lambda  │     │
+│  Pillow  │     │
+└────┬─────┘     │
+     │           │
+     ↓           │
+┌─────────┐      │
+│   S3    │      │
+│thumbnail│      │
+└─────────┘      │
+
+This is a perfect Lambda use case because the work happens only when an image is uploaded, rather than keeping an EC2 server running continuously.
 
