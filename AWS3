@@ -1,0 +1,814 @@
+If an interviewer asks “What is CDN, what is CloudFront, and how do they work?”, you can answer like this:
+CDN stands for Content Delivery Network. It is a network of geographically distributed servers, called Edge Locations,
+that cache and deliver content closer to users.
+
+CloudFront is AWS's CDN service. It uses and manages AWS's global Edge Locations to provide CDN functionality.
+
+When a user requests content, the request goes to the nearest CloudFront Edge Location. If the content is already cached there, 
+CloudFront delivers it directly to the user. If it is not cached, CloudFront gets the content from the origin server, 
+returns it to the user, and can cache a copy at the Edge Location for future requests.
+
+CDN — Content Delivery Network
+
+A CDN is a service that delivers your website/application content to users from a server that is geographically close to them.
+
+In AWS, the main CDN service is Amazon CloudFront.
+
+Simple example
+
+Suppose your application server is in Mumbai:
+
+              Your EC2
+            Mumbai Region
+                 |
+                 |
+        +--------+--------+
+        |                 |
+     User India       User USA
+
+If a user in the USA requests an image:
+
+USA User
+   |
+   | Request image
+   ↓
+EC2 in Mumbai
+   |
+   | Image
+   ↓
+USA User
+
+The image has to travel from Mumbai to the USA, which can be slower.
+
+With CDN
+                 EC2 / S3
+                Mumbai
+                   |
+                   ↓
+              CloudFront
+             /     |      \
+            /      |       \
+     India Edge  USA Edge  Europe Edge
+        |           |          |
+     User India  User USA  User Europe
+
+CloudFront has edge locations around the world.
+
+If the USA user requests an image:
+
+USA User
+   |
+   ↓
+CloudFront USA Edge
+   |
+   ↓
+EC2/S3 in Mumbai       ← only if content isn't cached
+
+If the image is already cached at the USA edge:
+
+USA User
+   |
+   ↓
+CloudFront USA Edge
+   |
+   ↓
+Image
+
+So the request doesn't need to go to Mumbai every time.
+
+What does CDN usually cache?
+
+Mostly static content:
+
+Images
+Videos
+CSS
+JavaScript
+HTML
+PDFs
+Downloads
+Why do we use CDN?
+
+1. Faster response
+Content comes from a nearby edge location.
+
+2. Reduces load on EC2
+CloudFront serves cached content instead of EC2 serving every request.
+
+3. Reduces bandwidth usage
+Fewer requests need to reach your origin server.
+
+4. Global users get better performance
+Users in different countries can access content from nearby edge locations.
+
+Interview answer
+
+CDN is a geographically distributed network of edge locations used to deliver content to users from a location close to them, reducing latency and improving application performance. In AWS, CloudFront is the CDN service.
+
+Important: CDN is not a replacement for EC2. EC2 can be your origin server, while CloudFront sits in front of it and caches/delivers content.
+
+
+
+
+
+Is the CloudFront Edge like an EC2 instance?
+
+No.
+
+You don't create or manage the edge server.
+
+EC2
+→ You choose instance type
+→ You launch it
+→ You manage OS
+→ You pay for the instance
+
+CloudFront Edge
+→ AWS manages it
+→ You don't launch the server
+→ You don't manage the OS
+→ You pay for CloudFront usage
+
+CloudFront automatically decides which edge location should serve the user.
+
+What does CloudFront actually store?
+
+It stores cached copies of your content, such as:
+
+image.jpg
+style.css
+app.js
+video.mp4
+HTML
+
+It's not storing your entire EC2 server.
+
+Think:
+
+EC2/S3 = original source
+CloudFront = temporary copies of requested content near users
+
+And those cached copies have a cache lifetime (TTL). When the cache expires or is invalidated, CloudFront can fetch the current content from the origin again.
+
+
+
+
+You don't create both separately.
+
+For the first time, you create CloudFront.
+
+CloudFront is the AWS service that provides the CDN.
+
+You
+ ↓
+Create CloudFront Distribution
+ ↓
+CloudFront provides CDN functionality
+ ↓
+AWS Edge Locations are used
+ ↓
+Your users get content from nearby locations
+
+So remember:
+
+CDN = the technology/concept
+CloudFront = AWS service that provides the CDN
+CloudFront Distribution = what you actually create
+
+You do not go somewhere and create a separate “CDN” first.
+
+
+
+
+CloudFront = AWS service
+Edge Location = distributed server used by CloudFront
+CDN = the overall system of delivering cached content from that nearby Edge Location
+CDN vs CloudFront
+CDN and CloudFront are related, but they are not the same thing.
+CDN (Content Delivery Network) is a network of geographically distributed servers used to deliver cached content closer to users.
+CloudFront is AWS's CDN service used to create and manage a CDN for your application.
+❌ “CloudFront creates an Edge Location.”
+Better: ✅ “CloudFront uses AWS's existing Edge Locations and manages the CDN through them.”
+CloudFront → the AWS service managing the whole CDN.
+CDN → the delivery/caching system provided by CloudFront.
+Edge Location → the server/location where the content is cached and served to users.
+CloudFront creates/manages the CDN infrastructure for you. ✅
+Distributed servers = servers spread across different locations around the world, so users can get content from a nearby server.
+
+In CloudFront, these geographically distributed locations are called Edge Locations.
+Sure. In “CloudFront is used to create and manage a CDN”, these two words mean:
+
+Create
+
+You configure CloudFront for your application.
+
+For example:
+
+Your Application
+      ↓
+Create CloudFront Distribution
+      ↓
+Choose Origin
+(EC2 / S3 / Load Balancer)
+      ↓
+CloudFront CDN is ready
+
+You are basically telling CloudFront:
+
+What is my origin?
+What content should be cached?
+How long should it be cached?
+Who can access it?
+Manage
+
+After creating it, you can control and maintain how the CDN works.
+
+For example:
+
+CloudFront
+   │
+   ├── Change cache settings
+   ├── Change origin
+   ├── Set cache duration (TTL)
+   ├── Remove old cached content (Invalidation)
+   └── Monitor traffic
+Very simple
+
+Create = set up the CloudFront CDN for your application.
+
+Manage = control and change how that CDN behaves after it is created.
+
+You don't manually create the distributed/edge servers. AWS manages those servers; you configure and manage the CloudFront distribution.
+
+
+
+
+
+Think of it this way:
+
+CDN
+= the concept/network
+= distributed servers that cache and deliver content
+
+CloudFront
+= AWS service
+= AWS provides and manages those edge servers for you
+
+You do not manually create the individual CDN/edge servers.
+For example:
+
+Your Application
+      │
+      ▼
+   CloudFront
+      │
+      ├── Edge Location → India users
+      ├── Edge Location → Europe users
+      └── Edge Location → Japan users
+
+When you create a CloudFront distribution, AWS uses its global edge-location network to cache and deliver your content.
+
+So the simplest answer is:
+
+CDN is the technology/concept. CloudFront is the AWS service that provides the CDN. CloudFront uses AWS-managed edge servers to deliver cached content closer to users.
+
+
+
+
+
+In simple words: CloudFront doesn't create an EC2 instance for you. It uses AWS's already-built global edge-server infrastructure.
+When you create a CloudFront distribution, AWS provides the distributed edge locations/servers automatically.
+
+You don't do this:
+
+You → Create server in India
+You → Create server in Japan
+You → Create server in Europe
+
+Instead:
+
+You
+ ↓
+Create CloudFront Distribution
+ ↓
+AWS CloudFront
+ ↓
+AWS automatically uses its Edge Locations
+ ├── India
+ ├── Japan
+ ├── Europe
+ └── etc.
+
+So CloudFront creates/provisions the CDN setup for you, but you don't manually create individual servers.
+
+👉 EC2: You explicitly create an EC2 instance/server.
+
+👉 CloudFront: You create a CloudFront distribution, and AWS handles the underlying distributed edge infrastructure.
+
+
+
+
+
+
+
+
+
+
+┌───────────────────────────────────────┐
+│           User in India               │
+│        Opens amazon.com               │
+└───────────────────┬───────────────────┘
+                    │
+                    ▼
+┌───────────────────────────────────────┐
+│         CloudFront Edge               │
+│       Nearest location in India       │
+│          Cache checked here           │
+└───────────────────┬───────────────────┘
+                    │
+                    ▼
+       ┌────────────────────────────┐
+       │ If NOT cached (First request)│
+       │ Request travels to Origin   │
+       │ USA server sends image/file │
+       └──────────────┬─────────────┘
+                      │
+                      ▼
+┌───────────────────────────────────────┐
+│            Origin Server              │
+│             EC2 / S3 in USA          │
+└───────────────────┬───────────────────┘
+                    │
+                    ▼
+┌───────────────────────────────────────┐
+│        Cached at India Edge           │
+│       Next users get it locally       │
+└───────────────────────────────────────┘
+
+
+Exactly what happens
+
+First user in India:
+
+User in India
+     ↓
+CloudFront Edge in India
+     ↓
+Not cached
+     ↓
+Origin Server in USA
+     ↓
+EC2 / S3 sends image/file
+     ↓
+CloudFront Edge in India
+     ↓
+Content is cached
+     ↓
+User receives content
+
+Next user in India:
+
+User in India
+     ↓
+CloudFront Edge in India
+     ↓
+Already cached
+     ↓
+Content delivered locally
+
+So the key point in your exact diagram is:
+
+First request → India Edge → USA Origin → India Edge caches it
+
+Next request → India Edge → cached content → User
+
+
+
+
+┌──────────────────────────────┐
+│        User in India         │
+│       Requests image         │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│    CloudFront India Edge     │
+│          Cache MISS          │
+└──────────────┬───────────────┘
+               │
+               │ Request goes to USA
+               ▼
+┌──────────────────────────────┐
+│        Origin in USA         │
+│          EC2 or S3           │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│    CloudFront stores copy    │
+│        at India edge         │
+│                              │
+│   and sends image to user    │
+└──────────────────────────────┘
+
+
+What about login?
+
+Even if the user is in India:
+┌──────────────────────────────┐
+│        India User            │
+│        Login request         │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│         CloudFront           │
+│  Forwards dynamic request    │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│      Backend Origin USA      │
+│ Processes login with DB      │
+└──────────────┬───────────────┘
+               │
+               ▼
+       Success / Failure
+          returned
+The login is processed by the backend/origin server, not from the CloudFront cache.
+
+One-line memory trick
+
+Images, CSS, JS → CloudFront can cache and serve from the nearest edge.
+
+Login, Orders, Payments → CloudFront forwards the request to the origin/backend for processing.
+
+So in your example, yes: if the origin is in the USA and the user is in India, the first uncached static request reaches the USA origin through 
+CloudFront, while later cached requests are served from the nearby India edge.
+
+
+Complete CDN Architecture
+                         INTERNET
+                            |
+                            |
+                    User in India
+                            |
+                            ↓
+                     Route 53 DNS
+                            |
+                            ↓
+                    Amazon CloudFront
+                         (CDN)
+                            |
+              ┌─────────────┴─────────────┐
+              |                           |
+       Static Content                Dynamic Requests
+       (images, CSS, JS)             (Login, Orders)
+              |                           |
+              ↓                           ↓
+      CloudFront Edge               AWS Origin
+      India/nearby                  USA Region
+              |                     ┌─────┴─────┐
+              |                     ↓           ↓
+              |                    ALB        S3
+              |                     |        Static files
+              |                     ↓
+              |                   EC2
+              |                Application
+              |                     |
+              |                     ↓
+              |                  Database
+              |                 (RDS etc.)
+              |
+              ↓
+            USER
+
+1. Static content
+
+Content that is the same for many users.
+
+Examples:
+
+logo.png
+product.jpg
+style.css
+app.js
+videos
+
+For example, if 1,000 users ask for the same logo.png, everyone gets the same image.
+
+So CloudFront can cache it:
+
+User
+ ↓
+CloudFront
+ ↓
+Cached logo.png
+2. Dynamic requests
+
+Content that changes depending on the user or the action.
+
+Examples:
+
+Login
+My Account
+My Orders
+Add to Cart
+Payment
+
+For example:
+
+User A → "Show my orders"
+
+might get:
+
+Order 101
+Order 102
+
+while:
+
+User B → "Show my orders"
+
+gets:
+
+Order 201
+Order 202
+
+So CloudFront cannot simply give User B User A's cached account information.
+
+It needs to go to the backend:
+
+User
+ ↓
+CloudFront
+ ↓
+Backend/Application
+ ↓
+Database
+ ↓
+User-specific result
+Very simple rule
+
+Static = same content → can be cached by CDN
+
+Dynamic = user-specific/changing content → application processes it
+
+
+What happens when the cached copy expires?
+
+CloudFront doesn't necessarily keep the cached copy forever.
+
+Suppose the cache lifetime is over.
+
+User
+ ↓
+CloudFront
+ ↓
+❌ Cache expired
+ ↓
+Origin
+ ↓
+New version
+ ↓
+CloudFront
+ ↓
+User
+
+CloudFront can then cache the updated content again.
+
+
+
+this is the important part of CDN caching.
+
+Suppose:
+
+Origin Server (USA)
+Product image = OLD
+        ↓
+CloudFront India Edge
+Product image = OLD
+
+Now the origin server is updated:
+
+Origin Server (USA)
+Product image = NEW
+
+But the Indian CloudFront edge may still have the OLD copy.
+
+So what does the user get?
+
+It depends on the cache configuration / cache lifetime (TTL).
+
+                 Origin USA
+                 ┌─────────┐
+                 │   NEW   │
+                 └────┬────┘
+                      │
+                      │
+              CloudFront India
+                 ┌─────────┐
+                 │   OLD   │  ← cached
+                 └────┬────┘
+                      │
+                      ▼
+                 User gets OLD
+
+The user can continue getting the old cached version until the cache expires or is invalidated.
+
+After cache expires
+
+CloudFront asks the origin for the content again:
+
+User
+ ↓
+CloudFront India
+ ↓
+Cache expired
+ ↓
+Origin USA
+ ↓
+Gets NEW version
+ ↓
+CloudFront India caches NEW
+ ↓
+User gets NEW
+
+Then:
+
+CloudFront India
+       │
+       │ NEW cached copy
+       ▼
+ All subsequent users
+       ↓
+    NEW content
+You can also force the update immediately
+
+If you update something important and don't want users to wait for the cache to expire, you can perform a CloudFront invalidation.
+
+Origin
+  │
+  │ NEW content
+  ▼
+CloudFront
+  │
+  │ Remove OLD cached copy
+  ▼
+Next user request
+  │
+  ▼
+Origin
+  │
+  ▼
+NEW content
+  │
+  ▼
+CloudFront caches NEW copy
+Simple real-world example
+
+Amazon changes a product image at the origin:
+
+10:00 AM
+Origin = RED SHIRT
+CloudFront India = RED SHIRT
+
+10:05 AM
+Origin updated = BLUE SHIRT
+CloudFront India = RED SHIRT
+
+10:06 AM
+User requests image
+        ↓
+Gets RED SHIRT
+
+If the cached object hasn't expired.
+
+After TTL expires or an invalidation occurs:
+
+User
+ ↓
+CloudFront
+ ↓
+Cache expired / invalidated
+ ↓
+Origin
+ ↓
+BLUE SHIRT
+ ↓
+CloudFront caches BLUE SHIRT
+ ↓
+User gets BLUE SHIRT
+
+So CDN does not automatically mean every edge always has the latest version immediately. The cache can temporarily be stale until its
+TTL expires or you invalidate/update the cached object.
+
+
+
+What does CloudFront actually store?
+
+This is very important.
+
+CloudFront does not copy your entire application.
+
+For example, suppose your application has:
+
+product1.jpg
+product2.jpg
+logo.png
+style.css
+app.js
+
+CloudFront can cache copies of these files.
+
+But something like:
+
+Login
+Place order
+View my account
+Payment
+Check my balance
+
+is dynamic and normally has to be processed by your application/backend.
+
+So:
+
+CloudFront
+   |
+   +--- Cached/static content
+   |       ├── images
+   |       ├── CSS
+   |       ├── JavaScript
+   |       └── videos
+   |
+   +--- Dynamic requests
+           ↓
+       Application
+
+
+
+
+Put CloudFront in front
+
+Now we add CloudFront:
+
+                    MyShop Origin
+                    AWS Mumbai
+                         |
+                         |
+                    CloudFront
+                         |
+          +--------------+--------------+
+          ↓              ↓              ↓
+     India Edge       USA Edge       Europe Edge
+          ↓              ↓              ↓
+       Users           Users           Users
+
+These locations are called CloudFront edge locations.
+
+You don't create these servers yourself.
+
+AWS manages them.
+
+
+What is what?
+CloudFront → the CDN service
+Edge locations → the servers/locations that CloudFront uses to cache and deliver content
+Origin → your original application/content source
+User → person accessing your application
+
+So when we say:
+
+"Put a CDN in front of the application"
+
+we mean:
+
+User
+  ↓
+CloudFront (CDN)
+  ↓
+Origin
+
+And CloudFront has many edge locations around the world.
+
+For your USA-origin example:
+
+India User
+     ↓
+CloudFront
+     ↓
+India Edge Location
+     ↓
+     ├── Cache HIT → User
+     │
+     └── Cache MISS → USA Origin
+                         ↓
+                       Content
+                         ↓
+                    India Edge
+                         ↓
+                       User
+
+CloudFront = CDN.
+India Edge = one location/server of the CDN.
+-------------------------------------------------
+
