@@ -1,0 +1,440 @@
+What is a Snapshot in AWS?
+
+A snapshot is a backup/copy of the data stored on an EBS volume.
+
+Think of it like taking a photo of your EBS disk at a particular point in time.
+
+Example:
+
+EC2 Instance
+     |
+     | attached
+     ↓
+EBS Volume
+[ OS + Application + Data ]
+     |
+     | Snapshot
+     ↓
+EBS Snapshot
+[ Backup of the volume's data ]
+
+Why do we use snapshots?
+
+Suppose your EC2 has important data:
+
+EBS Volume
+----------------
+OS
+Application
+Files
+Database data
+----------------
+
+You take a snapshot:
+
+EBS Volume  ─────→  Snapshot
+                    ↓
+                 Backup
+
+If something goes wrong, you can use the snapshot to create a new EBS volume.
+
+Snapshot
+   |
+   ↓
+New EBS Volume
+   |
+   ↓
+Attach to EC2
+Important point
+
+A snapshot is not a backup of the entire EC2 instance by itself. It is primarily a point-in-time backup of an EBS volume.
+this means
+It means a snapshot backs up the EBS volume, not the EC2 machine itself.
+
+Think of it like this:
+
+EC2
+ |
+ └── EBS Volume
+       ├── OS
+       ├── Files
+       └── Data
+             |
+             ↓
+          Snapshot
+
+The snapshot is a backup of that EBS volume.
+
+So if you delete the EC2:
+
+EC2 ❌ deleted
+
+Snapshot ✅ still exists
+
+For example:
+
+EBS volume = your hard disk
+Snapshot = backup/copy of that hard disk
+EC2 = computer using that hard disk
+
+
+
+. An EC2 instance cannot normally be created without a root volume.
+
+When you launch an EC2:
+
+EC2 Instance
+     |
+     ↓
+Root EBS Volume
+     |
+     ↓
+Operating System
+
+The root volume contains the OS, so the instance needs it to boot.
+
+But you can do this
+
+You can launch an EC2 with its root EBS volume, and then after the EC2 is running, attach another EBS volume:
+
+        EC2
+         |
+   ┌─────┴─────┐
+   ↓           ↓
+Root EBS    Data EBS
+(OS)        (Your data)
+
+For example:
+
+Launch EC2 → root volume is created automatically.
+Create a new EBS volume.
+Attach that EBS volume to the running EC2.
+Format and mount it inside the OS.
+Use it for application/data storage.
+
+Important: You cannot remove the root volume while the EC2 is using it as its boot disk.
+
+root volume contains the OS,
+
+If you mean “How does the root volume contain the OS?”, here is the simple flow:
+
+When you create an EC2
+
+You select an AMI.
+
+AMI
+ |
+ | contains
+ ↓
+OS image
+ |
+ ↓
+EBS Root Volume
+ |
+ ↓
+EC2 Instance
+
+For example, you choose:
+
+Amazon Linux AMI
+AWS uses that AMI to create the root EBS volume containing Amazon Linux.
+
+EC2
+│
+├── Root EBS Volume
+│      └── Amazon Linux OS
+│
+└── Other EBS Volume (optional)
+       └── Application/Data
+
+So the sequence is:
+
+AMI → Root EBS Volume → OS → EC2 boots
+
+That's why you cannot normally create a usable EC2 without a root volume: the EC2 needs the OS somewhere to boot from.
+
+
+
+Case 1: Snapshot only the root volume
+EC2
+ └── Root EBS
+      ├── OS
+      └── Files
+
+Snapshot → backs up OS + files on that root volume.
+
+Case 2: Snapshot all EBS volumes
+EC2
+ ├── Root EBS
+ │    └── OS
+ │
+ └── Data EBS
+      └── Application/Data
+
+Snapshots → back up OS + application/data.
+
+So the difference is simply:
+
+One EBS snapshot = backup of that particular volume.
+
+Snapshots of all EBS volumes = backup of all those volumes.
+
+They are not two different types of snapshots.
+
+
+
+
+If you mean how to restore your EC2 after deleting it using a snapshot, do it like this:
+
+1. Before deleting the old EC2
+
+Go to:
+
+EC2 → Volumes
+
+Find the volume attached to your EC2.
+
+EC2
+ ↓
+EBS Volume
+ ↓
+Actions → Create snapshot
+
+Give the snapshot a name and create it.
+
+2. Delete the old EC2
+
+You can terminate the old EC2.
+
+Your snapshot remains if you created it separately.
+
+3. Create a new EC2
+
+Go to:
+
+EC2 → Launch instance
+
+Create a new EC2 normally.
+
+It will automatically get a new root EBS volume.
+
+New EC2
+   |
+   └── New Root EBS
+4. Restore your old volume
+
+Go to:
+
+EC2 → Snapshots
+
+Select your snapshot:
+
+Actions → Create volume from snapshot
+
+Choose the same Availability Zone as your new EC2.
+
+Snapshot
+   ↓
+Create Volume
+   ↓
+Old EBS data restored
+5. Attach it to the new EC2
+
+Go to:
+
+EC2 → Volumes → select the new volume → Actions → Attach volume
+
+Select your new EC2.
+
+Now:
+
+New EC2
+ ├── New Root EBS
+ │     └── New OS
+ │
+ └── Restored EBS
+       └── Old data
+
+Then log into the EC2 and mount the restored volume.
+
+Very important
+
+If your snapshot was of the old root volume and you want the old OS itself, the process is different:
+you can create a volume from that snapshot and use it as the root volume when launching the new EC2. You don't necessarily 
+need to attach it as a secondary data disk.
+
+
+
+
+If you mean how to take snapshots separately for the root volume and the data volume, do this:
+
+Example EC2
+EC2
+├── /dev/xvda → Root EBS
+│                OS + files
+│
+└── /dev/xvdf → Data EBS
+                 Application/data
+1. Snapshot only the Root EBS
+
+Go to:
+
+EC2 → Volumes
+
+Find the Root EBS volume (/dev/xvda).
+
+Then:
+
+Actions → Create snapshot
+
+Now you have:
+
+Root EBS
+   ↓
+Root Snapshot
+   ↓
+OS + files backed up
+2. Snapshot only the Data EBS
+
+Again go to:
+
+EC2 → Volumes
+
+Find the Data EBS volume (/dev/xvdf).
+
+Then:
+
+Actions → Create snapshot
+
+Now you have:
+
+Data EBS
+   ↓
+Data Snapshot
+   ↓
+Application/data backed up
+
+So you will have two separate snapshots:
+
+Snapshot 1 → Root EBS → OS + files
+Snapshot 2 → Data EBS → Application/data
+
+Later, you can restore either one independently. 
+
+If you mean the old volume contains the OS
+
+You cannot simply remove the new root volume and run the EC2 from nothing. The EC2 needs a root/boot volume.
+
+Instead, use the old snapshot to create the root volume for the new EC2.
+
+Old EC2
+   ↓
+Old Root EBS
+   ↓
+Snapshot
+   ↓
+Create AMI / use snapshot for root
+   ↓
+Launch New EC2
+   ↓
+Old OS + Old files
+
+Then your new EC2 can look like:
+
+New EC2
+   |
+   └── Old Root Volume
+         ├── Old OS
+         └── Old files/data
+If the old volume is only a data volume
+
+Then you can keep the new EC2's root volume and attach only the old data volume:
+
+New EC2
+├── New Root EBS → OS
+│
+└── Old EBS → Old data
+
+So the answer depends on whether your old volume is the root/OS volume or just a data volume.
+
+
+Situation 1 — Old EBS contains only data
+
+You need the new root EBS to run the EC2:
+
+New EC2
+│
+├── New Root EBS → OS        ← required to boot
+│
+└── Old EBS → Old data       ← what you want
+
+You cannot detach the new root EBS while using that EC2.
+
+Situation 2 — Old EBS contains the old OS
+
+Then you can make the old EBS the root volume of the new EC2.
+
+Old Snapshot
+     ↓
+Old EBS
+     ↓
+New EC2
+     ↓
+Old EBS = Root EBS
+
+Then there is no separate new root EBS that you need to keep:
+
+New EC2
+   │
+   └── Old EBS → Old OS + old data
+
+So if you're trying to restore the old EC2 exactly as it was, you should restore the old root-volume 
+snapshot as the root volume, rather than creating a new EC2 first and then attaching it as a secondary volume.
+
+
+
+while creating the new EC2, you can select the old snapshot/AMI as the root volume source.
+
+The easiest way is to create an AMI from the old EC2/root-volume snapshot, then launch the new EC2 from that AMI.
+
+Old EC2
+   ↓
+Old Root EBS
+   ↓
+Create Snapshot
+   ↓
+Create AMI
+   ↓
+Launch New EC2 using that AMI
+   ↓
+New EC2
+   |
+   └── Root EBS
+       ├── Old OS
+       └── Old data
+
+So the new EC2 can have only one EBS volume, and that volume contains your old OS + old data.
+
+In the Launch EC2 screen
+
+When you select your custom AMI, AWS automatically uses the AMI's root volume as the root EBS volume.
+
+You don't need to:
+
+Create new EC2
+   ↓
+Attach old EBS
+   ↓
+Detach new root EBS
+
+Instead, do:
+
+Old Snapshot → AMI → New EC2
+
+This is the cleaner way to restore the old EC2.
+
+
+
+
+
+
