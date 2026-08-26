@@ -986,6 +986,16 @@ If the endpoint fails → Unhealthy.
 
 Health Check = checks whether your endpoint is available.
 
+ALB health check → chooses healthy EC2.
+Route 53 health check → helps choose a healthy destination such as an ALB/endpoint.
+
+
+
+
+
+
+
+
 3. Registered Domain — "Who owns the domain?"
 
 Suppose you want:
