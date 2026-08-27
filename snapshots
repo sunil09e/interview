@@ -697,6 +697,33 @@ Then use:
 aws ec2 modify-instance-attribute \
   --instance-id i-xxxxxxxxxxxxxxxxx \
   --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"DeleteOnTermination":false}}]'
+
+
+
+Yes, if you mean EC2 storage (EBS volume), you can increase the storage size.
+
+For example:
+
+Before:
+EBS = 20 GB
+
+        ↓ Increase
+
+After:
+EBS = 50 GB
+Can you decrease it?
+
+Normally, no. AWS EBS does not support directly shrinking an existing volume from 50 GB → 20 GB.
+
+To decrease it, you generally need to:
+
+Create a smaller new EBS volume.
+Copy/migrate the data to it.
+Detach the old volume.
+Attach the smaller volume.
+
+In CloudFormation, you can change the Size property to increase an EBS volume, but decreasing an existing volume requires special
+handling and can potentially involve replacement/migration.
 ------------------------------------------
 
 
