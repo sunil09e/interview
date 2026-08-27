@@ -991,3 +991,67 @@ You don't manually encrypt or decrypt the secret. Secrets Manager handles this f
 Remember for interview
 
 Secrets Manager automatically encrypts secrets at rest using AWS KMS. It also handles decryption when an authorized caller retrieves the secret.
+
+
+
+
+
+
+
+How we mention in the application to use this secret. How we mention that.
+
+You normally don't mention the KMS key in your application.
+
+You mention the Secrets Manager secret name or ARN in your application.
+
+For example, suppose your secret is named:
+
+prod/database/password
+
+Your application requests:
+
+Secrets Manager
+     ↓
+GetSecretValue
+     ↓
+"prod/database/password"
+
+AWS then knows that this secret is encrypted with your selected KMS key and handles the decryption.
+
+Example in an application
+
+Conceptually:
+
+secret_name = "prod/database/password"
+
+secret = SecretsManager.GetSecretValue(secret_name)
+
+You don't write:
+
+KMS_KEY = "my-kms-key"   ❌
+
+because the secret is already configured in Secrets Manager to use that KMS key.
+
+Complete flow
+1. You create KMS key
+        ↓
+   MyKMSKey 🔑
+
+2. You create Secret
+        ↓
+   prod/database/password
+        ↓
+   Select MyKMSKey
+
+3. Application calls:
+        ↓
+   GetSecretValue("prod/database/password")
+        ↓
+   Secrets Manager
+        ↓
+   Uses MyKMSKey to decrypt
+        ↓
+   Returns password to application
+Interview answer
+
+The application references the secret by its name or ARN, not by the KMS key. Secrets Manager knows which KMS key is associated with that secret and handles decryption automatically.
