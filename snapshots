@@ -643,6 +643,60 @@ This is the cleaner way to restore the old EC2.
 
 
 
+When you create an EC2, the root EBS volume is normally created automatically:
 
+EC2
+ │
+ └── Root EBS
+      └── OS
+
+The root volume has a setting called:
+
+Delete on termination = Yes/No
+
+If it is YES
+Terminate EC2
+     ↓
+EC2 deleted
+     ↓
+Root EBS deleted ❌
+If it is NO
+Terminate EC2
+     ↓
+EC2 deleted
+     ↓
+Root EBS remains ✅
+
+So if you want the root EBS to remain after terminating the EC2, set:
+
+Delete on termination = No
+
+You can configure this while creating the EC2, under the storage/volume settings.
+
+
+
+
+
+
+Even if you already created the EC2 with Delete on termination = Yes, you can change it later to No.
+
+However, there is one important point: the EC2 console does not provide the option to change this for an existing instance. For an existing instance, AWS says to use the AWS CLI (or PowerShell).
+
+For your existing EC2
+
+First find the root device name. It is commonly:
+
+/dev/xvda
+
+or
+
+/dev/sda1
+
+Then use:
+
+aws ec2 modify-instance-attribute \
+  --instance-id i-xxxxxxxxxxxxxxxxx \
+  --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"DeleteOnTermination":false}}]'
+------------------------------------------
 
 
