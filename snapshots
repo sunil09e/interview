@@ -1055,3 +1055,220 @@ Complete flow
 Interview answer
 
 The application references the secret by its name or ARN, not by the KMS key. Secrets Manager knows which KMS key is associated with that secret and handles decryption automatically.
+
+
+
+
+
+
+
+
+Yes. Let's use a complete simple EKS example. I'll show you exactly where AWS Secrets Manager, KMS, Kubernetes, and the Deployment fit.
+
+Architecture
+AWS Secrets Manager
+        │
+        │ stores
+        ↓
+my-database-secret
+        │
+        │ protected by KMS 🔑
+        ↓
+SecretProviderClass
+        │
+        ↓
+Kubernetes Pod
+        │
+        ↓
+Your Application
+        │
+        ↓
+Database
+1. AWS Secrets Manager
+
+First, create a secret in AWS Secrets Manager:
+
+Secret name:
+
+my-database-secret
+
+Secret value:
+
+{
+  "username": "admin",
+  "password": "abc123"
+}
+
+If you selected your customer-managed KMS key, the secret is encrypted using that key.
+
+2. SecretProviderClass
+
+This tells EKS:
+
+"Get my-database-secret from AWS Secrets Manager."
+
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: database-secret-provider
+spec:
+  provider: aws
+
+  parameters:
+    objects: |
+      - objectName: "my-database-secret"
+        objectType: "secretsmanager"
+
+Notice:
+
+objectName: "my-database-secret"
+
+This is the AWS Secrets Manager secret name.
+
+3. Deployment
+
+Now your application Deployment:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-application
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: my-application
+
+  template:
+    metadata:
+      labels:
+        app: my-application
+
+    spec:
+      serviceAccountName: my-app-sa
+
+      containers:
+        - name: my-application
+          image: my-application:latest
+
+          volumeMounts:
+            - name: secrets-store
+              mountPath: "/mnt/secrets"
+              readOnly: true
+
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: database-secret-provider
+What happens here?
+
+This part:
+
+volumeAttributes:
+  secretProviderClass: database-secret-provider
+
+connects your Deployment to the SecretProviderClass.
+
+So Kubernetes says:
+
+Deployment
+    ↓
+database-secret-provider
+    ↓
+AWS Secrets Manager
+    ↓
+my-database-secret
+
+When the Pod starts, the secret can be mounted inside the container:
+
+/mnt/secrets/
+       │
+       └── secret data
+Where is KMS?
+
+KMS is NOT written in the Deployment YAML.
+
+The relationship is:
+
+AWS Secrets Manager
+       │
+       │ my-database-secret
+       ↓
+   Encrypted 🔒
+       │
+       ↓
+   KMS Key 🔑
+
+KMS protects the secret inside AWS Secrets Manager.
+
+Your Kubernetes Deployment doesn't need to say:
+
+kmsKey: my-key    ❌
+
+You selected the KMS key when configuring the AWS Secrets Manager secret.
+
+The complete picture
+                  AWS
+        ┌─────────────────────┐
+        │ Secrets Manager     │
+        │                     │
+        │ my-database-secret  │
+        │ username: admin     │
+        │ password: abc123    │
+        └──────────┬──────────┘
+                   │
+                   │ encrypted
+                   ↓
+              KMS Key 🔑
+                   │
+                   │
+             EKS / Kubernetes
+                   │
+                   ↓
+        ┌──────────────────────┐
+        │ SecretProviderClass  │
+        │                      │
+        │ my-database-secret   │
+        └──────────┬───────────┘
+                   │
+                   ↓
+             Deployment
+                   │
+                   ↓
+                 Pod
+                   │
+                   ↓
+              Application
+The three things to remember
+
+Secrets Manager:
+
+Stores username, password, API keys, tokens, etc.
+
+KMS:
+
+Encrypts/protects the secret using an encryption key.
+
+Kubernetes Deployment:
+
+Tells the Pod how to consume the secret; it does not need to specify the KMS key.
+
+One more important piece is IAM: the EKS Pod's IAM role/service account must be allowed to read the AWS secret (and, for a customer-managed KMS key, have the necessary KMS permissions).
+
+
+
+
+
+
+
+
+
+
+
+
+
