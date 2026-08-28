@@ -1638,3 +1638,756 @@ means:
 “Go to the Kubernetes Secret called database-secret and take its password value.”
 
 Important: database-secret here is a Kubernetes Secret, not directly the AWS Secrets Manager secret. If you're using AWS Secrets Manager with EKS, there is an additional configuration (SecretProviderClass/CSI driver) that connects the AWS secret to Kubernetes.
+
+
+---------------------------------------------
+
+What is AWS Elastic Beanstalk?
+
+AWS Elastic Beanstalk is a Platform as a Service (PaaS) that makes it easy to deploy, manage, and scale web applications.
+You simply upload your application code, and Elastic Beanstalk automatically provisions and manages the required AWS infrastructure, including:
+
+EC2 instances
+Load Balancers
+Auto Scaling Groups
+Security Groups
+CloudWatch monitoring
+How it works
+Your Application Code
+         │
+         ▼
+Elastic Beanstalk
+         │
+         ├── EC2 Instances
+         ├── Load Balancer
+         ├── Auto Scaling
+         ├── CloudWatch
+         └── Security Groups
+Supported Platforms
+
+Elastic Beanstalk supports applications written in:
+
+Java
+Python
+Node.js
+PHP
+.NET
+Ruby
+Go
+Docker containers
+Key Features
+Easy deployment – Upload your code using the AWS Console, CLI, or Git.
+Automatic scaling – Adjusts the number of EC2 instances based on traffic.
+Load balancing – Distributes incoming requests.
+Health monitoring – Monitors application health and infrastructure.
+Rolling deployments – Supports rolling, immutable, and blue/green deployment strategies.
+Access to infrastructure – You still have full access to the underlying AWS resources.
+Typical Deployment Flow
+Develop your application.
+Package the application (ZIP or Docker image).
+Create an Elastic Beanstalk application.
+Create an environment (Web Server or Worker).
+Deploy the application.
+Elastic Beanstalk provisions infrastructure automatically.
+Monitor and scale as needed.
+Pricing
+
+There is no additional charge for Elastic Beanstalk itself. You only pay for the AWS resources it creates, such as EC2 instances, Elastic Load Balancers, RDS databases (if used), and storage.
+
+When to use Elastic Beanstalk
+
+Choose Elastic Beanstalk if you:
+
+Want to deploy applications quickly.
+Don't want to manually manage EC2, Auto Scaling, and Load Balancers.
+Need automatic scaling and monitoring.
+Are hosting traditional web applications or REST APIs.
+
+If you need maximum infrastructure customization or are building a microservices architecture, services such as ECS, EKS, or AWS Lambda may be more appropriate.
+
+Interview Definition
+
+AWS Elastic Beanstalk is a Platform as a Service (PaaS) that allows developers to deploy, manage, and scale web applications without managing the underlying infrastructure. It automatically handles provisioning, load balancing, auto scaling, monitoring, and application deployment while giving developers access to the underlying AWS resources.
+
+Today 8:03 PM
+iaas paas saaa
+
+Sure. The easiest way to understand IaaS, PaaS, and SaaS is by asking:
+
+How much does the cloud provider manage for me?
+
+1. IaaS — Infrastructure as a Service
+
+You get the basic infrastructure and manage most things yourself.
+
+Example: AWS EC2
+
+You manage:
+ ├── Application
+ ├── Runtime
+ ├── OS
+ └── Configuration
+
+AWS manages:
+ ├── Physical servers
+ ├── Networking
+ └── Data center
+
+Example: You create an EC2 instance, install Linux packages, install Java/Node.js, and deploy your application.
+
+👉 IaaS = Rent infrastructure
+
+2. PaaS — Platform as a Service
+
+The cloud provider manages the infrastructure + operating system + platform/runtime.
+
+Example: AWS Elastic Beanstalk
+
+You manage:
+ └── Application code
+
+AWS/Beanstalk manages:
+ ├── EC2
+ ├── OS
+ ├── Runtime
+ ├── Load Balancer
+ ├── Auto Scaling
+ └── Monitoring
+
+You basically give Elastic Beanstalk your application, and it handles much of the infrastructure setup and management.
+
+👉 PaaS = Deploy your application without managing the underlying platform
+
+3. SaaS — Software as a Service
+
+You don't manage the infrastructure or application. You simply use the software.
+
+Examples:
+
+Gmail
+Google Drive
+Microsoft 365
+Salesforce
+You:
+ └── Use the software
+
+Provider:
+ ├── Application
+ ├── Runtime
+ ├── OS
+ ├── Servers
+ ├── Networking
+ └── Data center
+
+👉 SaaS = Use ready-made software
+
+Easy comparison
+	IaaS	PaaS	SaaS
+Infrastructure	AWS manages	AWS manages	AWS manages
+OS	You manage	AWS manages	AWS manages
+Runtime	You manage	AWS manages	AWS manages
+Application	You manage	You manage	Provider manages
+Example	EC2	Elastic Beanstalk	Gmail
+Simple real-world example 🏠
+
+Think of renting a house:
+
+IaaS: You rent an empty house → you set up everything.
+
+PaaS: You rent a furnished house → furniture and basic setup are provided; you bring your belongings.
+
+SaaS: You stay in a hotel → everything is provided; you just use it.
+
+In one line:
+
+IaaS → You manage more
+PaaS → Provider manages more
+SaaS → Provider manages almost everything
+
+
+What happens?
+You buy/register a domain, for example:
+myapp.com
+Your Elastic Beanstalk environment gives you a URL such as:
+myapp.ap-south-1.elasticbeanstalk.com
+You use Route 53 DNS to point myapp.com to your Elastic Beanstalk environment/load balancer.
+Users access:
+https://myapp.com
+-----------------------------------------
+
+AWS CodeCommit, CodeBuild, CodeDeploy, CodePipeline
+1. CodeCommit — Store the code
+
+Interview answer:
+AWS CodeCommit is a managed Git-based source-code repository service.
+It is used to securely store and manage application source code, branches, commits, and version history.
+
+Example:
+A developer writes a Java application and pushes it to CodeCommit:
+
+Developer
+    ↓ git push
+CodeCommit
+    ↓
+Java source code
+
+Think:  CodeCommit = Where is my code?
+
+
+
+
+
+
+CodeCommit works like GitHub in this respect. You don't normally write your code inside CodeCommit's web console.
+
+You write the code on your local computer, then use Git to push it to CodeCommit.
+
+Example
+
+Suppose you create your application on your laptop:
+
+my-app/
+├── index.html
+├── app.js
+└── package.json
+
+You initialize Git:
+
+git init
+
+Then connect your local repository to CodeCommit:
+
+git remote add origin <CodeCommit-repository-url>
+
+Then:
+
+git add .
+git commit -m "Initial code"
+git push origin main
+
+The flow is:
+
+Your Laptop
+    │
+    │ git push
+    ▼
+CodeCommit
+    │
+    │ trigger
+    ▼
+CodePipeline
+    │
+    ▼
+CodeBuild
+    │
+    ├── Build
+    └── Test
+    │
+    ▼
+CodeDeploy
+    │
+    ▼
+EC2
+So what is CodeCommit?
+
+It's basically AWS's Git repository.
+
+You can think:
+
+GitHub       → GitHub repository
+CodeCommit   → AWS Git repository
+
+You write code on your computer, just like when developing for GitHub.
+
+Then:
+
+Write code → git add → git commit → git push → CodeCommit
+One important point
+
+You can view and manage files through the CodeCommit console, but CodeCommit is primarily a repository,
+not an IDE where you develop your entire application.
+
+
+Yes, you can create or edit files directly in the AWS CodeCommit console for simple changes. But that's not normally how developers develop a complete application.
+
+Two ways
+1. Write locally — recommended
+
+VS Code
+   ↓
+git add
+   ↓
+git commit
+   ↓
+git push
+   ↓
+CodeCommit
+
+2. Write/edit directly in CodeCommit
+
+AWS Console
+    ↓
+CodeCommit
+    ↓
+Create/Edit file
+    ↓
+Commit changes
+
+For example, you could open CodeCommit and create:
+
+index.html
+app.js
+package.json
+
+and commit them directly.
+
+Why use local development?
+For a real project, developers normally use VS Code/IntelliJ/etc. because they need debugging,
+extensions, testing, multiple files, Git workflows, and other development tools.
+
+So in an interview, say:
+"CodeCommit is a Git repository. Developers normally develop the application locally and push the code to
+CodeCommit using Git. Simple files can also be created or edited directly through the CodeCommit console."
+
+
+
+
+
+You can use Git to push your local code to an AWS CodeCommit repository.
+
+Your local computer
+       │
+       │ Git commands
+       │ git add
+       │ git commit
+       │ git push
+       ▼
+AWS CodeCommit
+Example
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin <CodeCommit-repository>
+git push origin main
+
+So remember:
+
+Git is the tool/command you use to push code.
+CodeCommit is the AWS repository where the code is stored.
+
+Just like:
+
+Local code → Git → GitHub
+Local code → Git → CodeCommit
+
+Then CodePipeline can detect the new code and start the CI/CD process.
+
+
+
+
+when we push to codecommiy means automaticaly triger or we need to give manually
+
+It depends on whether you configure a trigger.
+
+If CodePipeline is configured
+
+You can configure:
+
+git push
+   ↓
+CodeCommit
+   ↓
+Trigger
+   ↓
+CodePipeline
+   ↓
+CodeBuild
+   ↓
+CodeDeploy
+
+Then the pipeline can start automatically when you push code.
+
+You don't manually start it every time.
+
+If you don't configure an automatic trigger
+
+Then pushing to CodeCommit does not automatically start CodePipeline. You would have to start the pipeline manually.
+
+In your commands
+
+When you do:
+
+git push origin main
+
+this only means:
+
+"Push my local code to the CodeCommit repository."
+
+It does not by itself mean:
+
+"Start CodePipeline."
+
+You separately configure CodePipeline with a source trigger/event for the CodeCommit repository.
+
+Interview answer
+
+"After a developer pushes code to CodeCommit, CodePipeline can be configured to automatically trigger based on the source-code change. The trigger must be configured; the git push command itself only pushes the code."
+
+
+
+
+
+
+
+
+
+
+
+
+2. CodeBuild — Build and test
+
+Interview answer:
+
+AWS CodeBuild is a fully managed build service that compiles source code, runs tests, and produces build artifacts.
+For example:
+
+Source code
+    ↓
+Cloud Build
+    ↓
+Run tests
+    ↓
+Build Docker image
+    ↓
+Push image to Artifact Registry
+
+A cloudbuild.yaml can define these steps.
+
+
+
+
+
+For example, after code is pushed:
+
+CodeCommit
+    ↓
+CodeBuild
+    ↓
+Compile
+    ↓
+Run tests
+    ↓
+Create artifact
+
+For a Java application, it might run:
+
+mvn clean install
+
+Think:
+
+CodeBuild = Build and test my code.
+
+
+
+mvn clean install    it will run automaticly ?
+if you configure it in the CodeBuild build specification.
+
+CodeBuild does not automatically know that you want to run:
+
+mvn clean package
+
+You define the command in a buildspec.yml file.
+
+Example
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - mvn clean package
+
+artifacts:
+  files:
+    - target/my-app.jar
+
+Then the flow becomes automatic:
+
+Developer
+   ↓ git push
+CodeCommit
+   ↓
+CodePipeline trigger
+   ↓
+CodeBuild
+   ↓
+CodeBuild reads buildspec.yml
+   ↓
+mvn clean package
+   ↓
+my-app.jar created
+   ↓
+Artifact stored
+   ↓
+CodeDeploy
+   ↓
+EC2
+
+So remember:
+
+CodeBuild automatically executes the commands you have configured in buildspec.yml.
+
+If you don't provide the build instructions, CodeBuild doesn't magically know how to build your particular application.
+
+
+
+
+
+The artifact is the output of the build. CodeDeploy takes that artifact and puts the application files onto the target server.
+
+Example: Java application
+
+Suppose CodeCommit contains:
+
+my-app/
+├── src/
+├── pom.xml
+└── appspec.yml
+
+After you push:
+
+CodeCommit
+     ↓
+CodePipeline
+     ↓
+CodeBuild
+
+CodeBuild runs:
+
+mvn clean package
+
+Maven compiles the Java code and creates something like:
+
+target/
+└── my-app.jar
+
+That .jar is part of the build artifact.
+
+Where does the artifact go?
+
+Usually, CodeBuild uploads the artifact to Amazon S3.
+
+CodeCommit
+    ↓
+CodeBuild
+    ↓
+Build + Test
+    ↓
+my-app.jar
+    ↓
+S3
+    ↓
+CodeDeploy
+    ↓
+EC2
+How does CodeDeploy know what to do?
+
+The artifact can contain:
+
+artifact.zip
+├── my-app.jar
+├── appspec.yml
+└── scripts/
+    ├── stop.sh
+    └── start.sh
+
+appspec.yml tells CodeDeploy where to put the files and which scripts to run.
+
+For example:
+
+artifact.zip
+     │
+     ▼
+CodeDeploy
+     │
+     ├── Copy my-app.jar → /opt/myapp/
+     │
+     ├── Run stop.sh
+     │
+     └── Run start.sh
+     │
+     ▼
+EC2
+     │
+     └── Java application running
+
+So CodeDeploy doesn't compile the application.
+
+It basically says:
+
+"I received this already-built artifact. I'll copy the required files to the EC2 server and run the deployment instructions."
+
+Complete flow
+Developer
+    ↓ git push
+CodeCommit
+    ↓
+CodePipeline
+    ↓
+CodeBuild
+    ↓
+Compile + Test
+    ↓
+Artifact
+    ↓
+S3
+    ↓
+CodeDeploy
+    ↓
+EC2
+    ↓
+Extract/copy files
+    ↓
+Run deployment scripts
+    ↓
+Application running
+
+Simple interview answer:
+
+"CodeBuild creates the build artifact, such as a JAR file for a Java application, and stores it in an artifact repository such as S3.
+CodeDeploy retrieves that artifact and deploys it to the target environment. Deployment instructions, such as where to copy the files and
+which scripts to execute, can be defined using appspec.yml."
+
+
+
+
+
+If you mean appspec.yml: No, it is not created automatically. ❌
+
+You normally create appspec.yml yourself in your source-code repository.
+
+For example:
+
+my-app/
+├── app.jar
+├── appspec.yml      ← You create this
+└── scripts/
+    ├── stop.sh
+    └── start.sh
+
+It tells CodeDeploy what to do with your artifact.
+
+Example:
+
+version: 0.0
+os: linux
+
+files:
+  - source: app.jar
+    destination: /opt/myapp/
+
+hooks:
+  ApplicationStart:
+    - location: scripts/start.sh
+
+Then:
+
+CodeBuild
+   ↓
+Creates artifact
+   ↓
+artifact.zip
+   ├── app.jar
+   └── appspec.yml
+   ↓
+CodeDeploy reads appspec.yml
+   ↓
+Deploys app.jar to EC2
+
+So:
+
+buildspec.yml → you create it to tell CodeBuild how to build/test.
+appspec.yml → you create it to tell CodeDeploy how to deploy.
+Artifact → CodeBuild creates it based on your build configuration.
+
+
+
+Yes, if you are deploying to Kubernetes, you generally don't use appspec.yml for the Kubernetes deployment itself.
+
+appspec.yml is mainly associated with AWS CodeDeploy deployments.
+
+With EC2 + CodeDeploy
+CodeCommit
+    ↓
+CodeBuild
+    ↓
+Artifact
+    ↓
+CodeDeploy
+    ↓
+EC2
+
+You use:
+
+appspec.yml
+
+to tell CodeDeploy how to deploy.
+
+With Kubernetes
+
+The deployment is handled by Kubernetes, not CodeDeploy's EC2 deployment mechanism.
+
+Typical flow:
+
+CodeCommit / GitHub
+        ↓
+CodeBuild
+        ↓
+Docker image
+        ↓
+Amazon ECR
+        ↓
+Kubernetes
+        ↓
+EKS
+        ↓
+Pods
+
+You typically use Kubernetes manifests such as:
+
+deployment.yaml
+service.yaml
+configmap.yaml
+
+For example:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+
+spec:
+  replicas: 2
+
+  template:
+    spec:
+      containers:
+        - name: my-app
+          image: 123456789.dkr.ecr.ap-south-1.amazonaws.com/my-app:v1
+
+Kubernetes reads the deployment.yaml and creates/updates the Pods.
+
+Easy interview distinction
+
+EC2 + CodeDeploy → appspec.yml
+
+Kubernetes/EKS → Kubernetes manifests (deployment.yaml, service.yaml, etc.)
+
+And the build side can still use:
+
+CodeBuild → buildspec.yml
+
+So don't confuse them:
+
+buildspec.yml  → CodeBuild
+appspec.yml    → CodeDeploy
+deployment.yaml → Kubernetes
