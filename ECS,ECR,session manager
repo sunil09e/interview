@@ -2336,3 +2336,328 @@ Service
  └── Task 4 → Container
 
 Then the ALB distributes the increased traffic across those Tasks.
+
+------------------------------------------
+
+
+AWS Systems Manager Session Manager
+
+Session Manager is an AWS Systems Manager feature that lets you connect to an EC2 instance without using SSH or opening port 22.
+
+Traditional SSH
+
+Normally:
+
+Your Laptop
+    ↓
+Internet
+    ↓
+EC2
+    ↓
+Port 22 (SSH)
+
+You need:
+
+Public IP (usually)
+Port 22 allowed in Security Group
+SSH key (.pem)
+SSH client
+With Session Manager
+Your Laptop
+    ↓
+AWS Console / AWS CLI
+    ↓
+Systems Manager Session Manager
+    ↓
+SSM Agent
+    ↓
+EC2
+
+No SSH key and no inbound port 22 are required.
+
+
+What is required?
+
+For an EC2 instance to use Session Manager:
+
+SSM Agent must be installed/running on the instance.
+EC2 needs an IAM role with appropriate Systems Manager permissions, commonly:
+AmazonSSMManagedInstanceCore
+The instance needs network connectivity to the Systems Manager endpoints (typically through the internet/NAT, or VPC interface endpoints).
+
+
+
+
+If you mean how to install/run the SSM Agent on an EC2 instance, here is the simple process.
+
+1. Create an IAM role
+
+Go to:
+
+IAM → Roles → Create role → AWS service → EC2
+
+Attach:
+
+AmazonSSMManagedInstanceCore
+
+Then attach this role to your EC2 instance:
+
+EC2 → Instance → Actions → Security → Modify IAM role
+
+2. Check whether SSM Agent is already installed
+
+For Amazon Linux 2023 / Amazon Linux 2, SSM Agent is normally installed by default.
+
+Connect to the EC2 and run:
+
+sudo systemctl status amazon-ssm-agent
+
+If it is running, you should see:
+
+Active: active (running)
+3. If it is not running
+
+Start it:
+
+sudo systemctl start amazon-ssm-agent
+
+Enable it automatically after reboot:
+
+sudo systemctl enable amazon-ssm-agent
+
+Then check:
+
+sudo systemctl status amazon-ssm-agent
+4. Connect using Session Manager
+
+Go to:
+
+AWS Console → EC2 → Instances → Select your instance → Connect → Session Manager → Connect
+
+You should get a terminal:
+
+sh-5.2$
+
+You can now run commands on the EC2 without SSH.
+
+Flow
+EC2
+ │
+ ├── IAM Role
+ │     └── AmazonSSMManagedInstanceCore
+ │
+ └── SSM Agent
+        ↓
+AWS Systems Manager
+        ↓
+Session Manager
+        ↓
+Your Browser
+
+Important: You don't normally install SSM Agent manually on Amazon Linux because it is already included.
+The IAM role + running agent + network connectivity are the main things to configure.
+
+
+
+
+If you created an EC2 without allowing SSH port 22, you can still connect using AWS Systems Manager Session Manager.
+
+Step 1 — IAM role
+
+Your EC2 needs an IAM role with:
+
+AmazonSSMManagedInstanceCore
+
+Go to:
+
+EC2 → Instances → Select your instance → Actions → Security → Modify IAM role
+
+Attach the role.
+
+Step 2 — SSM Agent
+
+For Amazon Linux 2/2023, SSM Agent is generally already installed.
+
+Check that it is running:
+
+sudo systemctl status amazon-ssm-agent
+
+If you used User Data during creation, you can start it automatically:
+
+#!/bin/bash
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
+Step 3 — Network connectivity
+
+The EC2 must be able to reach the AWS Systems Manager service.
+
+For a private EC2, you can provide access through:
+
+Private EC2
+    ↓
+NAT Gateway
+    ↓
+AWS Systems Manager
+
+or use VPC Interface Endpoints for Systems Manager services.
+
+Step 4 — Connect
+
+Go to:
+
+AWS Console → EC2 → Instances → Select EC2 → Connect
+
+You should see:
+
+Session Manager → Connect
+
+Then AWS opens a terminal:
+
+sh-5.2$
+
+You can run:
+
+ls
+pwd
+sudo su
+Key point
+
+You do not need port 22:
+
+❌ SSH
+Your PC ── Port 22 ──> EC2
+
+✅ Session Manager
+Your PC → AWS Systems Manager → SSM Agent → EC2
+
+So even if your Security Group has no inbound rules at all, Session Manager can work, provided the IAM, SSM Agent, and outbound/network requirements are correctly configured.
+
+
+
+
+
+First check Session Manager
+
+Go to:
+
+AWS Console → EC2 → Instances → select your EC2 → Connect
+
+Then choose:
+
+Session Manager → Connect
+
+If Connect is available, click it.
+
+You will get:
+
+sh-5.2$
+
+Now you can check:
+
+sudo systemctl status amazon-ssm-agent
+But what if Session Manager doesn't show "Connect"?
+
+Then check these without logging into the EC2:
+
+IAM role attached to EC2
+→ Must have AmazonSSMManagedInstanceCore
+SSM Agent
+→ Amazon Linux 2/2023 normally has it installed.
+Network
+→ EC2 needs outbound connectivity to Systems Manager, either through NAT/Internet or VPC endpoints.
+
+So the sequence is:
+
+Create EC2
+    ↓
+Attach IAM Role
+    ↓
+SSM Agent starts
+    ↓
+EC2 registers with Systems Manager
+    ↓
+EC2 → Connect → Session Manager
+    ↓
+Terminal opens
+    ↓
+sudo systemctl status amazon-ssm-agent
+
+You don't need to log in first. Session Manager is the method you use to get that first terminal.
+
+
+
+
+
+Network → EC2 needs outbound connectivity to Systems Manager, either through NAT/Internet or VPC endpoints.
+how to see this
+If you mean how to check the network connectivity needed for Session Manager, you can check it from the AWS Console without logging into the EC2.
+
+1. Find the EC2 subnet
+
+Go to:
+
+EC2 → Instances → select your instance
+
+Under Networking, note the:
+
+VPC ID
+Subnet ID
+Private/Public IPv4
+2. Check the subnet's route table
+
+Go to:
+
+VPC → Subnets → select the subnet → Route table
+
+Then check the routes.
+
+If the EC2 is public
+
+You should see something like:
+
+Destination       Target
+10.0.0.0/16       local
+0.0.0.0/0         igw-xxxxxxxx
+
+0.0.0.0/0 → Internet Gateway means the subnet has a route to the internet.
+
+If the EC2 is private
+
+You may see:
+
+Destination       Target
+10.0.0.0/16       local
+0.0.0.0/0         nat-xxxxxxxx
+
+0.0.0.0/0 → NAT Gateway means the private EC2 can reach the internet through NAT.
+
+3. Check Security Group outbound
+
+Go to:
+
+EC2 → Instance → Security → Security Groups → Outbound rules
+
+Normally you should have:
+
+Type: All traffic
+Destination: 0.0.0.0/0
+
+You do not need an inbound port 22 rule for Session Manager.
+
+Simple picture
+Private EC2
+    │
+    │ outbound
+    ↓
+NAT Gateway
+    │
+    ↓
+AWS Systems Manager
+    │
+    ↓
+Session Manager
+    │
+    ↓
+Your browser
+
+If you tell me whether your EC2 is public or private, I can show you exactly where to click and what route you should see.
