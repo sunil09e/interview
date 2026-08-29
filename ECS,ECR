@@ -1,0 +1,1366 @@
+🚀 What is ECS?
+
+ECS = Elastic Container Service
+
+ECS is an AWS service used to run and manage Docker containers.
+
+For example, suppose you have a web application:
+
+Your Application
+      ↓
+Docker Image
+      ↓
+ECR
+      ↓
+ECS
+      ↓
+Docker Container running
+      ↓
+Users access application
+
+So:
+
+Docker → creates the container/image
+ECR → stores the Docker image
+ECS → runs and manages the container
+1. Main components of ECS
+
+There are several important terms:
+
+ECS
+ │
+ ├── Cluster
+ │
+ ├── Task Definition
+ │
+ ├── Task
+ │
+ ├── Service
+ │
+ └── Container
+
+Let's understand each one.
+
+2. ECS Cluster
+
+A cluster is a logical grouping of your ECS resources.
+
+Example:
+
+ECS Cluster
+   │
+   ├── Task 1
+   ├── Task 2
+   └── Task 3
+
+Suppose your application is called my-app.
+
+You could create:
+
+Cluster name:
+my-app-cluster
+
+Then ECS runs your application inside this cluster.
+
+Important
+
+A cluster itself does not necessarily mean an EC2 server.
+
+ECS has two major ways to run containers:
+
+ECS on Fargate
+
+AWS manages the servers for you.
+
+ECS
+ ↓
+Fargate
+ ↓
+Container
+ECS on EC2
+
+You manage the EC2 instances.
+
+ECS
+ ↓
+EC2
+ ↓
+Docker Container
+
+We'll come back to this.
+
+3. Task Definition
+
+This is very important.
+
+A Task Definition tells ECS how to run your container.
+
+Think of it as a configuration file/instruction manual.
+
+For example:
+
+Task Definition
+       |
+       ├── Container name
+       ├── Docker image
+       ├── CPU
+       ├── Memory
+       ├── Port
+       ├── Environment variables
+       └── IAM role
+
+Example:
+
+Task Definition: my-app-task
+
+Container:
+    Name: my-app
+
+Image:
+    123456789.dkr.ecr.ap-south-1.amazonaws.com/my-app:latest
+
+CPU:
+    0.5 vCPU
+
+Memory:
+    1 GB
+
+Port:
+    80
+
+This tells ECS:
+
+"Run this Docker image with this amount of CPU/memory and expose port 80."
+
+4. Task
+
+A Task is a running instance of a Task Definition.
+
+For example, you have:
+
+Task Definition
+my-app-task
+
+You tell ECS to run it.
+
+ECS creates:
+
+Task
+ └── Container
+      └── my-app
+
+If you run 3 tasks:
+
+ECS Cluster
+    │
+    ├── Task 1 → Container
+    ├── Task 2 → Container
+    └── Task 3 → Container
+
+So:
+
+Task Definition = instructions
+
+Task = running copy of those instructions
+
+1. Most common: 1 Task → 1 Container
+
+For a simple application:
+
+Task
+ └── Container
+      └── Cart Application
+
+For example:
+
+Cart Task
+   ↓
+Cart Container
+
+If your service needs 3 copies:
+
+Cart Service
+ ├── Task 1 → Cart Container
+ ├── Task 2 → Cart Container
+ └── Task 3 → Cart Container
+2. One Task → Multiple Containers
+
+You can also put multiple containers in the same Task:
+
+Task
+ ├── Container 1 → Main Application
+ └── Container 2 → Sidecar
+
+For example:
+
+Task
+ ├── Web App Container
+ └── Logging Container
+These containers are closely related and run together.
+
+Task 1
+├── Cart Container 1
+└── Cart Container 2
+
+
+Important distinction
+Service
+   ↓
+Multiple Tasks
+   ↓
+Each Task can have
+1 or more Containers
+
+Example:
+
+Cart Service
+   |
+   ├── Task 1
+   │    ├── Cart Container
+   │    └── Logging Container
+   │
+   └── Task 2
+        ├── Cart Container
+        └── Logging Container
+
+So Task ≠ Container.
+
+Task is the unit ECS runs. A Task contains one or more containers.
+
+5. Service
+
+This is another very important ECS concept.
+
+An ECS Service keeps the required number of tasks running.
+
+Suppose you want:
+
+Desired count = 3
+
+ECS will try to maintain:
+
+Task 1 → Running
+Task 2 → Running
+Task 3 → Running
+
+If Task 2 crashes:
+
+Task 1 → Running
+Task 2 → ❌
+Task 3 → Running
+
+ECS Service notices that only 2 are running.
+
+It starts another:
+
+Task 1 → Running
+Task 2 → New Task
+Task 3 → Running
+
+Now again:
+
+3 tasks running
+
+That's one of the main purposes of an ECS Service.
+
+6. Container
+
+The actual Docker container runs inside the ECS task.
+
+For example:
+
+ECS Cluster
+      ↓
+   Service
+      ↓
+    Tasks
+      ↓
+ Containers
+
+Example:
+
+my-app-service
+      |
+      ├── Task 1
+      |     └── my-app container
+      |
+      ├── Task 2
+      |     └── my-app container
+      |
+      └── Task 3
+            └── my-app container
+7. Where does ECR come into this?
+
+This is where ECR and ECS connect.
+
+Suppose you build your application:
+
+docker build -t my-app .
+
+You get:
+
+my-app Docker Image
+
+You push it to ECR:
+
+ECR
+└── my-app
+     └── latest
+
+Then your ECS Task Definition says:
+
+Image:
+123456789.dkr.ecr.ap-south-1.amazonaws.com/my-app:latest
+
+When ECS starts the task:
+
+ECS Task
+   ↓
+Pull image
+   ↓
+ECR
+   ↓
+Docker Image
+   ↓
+Container starts
+8. Complete ECS architecture
+
+A common architecture looks like this:
+
+                         Internet
+                            |
+                            ↓
+                    Application Load
+                        Balancer
+                            |
+             ┌──────────────┴──────────────┐
+             ↓                             ↓
+          ECS Task                      ECS Task
+             |                             |
+        Container                     Container
+             |                             |
+             └──────────────┬──────────────┘
+                            |
+                         ECS Service
+                            |
+                       ECS Cluster
+
+And the images come from:
+
+                     ECR
+                      |
+                 Docker Image
+                      |
+                      ↓
+                 ECS Service
+                      |
+                      ↓
+                    Tasks
+                      |
+                      ↓
+                 Containers
+9. ECS + Fargate
+
+This is probably the easiest way to understand ECS.
+
+With Fargate, you don't manage EC2 servers.
+
+You
+ ↓
+ECS
+ ↓
+Fargate
+ ↓
+Container
+
+You specify:
+
+CPU
+Memory
+Container image
+Port
+Networking
+
+AWS manages the underlying infrastructure.
+
+For example:
+
+ECS Cluster
+      |
+      ↓
+ECS Service
+      |
+      ↓
+Fargate
+      |
+      ├── Task 1
+      │    └── Container
+      |
+      └── Task 2
+           └── Container
+
+You don't have to create an EC2 instance yourself.
+
+10. ECS + EC2
+
+Another option is ECS using EC2 instances.
+
+Here you manage the EC2 infrastructure.
+
+ECS Cluster
+     |
+     ↓
+EC2 Instances
+     |
+     ├── Container
+     ├── Container
+     └── Container
+
+For example:
+
+ECS Cluster
+     |
+     ├── EC2 Instance 1
+     │      ├── Task 1
+     │      └── Task 2
+     |
+     └── EC2 Instance 2
+            ├── Task 3
+            └── Task 4
+Difference
+ECS Fargate	ECS EC2
+AWS manages servers	You manage EC2
+No EC2 management	Need EC2 management
+Easier	More control
+Pay for task resources	Pay for EC2 instances
+11. ECS Service + Load Balancer
+
+For a web application, normally you don't want users directly accessing individual containers.
+
+You can use an Application Load Balancer (ALB).
+
+Example:
+
+                 Users
+                   |
+                   ↓
+                  ALB
+                   |
+          ┌────────┴────────┐
+          ↓                 ↓
+       Task 1             Task 2
+       port 80            port 80
+          |                 |
+       Container         Container
+
+The ALB distributes traffic.
+
+For example:
+
+User 1 → Task 1
+User 2 → Task 2
+User 3 → Task 1
+User 4 → Task 2
+
+If Task 1 becomes unhealthy, the ALB can stop sending traffic to it.
+
+12. ECS networking
+
+ECS tasks need networking.
+
+With the common awsvpc network mode, a task gets an IP address inside your VPC.
+
+For example:
+
+VPC
+ |
+ ├── Public Subnet
+ |
+ └── Private Subnet
+        |
+        ├── ECS Task 1
+        │     IP: 10.0.2.10
+        |
+        └── ECS Task 2
+              IP: 10.0.2.11
+
+A common production setup is:
+
+Internet
+   ↓
+Internet Gateway
+   ↓
+ALB
+   ↓
+Private Subnet
+   ↓
+ECS Tasks
+
+The ECS containers don't necessarily need public IP addresses.
+
+13. Security Groups
+
+You can use security groups to control traffic.
+
+Example:
+
+Internet
+   ↓
+ALB Security Group
+   ↓ port 80/443
+ECS Security Group
+   ↓
+Container
+
+You could configure:
+
+ALB Security Group
+Allow:
+80
+443
+
+from the internet.
+
+ECS Security Group
+Allow:
+Port 80
+Source = ALB Security Group
+
+So users cannot directly access the ECS task.
+
+14. ECS Deployment
+
+Suppose you have version 1:
+
+my-app:v1
+
+You push it to ECR.
+
+ECS runs:
+
+Task 1 → v1
+Task 2 → v1
+
+Now you develop version 2:
+
+my-app:v2
+
+Push to ECR:
+
+ECR
+├── my-app:v1
+└── my-app:v2
+
+Update the ECS Task Definition to use:
+
+my-app:v2
+
+Then ECS Service performs a deployment.
+
+For example:
+
+Old:
+Task 1 → v1
+Task 2 → v1
+
+Deployment
+
+New:
+Task 1 → v2
+Task 2 → v2
+
+ECS gradually replaces the old tasks depending on the deployment configuration.
+
+15. ECS with CI/CD
+
+This is where ECS becomes very useful for DevOps.
+
+Typical pipeline:
+
+Developer
+    ↓
+Git
+    ↓
+CodePipeline
+    ↓
+CodeBuild
+    ↓
+docker build
+    ↓
+ECR
+    ↓
+ECS
+    ↓
+New Task Definition
+    ↓
+New Tasks
+    ↓
+Application
+
+For example:
+
+Developer pushes code
+        ↓
+Git repository
+        ↓
+CodeBuild
+        ↓
+Docker image created
+        ↓
+Image pushed to ECR
+        ↓
+ECS deployment triggered
+        ↓
+ECS pulls new image
+        ↓
+New container starts
+        ↓
+ALB sends traffic
+
+So you can automate the entire deployment.
+
+16. Important ECS terms to remember
+
+Think of it like this:
+
+ECR
+ ↓
+Stores image
+
+ECS Cluster
+ ↓
+Logical environment
+
+Task Definition
+ ↓
+Instructions for container
+
+Task
+ ↓
+Running instance
+
+Service
+ ↓
+Keeps desired number of tasks running
+
+Container
+ ↓
+Actual application process
+
+Fargate
+ ↓
+AWS-managed compute
+
+EC2
+ ↓
+Customer-managed compute
+
+ALB
+ ↓
+Distributes user traffic
+The easiest way to remember
+
+ECR → Store
+
+Task Definition → Describe
+
+Task → Run
+
+Service → Maintain
+
+Cluster → Group
+
+Fargate/EC2 → Compute
+
+ALB → Distribute traffic
+
+And the complete flow is:
+
+Developer
+   ↓
+Docker build
+   ↓
+Docker Image
+   ↓
+ECR
+   ↓
+ECS Task Definition
+   ↓
+ECS Service
+   ↓
+ECS Tasks
+   ↓
+Containers
+   ↓
+ALB
+   ↓
+Users
+
+If you're learning ECS for AWS DevOps, the next important topic is ECS Task Definition → Service → Fargate → ALB,
+because these four together explain how an actual application is deployed on ECS.
+
+
+
+
+
+
+
+Yes — Task 1, Task 2, and Task 3 can be the same application. In fact, that is the most common use case.
+
+For example, suppose your application is my-app and you want 3 copies running:
+
+ECS Cluster: my-app-cluster
+        |
+        └── ECS Service: my-app-service
+                 |
+        ┌────────┼────────┐
+        ↓        ↓        ↓
+      Task 1   Task 2   Task 3
+        |        |        |
+      my-app   my-app   my-app
+     Container Container Container
+
+All 3 tasks run the same application, usually from the same Docker image:
+
+ECR
+└── my-app:v1
+      ↓
+Task 1 → my-app:v1
+Task 2 → my-app:v1
+Task 3 → my-app:v1
+Why 3 copies?
+
+For example, if 1 container can handle 100 users:
+
+1 Task   → 100 users
+3 Tasks  → roughly 300 users
+
+Also, if one task crashes:
+
+Task 1 → ❌
+Task 2 → ✅
+Task 3 → ✅
+
+The ECS Service can create another task to maintain the desired count of 3.
+
+What if you have another application?
+
+You do not necessarily need a new cluster.
+
+You can put multiple applications in the same cluster:
+
+ECS Cluster
+   |
+   ├── Service A
+   │     ├── Task 1 → App A
+   │     └── Task 2 → App A
+   |
+   ├── Service B
+   │     ├── Task 1 → App B
+   │     └── Task 2 → App B
+   |
+   └── Service C
+         └── Task 1 → App C
+
+So:
+
+Same application → multiple Tasks
+
+Different applications → usually different Services, but they can share the same Cluster.
+
+You create a new cluster only when you have a reason to separate the applications/infrastructure, not simply because the application is different.
+
+
+
+
+
+
+
+
+ECS hierarchy
+ECS Cluster
+     ↓
+   Service
+     ↓
+   Task
+     ↓
+ Container
+What does each one do?
+
+1. Service → manages/runs Tasks
+
+You tell the Service:
+
+"I need 3 Tasks running."
+
+The Service maintains:
+
+Service
+  ↓
+Task 1 ✅
+Task 2 ✅
+Task 3 ✅
+
+If Task 2 stops:
+
+Task 1 ✅
+Task 2 ❌
+Task 3 ✅
+
+The Service starts/replaces Task 2.
+
+2. Task → runs the container
+
+A Task is the running instance of your Task Definition.
+
+Task
+ ↓
+Container
+ ↓
+Your application
+What about "instance"?
+
+Be careful with this word.
+
+If you're using Fargate:
+
+ECS Service
+     ↓
+   Task
+     ↓
+ Container
+
+There is no EC2 instance that you manage.
+
+If you're using ECS on EC2:
+
+ECS Service
+     ↓
+   Task
+     ↓
+ Container
+     ↓
+EC2 Instance
+
+So the best interview answer is:
+
+An ECS Service maintains the desired number of Tasks, and each Task runs one or more containers. With Fargate, AWS manages the underlying compute; with ECS on EC2, the Tasks run on your EC2 instances.
+
+
+
+
+
+
+Yes. Suppose you have 3 completely different applications:
+
+Amazon
+HDFC
+Ola
+
+They can be organized in ECS like this:
+
+                 ECS Cluster
+                     |
+       ┌─────────────┼─────────────┐
+       ↓             ↓             ↓
+   Amazon         HDFC           Ola
+   Service        Service        Service
+      |              |              |
+   ┌──┴──┐         ┌─┴──┐        ┌─┴──┐
+   ↓     ↓         ↓    ↓        ↓    ↓
+ Task  Task      Task  Task     Task  Task
+   |     |         |    |        |    |
+ Amazon Amazon   HDFC  HDFC     Ola  Ola
+Container Container Container Container Container Container
+But in real companies, it can be separated further
+
+For example:
+
+ECS Cluster: Amazon
+    └── Amazon Service
+          ├── Task
+          ├── Task
+          └── Task
+
+ECS Cluster: HDFC
+    └── HDFC Service
+          ├── Task
+          ├── Task
+          └── Task
+
+ECS Cluster: Ola
+    └── Ola Service
+          ├── Task
+          ├── Task
+          └── Task
+
+Both designs are possible.
+
+Why would you create separate clusters?
+
+You might use separate clusters when you want strong infrastructure separation, such as:
+
+Different teams
+Different environments
+Different security requirements
+Different compute requirements
+Easier operational management
+
+But ECS does not require one cluster per application.
+
+One important point
+
+In a large application like Amazon, you wouldn't normally have just one service. It could have many microservices:
+
+Amazon ECS Cluster
+       |
+       ├── User Service
+       │     ├── Task
+       │     └── Task
+       │
+       ├── Product Service
+       │     ├── Task
+       │     └── Task
+       │
+       ├── Order Service
+       │     ├── Task
+       │     └── Task
+       │
+       └── Payment Service
+             ├── Task
+             └── Task
+
+So remember:
+
+Cluster = grouping
+
+Service = manages one application/microservice
+
+Task = running copy
+
+Container = actual application process
+
+And different applications do not automatically require different clusters.
+
+
+
+
+
+
+Exactly — this is where Load Balancer + routing comes in.
+
+Suppose Amazon has several services:
+
+www.amazon.com
+      ↓
+Application Load Balancer (ALB)
+      ↓
+   ┌──┴──────────────────────────────┐
+   ↓                                 ↓
+/products                         /cart
+   ↓                                 ↓
+Product Service                  Cart Service
+   ↓                                 ↓
+Tasks                            Tasks
+Example
+
+When the user opens:
+
+www.amazon.com/products
+
+ALB looks at the URL path:
+
+/products
+
+and sends the request to the Product Service.
+
+If the user opens:
+
+www.amazon.com/cart
+
+ALB sees:
+
+/cart
+
+and sends it to the Cart Service.
+
+                    ALB
+                     |
+       ┌─────────────┼─────────────┐
+       ↓             ↓             ↓
+ /products          /cart       /orders
+       ↓             ↓             ↓
+Product Service  Cart Service  Order Service
+       ↓             ↓             ↓
+    Tasks          Tasks          Tasks
+
+So the user doesn't directly choose an ECS Service.
+
+The user only accesses a URL such as:
+
+www.amazon.com/cart
+
+and the ALB routes the request to the correct ECS Service.
+
+What if the applications are completely different?
+
+For example:
+
+amazon.com
+hdfc.com
+ola.com
+
+You can use host-based routing:
+
+                    ALB
+                     |
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+ amazon.com      hdfc.com      ola.com
+        ↓            ↓            ↓
+ Amazon Service HDFC Service  Ola Service
+
+So there are two common routing methods:
+
+Path-based routing
+
+amazon.com/cart       → Cart Service
+amazon.com/products   → Product Service
+
+Host-based routing
+
+amazon.com → Amazon
+hdfc.com   → HDFC
+ola.com    → Ola
+
+This is how users reach the particular application/service they need, while ECS handles the containers behind those services.
+
+
+
+
+
+
+If you mean “Where is the ALB in the application architecture?”, it sits in front of the ECS Services.
+
+For one application, for example an e-commerce application:
+
+                    User
+                     |
+                     | https://amazon.com
+                     ↓
+                 Route 53
+                     |
+                     ↓
+                  ALB
+            (Application Load Balancer)
+                     |
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+       /cart      /products   /orders
+          ↓          ↓          ↓
+     Cart Service Product     Order
+                  Service     Service
+          ↓          ↓          ↓
+       ECS Tasks  ECS Tasks   ECS Tasks
+Where is the ALB created?
+
+The ALB is an AWS resource, separate from ECS.
+
+You create it in your AWS environment:
+
+AWS
+ |
+ ├── Route 53
+ |
+ ├── ALB
+ |
+ └── ECS
+      └── Cluster
+           ├── Cart Service
+           ├── Product Service
+           └── Order Service
+
+Then you connect the ALB to ECS services using Target Groups.
+
+ALB
+ |
+ ├── Listener Rule: /cart
+ |       ↓
+ |   Cart Target Group
+ |       ↓
+ |   Cart ECS Service
+ |
+ ├── Listener Rule: /products
+ |       ↓
+ |   Product Target Group
+ |       ↓
+ |   Product ECS Service
+ |
+ └── Listener Rule: /orders
+         ↓
+     Order Target Group
+         ↓
+     Order ECS Service
+
+So ALB is not inside the container or inside the ECS Service. It is an AWS networking component in front of the ECS Services.
+
+If the user types amazon.com/cart, the request goes:
+
+User → Route 53 → ALB → Cart Target Group → Cart ECS Service → Cart Task → Container.
+
+
+
+
+
+
+
+Yes. Now the situation is clear. You mean 3 applications, and each application has the same types of microservices:
+
+Amazon → Payment, Cart, Buy
+HDFC   → Payment, Cart, Buy
+Ola    → Payment, Cart, Buy
+
+If all are in one ECS cluster, the cluster can contain all these services.
+
+1. One ECS cluster
+ECS Cluster
+│
+├── Amazon
+│   ├── amazon-payment-service
+│   ├── amazon-cart-service
+│   └── amazon-buy-service
+│
+├── HDFC
+│   ├── hdfc-payment-service
+│   ├── hdfc-cart-service
+│   └── hdfc-buy-service
+│
+└── Ola
+    ├── ola-payment-service
+    ├── ola-cart-service
+    └── ola-buy-service
+
+Each Service manages its own Tasks.
+
+For example:
+
+amazon-payment-service
+        ↓
+   Task 1
+   Task 2
+   Task 3
+
+And:
+
+amazon-cart-service
+        ↓
+   Task 1
+   Task 2
+
+So the Service doesn't randomly create tasks. You specify the desired number of tasks, and ECS Service maintains that number.
+
+2. How does ECS know which Task belongs to which application?
+
+Because each ECS Service has its own Task Definition.
+
+amazon-payment-service
+        ↓
+Amazon Payment Task Definition
+        ↓
+Amazon Payment Docker Image
+        ↓
+Tasks
+hdfc-payment-service
+        ↓
+HDFC Payment Task Definition
+        ↓
+HDFC Payment Docker Image
+        ↓
+Tasks
+
+They are completely separate even though both are "Payment" services.
+
+3. How does the user reach the correct service?
+
+This is handled by the ALB.
+
+For example:
+
+User → amazon.com/cart
+             ↓
+            ALB
+             ↓
+     Amazon Cart Target Group
+             ↓
+     amazon-cart-service
+             ↓
+          Tasks
+
+Another user:
+
+User → hdfc.com/cart
+             ↓
+            ALB
+             ↓
+      HDFC Cart Target Group
+             ↓
+      hdfc-cart-service
+             ↓
+           Tasks
+
+And:
+
+User → ola.com/payment
+             ↓
+            ALB
+             ↓
+      Ola Payment Target Group
+             ↓
+      ola-payment-service
+             ↓
+           Tasks
+The complete picture
+                         ALB
+                          |
+          ┌───────────────┼────────────────┐
+          ↓               ↓                ↓
+       Amazon            HDFC             Ola
+          |               |                |
+    ┌─────┼─────┐   ┌─────┼─────┐   ┌──────┼─────┐
+    ↓     ↓     ↓   ↓     ↓     ↓   ↓      ↓     ↓
+  Cart  Buy  Payment Cart Buy Payment Cart  Buy Payment
+    ↓     ↓     ↓    ↓    ↓     ↓    ↓     ↓     ↓
+  Tasks Tasks Tasks Tasks Tasks Tasks Tasks Tasks Tasks
+
+One key point: In a real-world architecture, Amazon, HDFC, and Ola would generally have separate AWS environments/accounts
+rather than sharing one ECS cluster. But technically, this diagram shows how ECS would organize multiple applications and their microservices in one cluster.
+
+
+
+
+
+In that diagram, Amazon, HDFC, and Ola are not ECS components. I used them only as three example applications.
+
+ECS does not have this structure:
+
+ECS Cluster
+├── Amazon
+├── HDFC
+└── Ola
+
+Instead, if one company has three applications, the actual ECS structure is more like:
+
+ECS Cluster
+│
+├── amazon-payment-service
+├── amazon-cart-service
+├── amazon-buy-service
+│
+├── hdfc-payment-service
+├── hdfc-cart-service
+├── hdfc-buy-service
+│
+├── ola-payment-service
+├── ola-cart-service
+└── ola-buy-service
+
+
+Here:
+
+ECS Cluster → actual ECS resource
+Service → actual ECS resource
+Task → actual ECS resource
+Amazon/HDFC/Ola → just names of the applications we're imagining
+
+For example:
+
+amazon-cart-service
+       ↓
+Task Definition
+       ↓
+Task 1
+       ↓
+Cart Container
+
+So there is no "Amazon" folder inside ECS. I used it only to make the example easier to understand.
+
+
+
+
+
+
+If traffic increases, ECS can increase the number of Tasks running for a Service. This is called scaling.
+
+Example
+
+Normally your Cart Service has:
+
+Cart Service
+ ├── Task 1 → Cart Container
+ └── Task 2 → Cart Container
+
+Traffic increases:
+
+                ALB
+                 |
+        ┌────────┼────────┐
+        ↓        ↓        ↓
+      Task 1   Task 2   Task 3
+
+Traffic increases even more:
+
+Cart Service
+ ├── Task 1
+ ├── Task 2
+ ├── Task 3
+ ├── Task 4
+ └── Task 5
+
+The Service maintains the desired number of Tasks.
+
+How does it happen automatically?
+
+You configure ECS Service Auto Scaling.
+
+For example:
+
+CPU > 70%
+     ↓
+Increase Tasks
+     ↓
+2 → 4 Tasks
+
+When traffic decreases:
+
+CPU < 30%
+     ↓
+Decrease Tasks
+     ↓
+4 → 2 Tasks
+Important
+
+It usually does not create more containers inside the same Task.
+
+Instead:
+
+Traffic increases
+       ↓
+More Tasks
+       ↓
+Each Task runs the container
+
+For example:
+
+Before:
+Service
+ ├── Task 1 → Container
+ └── Task 2 → Container
+
+After scaling:
+Service
+ ├── Task 1 → Container
+ ├── Task 2 → Container
+ ├── Task 3 → Container
+ └── Task 4 → Container
+
+Then the ALB distributes the increased traffic across those Tasks.
