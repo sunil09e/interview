@@ -867,6 +867,72 @@ ECR
 
 
 
+When you create an ECS task using Fargate, AWS can create/use the Task Execution Role, but the ECR permissions are not automatically granted to every task.
+
+What happens
+
+When creating an ECS task definition, you can specify:
+
+Task execution role
+        ↓
+ecsTaskExecutionRole
+
+This role commonly has the AWS-managed policy:
+
+AmazonECSTaskExecutionRolePolicy
+
+That policy provides permissions needed to pull images from private ECR, including ECR read access.
+
+So you normally don't manually write all these ECR permissions one by one.
+
+ECS Task
+   ↓
+Task Execution Role
+   ↓
+AmazonECSTaskExecutionRolePolicy
+   ↓
+Private ECR
+   ↓
+Pull image
+But remember
+
+If the execution role doesn't have the required ECR permissions, the task cannot pull the private image and may fail to start.
+
+So in an interview, say:
+
+ECS does not automatically have ECR permissions. The ECS task uses a Task Execution Role. Usually we attach the AmazonECSTaskExecutionRolePolicy managed policy to that role, which provides the permissions required to pull images from private ECR.
+
+You don't need to manually give Docker Hub username/password for private ECR because access is controlled through AWS IAM.
+
+
+
+For a public ECR image, you do not need ECR permissions to access the public image. ✅
+
+Example:
+
+ECS Task
+   ↓
+Public ECR
+   ↓
+Public image
+   ↓
+Container
+
+You can use:
+
+public.ecr.aws/nginx/nginx:latest
+Compare
+ECR type	ECR permission needed?
+Private ECR	✅ Yes — execution role needs ECR permissions
+Public ECR	❌ No — public image can be pulled without private-repository authorization
+
+However, the ECS task execution role is still commonly configured for other task features (for example, logging to CloudWatch or pulling private images). So don't think of public ECR as "ECS automatically gets permissions"; rather:
+
+Public ECR images don't require permission to access the public repository.
+
+
+
+
 
 ------------------------------------
 🚀 What is ECS?
