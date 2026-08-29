@@ -2391,3 +2391,266 @@ So don't confuse them:
 buildspec.yml  → CodeBuild
 appspec.yml    → CodeDeploy
 deployment.yaml → Kubernetes
+
+
+
+
+
+3. CodeDeploy — Deploy the application
+
+Interview answer:
+
+AWS CodeDeploy is a deployment service that automates deploying application updates to services such as EC2, ECS, or Lambda.
+
+For example:
+
+Build artifact
+      ↓
+CodeDeploy
+      ↓
+EC2 instances
+      ↓
+New application version
+
+It can support deployment strategies such as in-place and blue/green deployments, depending on the target.
+
+Think:
+
+CodeDeploy = Put my application onto the target environment.
+
+
+
+If you mean “What does CodeDeploy use to perform the deployment?”, it depends on the target.
+
+1. CodeDeploy → EC2
+
+For EC2, CodeDeploy uses an agent installed on the EC2 instance.
+
+CodeBuild
+   ↓
+Artifact (ZIP)
+   ↓
+CodeDeploy
+   ↓
+CodeDeploy Agent on EC2
+   ↓
+Extract/copy files
+   ↓
+Run deployment scripts
+
+The deployment instructions are commonly defined in appspec.yml.
+
+appspec.yml
+   ↓
+CodeDeploy Agent
+   ↓
+Install application
+   ↓
+Start application
+2. CodeDeploy → ECS
+
+For ECS, CodeDeploy works with ECS services/tasks and uses deployment configuration rather than an EC2 CodeDeploy agent.
+
+CodeDeploy
+    ↓
+ECS Service
+    ↓
+New Task Definition
+    ↓
+New Containers
+3. CodeDeploy → Lambda
+
+For Lambda, CodeDeploy manages versions and traffic shifting between Lambda versions.
+
+CodeDeploy
+    ↓
+Lambda version 1
+    ↓
+Lambda version 2
+    ↓
+Shift traffic
+For your interview, remember
+
+EC2:
+
+CodeDeploy uses the CodeDeploy Agent + appspec.yml to deploy the application onto EC2.
+
+ECS:
+
+CodeDeploy manages the ECS service/task deployment.
+
+Lambda:
+
+CodeDeploy manages Lambda version deployment and traffic shifting.
+
+And CodeDeploy itself does not build the application. CodeBuild builds it; CodeDeploy deploys the resulting artifact/application.
+
+appspec.yml
+version: 0.0
+os: linux
+
+files:
+  - source: myapp.jar
+    destination: /opt/myapp/
+
+hooks:
+  ApplicationStop:
+    - location: scripts/stop.sh
+      timeout: 60
+      runas: root
+
+  ApplicationStart:
+    - location: scripts/start.sh
+      timeout: 60
+      runas: root
+
+
+Your artifact could look like this:
+
+artifact.zip
+│
+├── myapp.jar
+├── appspec.yml
+└── scripts/
+    ├── stop.sh
+    └── start.sh
+What happens?
+
+1. CodeDeploy receives artifact.zip
+
+CodeDeploy
+    ↓
+appspec.yml
+
+2. It reads:
+
+files:
+  - source: myapp.jar
+    destination: /opt/myapp/
+
+Meaning:
+
+Take myapp.jar from the artifact and copy it to /opt/myapp/ on the EC2 instance.
+
+3. Then it runs:
+
+stop.sh
+   ↓
+start.sh
+
+So the complete process is:
+
+CodeBuild
+   ↓
+Creates artifact.zip
+   ↓
+┌─────────────────┐
+│ myapp.jar       │
+│ appspec.yml     │
+│ scripts/        │
+└─────────────────┘
+   ↓
+CodeDeploy
+   ↓
+CodeDeploy Agent
+   ↓
+EC2
+   ↓
+Copy JAR + run scripts
+   ↓
+Application running
+
+Important: appspec.yml is created by you/developer. CodeDeploy reads it; it doesn't create it for you.
+
+
+
+
+4. CodePipeline — Connect everything
+
+Interview answer:
+
+AWS CodePipeline is a CI/CD orchestration service that automates the workflow between source, build, test, approval, and deployment stages.
+
+For example:
+
+             CodePipeline
+                  │
+                  ▼
+CodeCommit → CodeBuild → Approval → CodeDeploy
+   SOURCE       BUILD                 DEPLOY
+                                      │
+                                      ▼
+                                     EC2
+
+Think:
+
+CodePipeline = Coordinate the entire CI/CD process.
+
+
+Real-world interview example
+
+Suppose you work for an e-commerce company.
+
+You have a Java application called:
+
+shopping-app
+
+A developer changes the checkout functionality.
+
+Step 1 — Developer pushes code
+Developer
+    │
+    │ git push
+    ▼
+CodeCommit
+
+CodeCommit stores the new version.
+
+Step 2 — Pipeline detects the change
+CodeCommit
+    ↓
+CodePipeline
+
+CodePipeline detects that new code is available and starts the pipeline.
+
+Step 3 — Build and test
+CodePipeline
+    ↓
+CodeBuild
+    ↓
+Compile application
+    ↓
+Unit tests
+    ↓
+Build artifact
+
+For example:
+
+mvn clean package
+
+If the tests fail:
+
+CodeBuild
+   ↓
+FAILED ❌
+   ↓
+Pipeline stops
+
+The application is not deployed.
+
+If tests pass:
+
+CodeBuild
+   ↓
+SUCCESS ✅
+   ↓
+Next stage
+Step 4 — Deploy
+CodePipeline
+     ↓
+CodeDeploy
+     ↓
+EC2
+
+CodeDeploy deploys the new application version to the EC2 instances.
+
