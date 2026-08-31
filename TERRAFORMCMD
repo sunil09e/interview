@@ -61,7 +61,62 @@ terraform providers     Shows which providers your configuration uses.   example
 
 
 
+You can use workspaces to maintain separate state for different environments.
+terraform workspace new dev   Create a workspace  
+terraform workspace list   
+terraform workspace select prod      Switch workspace   Now Terraform is working with the prod workspace.
+terraform workspace show           Shows the current workspace.
+terraform console                  Opens an interactive Terraform expression console.
+   If you have:
 
+variable "environment" {
+  default = "dev"
+}
+
+You can test:
+> var.environment
+"dev"
+
+
+
+terraform force-unlock LOCK_ID               This removes the lock.    ⚠️ Don't use it blindly because another Terraform process may actually be running.
+
+
+terraform plan -refresh-only         This means:  "Show me what would happen if Terraform only refreshed the state."
+terraform apply -refresh-only
+Now someone goes to the AWS Console and manually changes the EC2 type:t2.micro → t3.micro
+What does refresh mean?
+Refresh means:  "Terraform, check the real infrastructure in AWS and update your state with what actually exists."
+
+
+terraform plan -out=tfplan         "Calculate the plan and save that exact plan in a file called tfplan."
+          Here:  -out    means:  Save the generated plan to a file.And:    tfplan   is simply the name of that file.
+
+
+terraform apply tfplan         Notice we are giving tfplan to apply.
+                   Terraform says:  "Don't calculate a new plan. Use the plan that was already saved in tfplan."
+
+terraform destroy -target=aws_instance.web    You want to remove only the web EC2.
+    -target tells Terraform:  "Focus on this particular resource."
+
+
+
+
+One important thing to remember
+
+Terraform commands mainly work around three things:
+
+              Terraform
+                  │
+       ┌──────────┼──────────┐
+       ↓          ↓          ↓
+   .tf files   State      AWS
+  (desired)   (tfstate)   (actual)
+.tf files = what you want
+terraform.tfstate = what Terraform knows
+AWS = what actually exists
+
+Then plan compares them and apply makes the required changes.
 ----------------------------------------------
 1. terraform init
 terraform init
@@ -203,6 +258,35 @@ Example:
 + = create
 ~ = modify
 - = destroy
+
+You run:
+
+terraform plan
+What happens internally?
+                 terraform plan
+                       │
+                       ▼
+              1. Read .tf files
+                       │
+                       ▼
+              2. Read state file
+                       │
+                       ▼
+              3. Contact AWS
+                       │
+                       ▼
+          4. Compare 3 things
+                       │
+             ┌─────────┼─────────┐
+             ▼         ▼         ▼
+           .tf       tfstate     AWS
+         "desired"   "known"   "actual"
+                       │
+                       ▼
+              5. Find differences
+                       │
+                       ▼
+              6. Show the plan
 
 5. terraform apply
 terraform apply
@@ -578,5 +662,358 @@ You may see something like:
 This is the raw state representation.
 
 
+16. terraform workspace list
+terraform workspace list
 
+Example:
+
+* default
+  dev
+  prod
+
+* means the current workspace.
+
+17. terraform workspace new
+
+Create a workspace:
+
+terraform workspace new dev
+
+Now:
+
+default
+dev
+
+You can use workspaces to maintain separate state for different environments.
+
+For example:
+
+dev  → dev infrastructure/state
+prod → prod infrastructure/state
+18. terraform workspace select
+
+Switch workspace:
+
+terraform workspace select prod
+
+Now Terraform is working with the prod workspace.
+
+19. terraform workspace show
+terraform workspace show
+
+Example:
+
+prod
+
+Shows the current workspace.
+
+20. terraform console
+terraform console
+
+Opens an interactive Terraform expression console.
+
+For example:
+
+> 10 + 20
+30
+
+You can test Terraform expressions.
+
+If you have:
+
+variable "environment" {
+  default = "dev"
+}
+
+You can test:
+
+> var.environment
+"dev"
+21. terraform graph
+terraform graph
+
+Shows Terraform's dependency graph.
+
+For example:
+
+VPC
+ ↓
+Subnet
+ ↓
+EC2
+ ↓
+Load Balancer
+
+Useful for understanding dependencies.
+
+22. terraform force-unlock
+
+Sometimes Terraform gets a state lock.
+
+For example:
+
+Error:
+State is locked
+
+You may see a lock ID.
+
+Then, only after confirming no other Terraform operation is running, you can use:
+
+terraform force-unlock LOCK_ID
+
+This removes the lock.
+
+⚠️ Don't use it blindly because another Terraform process may actually be running.
+
+
+
+
+terraform apply -refresh-only
+Now someone goes to the AWS Console and manually changes the EC2 type:t2.micro → t3.micro
+What does refresh mean?
+
+Refresh means:
+
+"Terraform, check the real infrastructure in AWS and update your state with what actually exists."
+
+So Terraform checks AWS:
+
+AWS
+ ↓
+"EC2 is t3.micro"
+ ↓
+Terraform updates state
+ ↓
+terraform.tfstate now knows t3.micro
+
+But it doesn't change AWS.
+
+terraform apply -refresh-only
+
+You run:
+
+terraform apply -refresh-only
+
+Terraform checks the real infrastructure and asks:
+
+Do you want to update the state?
+
+If you say yes, the state gets updated.
+
+Before:
+
+terraform.tfstate
+    ↓
+t2.micro
+
+After:
+
+terraform.tfstate
+    ↓
+t3.micro
+
+AWS was already:
+
+t3.micro
+
+So Terraform didn't change the EC2.
+
+
+Sure. terraform plan -out is very simple once you understand what a "saved plan" means.
+
+1. Normal terraform plan
+
+Suppose your main.tf says:
+
+resource "aws_instance" "web" {
+  ami           = "ami-xxxxx"
+  instance_type = "t2.micro"
+}
+
+You run:
+
+terraform plan
+
+Terraform calculates:
+
+main.tf
+   +
+terraform.tfstate
+   ↓
+Terraform calculates changes
+   ↓
+1 EC2 will be created
+
+You see the result on the screen.
+
+But the plan is not saved.
+
+2. terraform plan -out=tfplan
+
+Now run:
+
+terraform plan -out=tfplan
+
+Here:
+
+-out
+
+means:
+
+Save the generated plan to a file.
+
+And:
+
+tfplan
+
+is simply the name of that file.
+
+So:
+
+terraform plan -out=tfplan
+
+means:
+
+"Calculate the plan and save that exact plan in a file called tfplan."
+
+You will now have:
+
+my-project/
+│
+├── main.tf
+├── terraform.tfstate
+└── tfplan
+3. Then apply the saved plan
+
+Now run:
+
+terraform apply tfplan
+
+Notice we are giving tfplan to apply.
+
+Terraform says:
+
+"Don't calculate a new plan. Use the plan that was already saved in tfplan."
+
+So:
+
+terraform plan -out=tfplan
+             ↓
+       Save the plan
+             ↓
+          tfplan
+             ↓
+terraform apply tfplan
+             ↓
+        AWS changes
+Why is this useful?
+
+Imagine a company has a DevOps team.
+
+Step 1 — Developer creates the plan
+terraform plan -out=tfplan
+
+Terraform says:
+
+Plan:
+
++ aws_instance.web
++ aws_security_group.web
+
+Plan: 2 to add
+
+The team can review this.
+
+They might say:
+
+"Okay, this plan looks correct."
+
+Step 2 — Apply that exact plan
+terraform apply tfplan
+
+Terraform executes the saved plan.
+
+Saved plan
+    ↓
+terraform apply tfplan
+    ↓
+AWS
+    ↓
+EC2 + Security Group
+Why not just do this?
+
+You might ask:
+
+terraform plan
+
+then:
+
+terraform apply
+
+What's the difference?
+
+With:
+
+terraform apply
+
+Terraform calculates a plan again before applying.
+
+So:
+
+terraform plan
+      ↓
+Plan A
+      ↓
+time passes
+      ↓
+terraform apply
+      ↓
+Terraform calculates another plan
+      ↓
+Plan B
+      ↓
+Apply Plan B
+
+But with:
+
+terraform plan -out=tfplan
+
+then:
+
+terraform apply tfplan
+
+you are saying:
+
+terraform plan -out=tfplan
+      ↓
+Plan A saved
+      ↓
+Review Plan A
+      ↓
+terraform apply tfplan
+      ↓
+Apply Plan A
+
+That's why it is useful in CI/CD pipelines, where one stage generates a plan and another approved stage applies it.
+
+Remember this
+terraform plan
+
+➡️ Show me the plan
+
+terraform plan -out=tfplan
+
+➡️ Create the plan AND save it
+
+terraform apply tfplan
+
+➡️ Apply the saved plan
+
+And tfplan is not the state file.
+
+terraform.tfstate  → Terraform's state/record
+
+tfplan              → Saved proposed changes
+
+They are two completely different files.
 
