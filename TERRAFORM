@@ -45,6 +45,20 @@ terraform state mv \              to change old name to new
         Instead, you can move the state:
 
 
+terraform state pull     It means: "Get the current Terraform state from the configured backend and print the raw state data."  in json
+                              the statefile is not in local only in s3 so we this
+                         If you don't configure a backend, Terraform normally stores state locally    When you run:  terraform state pull
+
+Terraform reads the current state and prints it.
+terraform.tfstate
+       ↓
+terraform state pull
+       ↓
+Raw JSON state
+
+
+terraform providers     Shows which providers your configuration uses.   example:provider[registry.terraform.io/hashicorp/aws]
+
 
 
 
@@ -471,6 +485,97 @@ This is the same EC2; only the Terraform resource address changed.
 
 
 
+
+What is terraform state pull?
+terraform state pull
+
+It means:
+
+"Get the current Terraform state from the configured backend and print the raw state data."
+
+First understand local vs remote state
+Case 1: Local state
+
+If you don't configure a backend, Terraform normally stores state locally:
+
+Terraform project
+│
+├── main.tf
+├── .terraform/
+└── terraform.tfstate
+
+When you run:
+
+terraform state pull
+
+Terraform reads the current state and prints it.
+
+terraform.tfstate
+       ↓
+terraform state pull
+       ↓
+Raw JSON state
+Case 2: S3 remote state
+
+In a team/project, you might configure:
+
+terraform {
+  backend "s3" {
+    bucket = "my-terraform-state"
+    key    = "prod/terraform.tfstate"
+    region = "ap-south-1"
+  }
+}
+
+Now the state is stored in S3, not primarily in your local terraform.tfstate.
+
+AWS S3
+│
+└── my-terraform-state
+       │
+       └── prod/terraform.tfstate
+
+When you run:
+
+terraform state pull
+
+Terraform does:
+
+          S3
+           │
+           │  terraform.tfstate
+           ↓
+   terraform state pull
+           │
+           ↓
+     Raw state JSON
+
+It downloads/reads the current state and prints it to your terminal.
+
+What does the output look like?
+
+You may see something like:
+
+{
+  "version": 4,
+  "terraform_version": "1.x.x",
+  "resources": [
+    {
+      "type": "aws_instance",
+      "name": "web",
+      "instances": [
+        {
+          "attributes": {
+            "id": "i-0123456789",
+            "instance_type": "t2.micro"
+          }
+        }
+      ]
+    }
+  ]
+}
+
+This is the raw state representation.
 
 
 
