@@ -1,0 +1,477 @@
+
+terraform -help         See available commands
+terraform plan -help    For a particular command
+terraform version       Check Terraform version
+
+
+terraform init             Terraform downloads the AWS provider and creates the .terraform directory.
+terraform fmt               formats the Terraform configuration files in that directory.
+terraform fmt -recursive       will format the .tf files inside the current directory and its subdirectories.
+terraform validate          Checks whether your Terraform configuration is valid.  If something is structurally wrong, Terraform reports an error.
+                           Checks whether your .tf files have valid Terraform syntax/configuration.
+terraform plan            See what Terraform will create/change
+terraform apply          Terraform executes the plan.  going to create/update the resource
+terraform apply -auto-approve
+terraform destroy              Destroy infrastructure
+terraform destroy -auto-approve       This removes resources managed by Terraform.
+
+
+terraform show    Shows the resources currently recorded in the Terraform state.   Shows information Terraform has about the infrastructure/state.
+terraform state show aws_instance.web          See a particular resource
+terraform state list                          List resources in state.   Shows resources currently tracked in the state.
+
+terraform output          to see the output   Output: instance_ip = "13.233.45.10"
+terraform output instance_ip                  Gives only: 13.233.45.10
+
+terraform import aws_instance.web i-0123456789                    you already cretaed via console  Bring existing infrastructure into Terraform state
+    First create a matching resource block   then do this
+
+
+terraform state rm aws_instance.web     This removes the resource from Terraform state.  ⚠️ It does not necessarily delete the EC2 from AWS.
+    If you now run:  terraform plan
+    Terraform sees:  "The EC2 is in main.tf, but I don't have it in my state."
+      So Terraform will usually plan: + aws_instance.app
+       That means create, not delete.
+       If you then run: terraform apply
+       Terraform may create another EC2.  so now 2 ec2
+
+
+terraform state mv \              to change old name to new  
+  aws_instance.web \                 Now Terraform understands:  This is the same EC2; only the Terraform resource address changed.
+  aws_instance.application
+          you change in resource  Terraform might think:
+                              DELETE web
+                              CREATE application
+        Instead, you can move the state:
+
+
+
+
+
+----------------------------------------------
+1. terraform init
+terraform init
+What happens?
+
+Terraform downloads the AWS provider and creates the .terraform directory.
+
+main.tf
+   ↓
+terraform init
+   ↓
+AWS provider downloaded
+
+You normally run this first.
+
+
+2. terraform fmt
+terraform fmt    terraform fmt is for .tf files only.
+
+Formats your Terraform code.
+
+For example, poorly formatted:
+
+resource "aws_instance" "web" {
+ami="ami-xxx"
+instance_type="t2.micro"
+}
+
+After:
+
+terraform fmt
+
+It becomes:
+
+resource "aws_instance" "web" {
+  ami           = "ami-xxx"
+  instance_type = "t2.micro"
+}
+
+Yes. By default:
+
+terraform fmt
+
+formats the .tf files in the current directory.
+
+For example, if your directory is:
+
+terraform-project/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── provider.tf
+└── terraform.tfvars
+
+Running:
+
+terraform fmt
+
+formats the Terraform configuration files in that directory.
+
+
+What about subdirectories?
+
+Use:
+
+terraform fmt -recursive
+
+Example:
+
+terraform-project/
+├── main.tf
+├── variables.tf
+├── modules/
+│   └── ec2/
+│       ├── main.tf
+│       └── variables.tf
+└── environments/
+    └── dev/
+        └── main.tf
+
+Then:
+
+terraform fmt -recursive
+
+will format the .tf files inside the current directory and its subdirectories.
+
+
+3. terraform validate
+terraform validate
+
+Checks whether your Terraform configuration is valid.
+
+Example:
+
+resource "aws_instance" "web" {
+  ami = "ami-xxx"
+}
+
+If something is structurally wrong, Terraform reports an error.
+
+Important: validate does not create the EC2.
+
+
+
+4. terraform plan
+terraform plan
+Terraform sees:
+
+.tf files
+   ↓
+Desired infrastructure
+   ↓
+State = EMPTY (first run)
+   ↓
+AWS is checked
+   ↓
+Terraform says:
+1 resource to add
+
+second time changes
+Terraform looks at:
+
+.tf files
+   +
+terraform.tfstate
+   +
+real infrastructure
+   ↓
+calculate changes
+
+Example output:
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+
+Example:
+
++ aws_instance.web
+
++ = create
+~ = modify
+- = destroy
+
+5. terraform apply
+terraform apply
+
+Terraform executes the plan.
+
+terraform apply
+       ↓
+AWS
+       ↓
+EC2 created
+
+You normally get:
+
+Do you want to perform these actions?
+  Enter a value: yes
+
+Or:
+
+terraform apply -auto-approve
+
+This automatically approves.
+
+
+6. Destroy infrastructure
+terraform destroy
+
+Or:
+
+terraform destroy -auto-approve
+
+This removes resources managed by Terraform.
+
+
+
+6. terraform show
+terraform show
+
+Shows information Terraform has about the infrastructure/state.
+
+For example:
+
+resource "aws_instance" "web" {
+    id            = "i-0123456789"
+    instance_type = "t2.micro"
+    ...
+}
+
+
+
+7. terraform state list
+terraform state list
+
+Shows resources currently tracked in the state.
+
+Example:
+
+aws_instance.web
+aws_vpc.main
+aws_subnet.public
+
+Think:
+
+What resources does Terraform currently know about?
+
+8. terraform state show
+terraform state show aws_instance.web
+
+Shows details of one resource.
+
+Example:
+
+resource "aws_instance" "web" {
+    id            = "i-0123456789"
+    instance_type = "t2.micro"
+    ami           = "ami-xxxx"
+    private_ip    = "10.0.1.10"
+}
+
+
+9. terraform output
+
+Suppose your Terraform has:
+
+output "instance_ip" {
+  value = aws_instance.web.public_ip
+}
+
+After apply:
+
+terraform output
+
+Output:
+
+instance_ip = "13.233.45.10"
+
+Or:
+
+terraform output instance_ip
+
+Gives only:
+
+13.233.45.10
+
+
+11. terraform import
+
+Suppose you manually created an EC2 in AWS:
+
+AWS Console
+    ↓
+EC2
+    ↓
+i-0123456789
+
+But Terraform doesn't manage it.
+
+First create a matching resource block:
+
+resource "aws_instance" "web" {
+  # configuration
+}
+
+Then:
+
+terraform import aws_instance.web i-0123456789
+
+Now Terraform puts that existing EC2 into its state.
+
+Important:
+
+Existing EC2
+     ↓
+terraform import
+     ↓
+terraform.tfstate
+
+import does not mean Terraform creates the EC2. The EC2 already exists.
+
+
+
+12. terraform state rm
+terraform state rm aws_instance.web
+
+This removes the resource from Terraform state.
+
+⚠️ It does not necessarily delete the EC2 from AWS.
+
+Example:
+
+Before:
+
+Terraform state
+      ↓
+aws_instance.web
+      ↓
+EC2
+
+After:
+
+terraform state rm aws_instance.web
+Terraform state
+      ↓
+resource removed
+
+AWS
+ ↓
+EC2 still exists
+
+This is different from:
+
+terraform destroy
+
+which removes the infrastructure.
+
+
+Before state rm
+AWS:
+EC2 ✅
+
+State:
+EC2 ✅
+
+main.tf:
+EC2 ✅
+
+You run:
+
+terraform state rm aws_instance.app
+
+Now:
+
+AWS:
+EC2 ✅
+
+State:
+EC2 ❌
+
+main.tf:
+EC2 ✅
+
+If you now run:
+
+terraform plan
+
+Terraform sees:
+
+"The EC2 is in main.tf, but I don't have it in my state."
+
+So Terraform will usually plan:
+
++ aws_instance.app
+
+That means create, not delete.
+
+If you then run:
+
+terraform apply
+
+Terraform may create another EC2.
+
+So:
+
+state rm
+   ↓
+Terraform forgets EC2
+   ↓
+apply
+   ↓
+EC2 in main.tf is seen as new
+   ↓
+Create new EC2
+If you want to delete the AWS resource
+
+Use:
+
+terraform destroy
+
+or remove it from main.tf and then:
+
+terraform apply
+
+Then Terraform can plan:
+
+- aws_instance.app
+
+which means destroy/delete.
+
+Key point: state rm itself doesn't delete the resource, and apply doesn't automatically delete it just because you
+removed it from state. The next action depends on what's in your configuration and state
+
+
+
+13. terraform state mv
+
+Suppose your resource was:
+
+resource "aws_instance" "web" {
+}
+
+and you rename it:
+
+resource "aws_instance" "application" {
+}
+
+Terraform might think:
+
+DELETE web
+CREATE application
+
+Instead, you can move the state:
+
+terraform state mv \
+  aws_instance.web \
+  aws_instance.application
+
+Now Terraform understands:
+
+This is the same EC2; only the Terraform resource address changed.
+
+
+
+
+
+
+
