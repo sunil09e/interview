@@ -80,6 +80,23 @@ You can test:
 
 
 terraform force-unlock LOCK_ID               This removes the lock.    ⚠️ Don't use it blindly because another Terraform process may actually be running.
+Terraform can use state locking to prevent two people/processes from modifying the same state at the same time.
+For example:
+Developer A
+    ↓
+terraform apply
+    ↓
+State LOCKED
+
+If Developer B tries:  terraform apply
+Terraform may say: Error: state is locked
+Normally, when Developer A's operation finishes, the lock is automatically released.
+But sometimes a failed/crashed process can leave a stale lock.
+Then an administrator can use:  terraform force-unlock LOCK_ID
+This manually removes the lock.
+⚠️ Very dangerous if used incorrectly.
+You should only force-unlock when you're certain that no other Terraform operation is currently running.
+
 
 
 terraform plan -refresh-only         This means:  "Show me what would happen if Terraform only refreshed the state."
@@ -104,16 +121,11 @@ terraform destroy -target=aws_instance.web    You want to remove only the web EC
 terraform taint aws_instance.web     Terraform would mark the instance for replacement.
 terraform apply -replace="aws_instance.web"
 terraform plan -replace="aws_instance.web"
-Then:
-
-terraform plan
+Then: terraform plan
 
 would show something similar to:
-
 -/+ aws_instance.web
-
 Meaning:
-
 Destroy old EC2
       ↓
 Create new EC2
