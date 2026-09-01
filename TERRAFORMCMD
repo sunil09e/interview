@@ -101,6 +101,23 @@ terraform destroy -target=aws_instance.web    You want to remove only the web EC
 
 
 
+terraform taint aws_instance.web     Terraform would mark the instance for replacement.
+terraform apply -replace="aws_instance.web"
+terraform plan -replace="aws_instance.web"
+Then:
+
+terraform plan
+
+would show something similar to:
+
+-/+ aws_instance.web
+
+Meaning:
+
+Destroy old EC2
+      ↓
+Create new EC2
+
 
 One important thing to remember
 
