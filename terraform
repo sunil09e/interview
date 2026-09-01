@@ -1,0 +1,203 @@
+1. What is Terraform?
+Terraform is an Infrastructure as Code (IaC) tool developed by HashiCorp.
+It allows us to create, modify, and delete infrastructure using configuration files instead of manually creating resources through the AWS/Azure/GCP console.
+  Interview answer:  Terraform is a declarative Infrastructure as Code tool used to provision and manage infrastructure using configuration files.
+
+2.Why do we use Terraform?
+We use Terraform because it makes infrastructure:
+Automated – no need to manually create resources.
+Repeatable – the same configuration can create the same infrastructure again.
+Version controlled – .tf files can be stored in Git.
+Consistent – reduces manual configuration mistakes.
+Reusable – we can use modules and variables.
+Multi-cloud – AWS, Azure, GCP, Kubernetes, etc.
+Easy to review – terraform plan shows proposed changes before applying them.
+
+3.What is Infrastructure as Code (IaC)?
+Infrastructure as Code means managing infrastructure using code/configuration files instead of manually creating infrastructure.
+Without IaC:
+
+AWS Console
+   ↓
+Click VPC
+   ↓
+Click Subnet
+
+
+5. What is declarative vs imperative approach?
+Imperative
+In imperative approach, we tell the system HOW to do something, step by step.
+Example:
+1. Create VPC
+2. Create subnet
+3. Create security group
+
+Examples:
+
+Bash scripts
+Ansible can be used imperatively depending on how it's written
+Programming languages
+Declarative
+
+In declarative approach, we tell Terraform WHAT we want, and Terraform determines HOW to achieve it.
+Example:
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = "t2.micro"
+}
+We are saying:  "I want an EC2 instance with this configuration."
+
+
+6. What is a Terraform provider?
+A provider is a plugin that allows Terraform to communicate with an external platform or service.
+A Terraform provider is a plugin that enables Terraform to interact with a particular cloud platform, service, or API.
+For AWS, we use the AWS provider
+Other examples:
+AWS provider
+Azure provider
+Google provider
+Kubernetes provider
+GitHub provider
+
+7. What is a Terraform resource?
+A resource represents an infrastructure object that Terraform creates or manages.
+
+8.What is a Terraform data source?
+A data source is used to read existing information without creating that resource.
+A data source allows Terraform to retrieve information about existing infrastructure or external data without managing the lifecycle of that object.
+We can retrieve it:
+data "aws_ami" "ubuntu" {
+  most_recent = true
+
+  owners = ["099720109477"]
+}
+
+Terraform reads information about an existing AMI.
+Then we can use it:
+resource "aws_instance" "web" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+}
+
+
+
+9.What is a Terraform configuration file?
+A Terraform configuration file contains the Terraform code that describes the desired infrastructure.
+Usually it has the .tf extension.
+
+10. What is the .tf file extension?
+.tf is the file extension used for Terraform configuration files written in HCL (HashiCorp Configuration Language).
+Examples:main.tf
+variables.tf
+outputs.tf
+provider.tf
+network.tf
+Terraform automatically reads .tf files in the working directory.
+
+12. Can we have multiple .tf files in one directory?
+Yes.
+For example:
+terraform-project/
+│
+├── provider.tf
+├── main.tf
+├── variables.tf
+├── outputs.tf
+└── network.tf
+This is actually a common way to organize Terraform code.
+
+
+13. What happens when Terraform reads multiple .tf files?
+Terraform loads all .tf files in the same working directory and treats them together as one configuration.
+Terraform reads all .tf files in the same directory as one configuration. The files are merged logically, and Terraform uses
+dependencies to determine the order in which resources need to be created, updated, or destroyed. The filename itself does not determine execution order.
+For example:
+
+terraform-project/
+│
+├── provider.tf
+├── network.tf
+├── server.tf
+└── outputs.tf
+
+Terraform effectively sees them as:
+
+        Terraform Configuration
+                │
+       ┌────────┼────────┐
+       ↓        ↓        ↓
+ provider    network   server
+    .tf         .tf       .tf
+
+It does not mean:
+First run provider.tf
+       ↓
+Then run network.tf
+       ↓
+Then run server.tf
+
+That is not how Terraform works.
+Terraform loads the configuration as a whole and builds a dependency graph.
+
+For example:
+VPC
+ ↓
+Subnet
+ ↓
+Security Group
+ ↓
+EC2
+
+If EC2 depends on a subnet, Terraform understands that dependency and creates the subnet before the EC2 instance.
+Also, the filename does not determine execution order.
+
+So this:
+01-network.tf
+02-server.tf
+doesn't mean Terraform simply executes them in that numeric order.
+
+--------------------------------------------------------------------------------
+
+1. What does terraform init do?
+
+terraform init initializes a Terraform working directory.
+
+It mainly:
+
+Downloads required providers
+Downloads required modules
+Configures the backend for state storage
+Creates/updates the .terraform directory
+Installs provider plugins
+
+
+2. What does terraform validate do?
+It checks whether your Terraform configuration is syntactically valid and internally consistent.
+Yes, if you leave the ami value empty, Terraform will generally give you an error because ami is required for an aws_instance resource.
+terraform validate
+can report that the ami argument is invalid/empty.
+
+
+3. What does terraform fmt do?
+terraform fmt formats Terraform code into Terraform's standard style.
+Example before:
+resource "aws_instance" "web" {
+ami="ami-123"
+instance_type="t2.micro"
+}
+It formats it:
+resource "aws_instance" "web" {
+  ami           = "ami-123"
+  instance_type = "t2.micro"
+}
+
+It is mainly for code formatting/readability.
+Useful command:  terraform fmt -recursive
+This formats Terraform files in subdirectories too.
+
+
+
+
+
+
+
