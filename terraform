@@ -195,6 +195,914 @@ It is mainly for code formatting/readability.
 Useful command:  terraform fmt -recursive
 This formats Terraform files in subdirectories too.
 
+4. What does terraform plan do?
+terraform plan shows you what Terraform intends to change.
+
+5. What does terraform apply do?
+terraform apply actually performs the changes proposed by Terraform.
+
+6. What does terraform destroy do?
+terraform destroy destroys the infrastructure managed by the current Terraform configuration/state.
+
+You can also use:
+terraform destroy -auto-approve
+This skips the confirmation.
+
+7. What does terraform show do?
+terraform show displays the current state or a saved plan in human-readable form.
+
+8. What does terraform output do?
+terraform output displays values defined using Terraform output blocks.
+
+9. What does terraform refresh do?   terraform apply -refresh-only
+terraform refresh was historically used to update Terraform's state to reflect the current real infrastructure.
+terraform refresh updates the state file from the real infrastructure, but the command is deprecated in modern Terraform; 
+plan, apply, or apply -refresh-only are preferred.
+For example:
+Terraform state says:
+EC2 type = t2.micro
+
+Someone changes AWS:
+EC2 type = t2.small
+A refresh would read AWS and update the state.
+
+10. What does terraform import do?
+terraform import is used to bring an existing infrastructure resource under Terraform management.
+Suppose you manually created an EC2 instance:
+AWS
+ ↓
+EC2 already exists
+
+But Terraform doesn't know about it.
+You can import it:   terraform import aws_instance.web i-0123456789
+Now Terraform records that existing EC2 instance in the state.
+
+11. What does terraform state list do?
+It lists the resources currently recorded in the Terraform state.
+terraform state list
+Example:
+aws_vpc.main
+aws_subnet.public
+aws_instance.web
+aws_security_group.web
+
+This means these resources are currently tracked by Terraform state.
+
+12. What does terraform state show do?
+It displays detailed information about one resource in the state.
+Example:   terraform state show aws_instance.web
+
+13. What does terraform state rm do?
+terraform state rm aws_instance.web
+It removes the resource from Terraform state.
+
+What happens on the next plan?
+If the resource is still present in your .tf configuration:
+resource "aws_instance" "web" {
+  ...
+}
+Terraform may see:
+Configuration says:
+EC2 should exist
+
+State says:
+I don't know about it
+Therefore:
+Terraform may plan to create/manage another instance
+So:  terraform state rm removes a resource from Terraform's state; it does not destroy the actual infrastructure.
+
+14. What does terraform taint mean?
+terraform taint was used to mark a resource as tainted, meaning Terraform should replace it during the next apply.
+Example:   terraform taint aws_instance.web
+Terraform would mark the instance for replacement.
+
+Then:  terraform plan
+would show something similar to:  -/+ aws_instance.web
+Meaning:
+Destroy old EC2
+      ↓
+Create new EC2
+
+Important modern Terraform point
+terraform taint is deprecated in modern Terraform.
+The preferred approach is:
+terraform apply -replace="aws_instance.web"
+or:
+terraform plan -replace="aws_instance.web"
+Now imagine the EC2 has a problem
+
+You want Terraform to destroy this EC2 and create a new one, even though your .tf configuration hasn't changed.
+Historically, you would run:
+terraform taint aws_instance.web
+Terraform marks it as tainted.
+
+
+15. What is terraform force-unlock?
+Terraform can use state locking to prevent two people/processes from modifying the same state at the same time.
+terraform force-unlock LOCK_ID
+This manually removes the lock.
+⚠️ Very dangerous if used incorrectly.
+You should only force-unlock when you're certain that no other Terraform operation is currently running.
+
+
+If you mean the Terraform resource name:
+resource "aws_instance" "old_name" {
+and change it to:
+resource "aws_instance" "new_name" {
+Terraform sees these as two different resource addresses:
+aws_instance.old_name
+aws_instance.new_name
+So you should tell Terraform that the existing resource was renamed:
+terraform state mv aws_instance.old_name aws_instance.new_name
+Then:
+terraform plan
+Ideally, Terraform should show no change to the actual EC2 instance.
+
+Typical interview question
+Q: I have created Terraform code for the first time. There is no .tfstate file. What happens when I run terraform plan?
+Expected flow:
+Terraform code
+      ↓
+terraform plan
+      ↓
+Provider checks actual infrastructure
+      ↓
+Terraform determines what needs to be created
+      ↓
+Plan displayed
+
+Then:
+terraform apply
+      ↓
+Infrastructure created
+      ↓
+Terraform creates/updates terraform.tfstate
+---------------------------------------------------
+
+1. What is Terraform state?
+Terraform state is the information Terraform keeps about the infrastructure it manages.
+The default state file is:  terraform.tfstate
+
+2. Why does Terraform need a state file?
+Terraform needs state to know what it previously created and manages.
+So state helps Terraform understand the relationship between:
+.tf configuration
+      ↓
+Terraform state
+      ↓
+Real infrastructure
+
+
+3. What is terraform.tfstate?
+terraform.tfstate is the default local state file created and maintained by Terraform when using the local backend.
+It contains information about resources Terraform manages.
+
+
+4. What information is stored in the state file?
+The state can contain information such as:
+Resource information
+aws_instance.web
+Resource IDs
+i-123456789
+Resource attributes
+
+For example:
+instance_type
+private_ip
+public_ip
+subnet_id
+security_group
+availability_zone
+
+Sensitive information
+This is extremely important.
+State can contain sensitive values, depending on the resources/configuration.
+
+For example:
+password
+secret
+connection information
+Therefore:  Treat Terraform state as sensitive data.
+
+
+5. Where is the state file stored by default?
+By default, Terraform uses the local backend.
+The state is stored in:   terraform.tfstate
+in the Terraform working directory.
+
+
+6. What is terraform.tfstate.backup?
+Terraform can keep a backup of the previous state when the state is updated using the local backend.
+Example:
+terraform.tfstate
+terraform.tfstate.backup
+
+Think:
+Previous state
+      ↓
+terraform.tfstate.backup
+
+Current state
+      ↓
+terraform.tfstate
+It's useful if something goes wrong and you need to recover the previous state.
+
+
+7. What happens if we manually edit the state file?
+Don't do it unless you really understand Terraform state internals.
+If you manually change the JSON, you can make the state inconsistent with reality.
+
+Possible consequences:
+Incorrect plans
+Resources being recreated
+Terraform losing track of resources
+State corruption/inconsistency
+
+Instead of manually editing state, use Terraform commands such as:
+terraform state mv
+terraform state rm
+terraform import
+when appropriate.
+
+8. What happens if we delete the state file
+Suppose AWS has:   EC2 i-111
+and Terraform state has:   aws_instance.web → i-111
+Now you delete:  terraform.tfstate
+The EC2 does not automatically get deleted.
+AWS still has: EC2 i-111
+But Terraform no longer has its record of that resource.
+
+you run:  terraform plan
+Terraform may think:  "The configuration requires an EC2, but I don't have it in state."
+It may therefore propose creating another EC2.
+
+So you could end up with:
+Old EC2 → still exists
+New EC2 → Terraform may create
+That's why never casually delete the state file.
+
+9. Can Terraform work without a state file?
+For normal Terraform resource management, Terraform relies on state.
+When starting a brand-new project, there is initially no state file:
+.tf files
+   ↓
+terraform plan
+   ↓
+No existing state
+   ↓
+Terraform determines resources need to be created
+After applying:
+terraform apply
+       ↓
+Resources created
+       ↓
+State created
+So the important idea is:   Terraform can start with no existing state, but once resources are managed, state is fundamental to Terraform's normal workflow.
+
+
+
+10. What is state locking?
+State locking prevents multiple Terraform operations from modifying the same state at the same time.
+Imagine:
+
+Developer A
+    ↓
+terraform apply
+    ↓
+STATE LOCKED
+
+At the same time:
+
+Developer B
+    ↓
+terraform apply
+    ↓
+❌ State is locked
+
+Why?
+Because if both modify state simultaneously, the state could become corrupted or inconsistent.
+
+
+
+11. Why should we not store state files in Git?
+There are several reasons.
+1. State can contain secrets
+State can contain sensitive information.
+If you push it to Git:
+terraform.tfstate
+       ↓
+Git
+       ↓
+Everyone with repository access
+That's a security risk.
+
+2. Multiple people can modify it
+You can get conflicts:
+Developer A → state
+Developer B → state
+       ↓
+Git merge conflict
+Terraform state is not something you want to manage like normal source code.
+
+3. State locking isn't provided by Git
+Terraform needs locking so two people don't modify state simultaneously.
+Better approach
+Use a remote backend with appropriate access control and locking/coordination.
+
+
+12. How do you store Terraform state in S3?
+For AWS, you can configure an S3 backend.
+Modern Terraform supports an S3 backend, for example:
+
+terraform {
+  backend "s3" {
+    bucket = "my-terraform-state"
+    key    = "project/terraform.tfstate"
+    region = "ap-south-1"
+  }
+}
+
+Then:
+terraform init
+
+Terraform initializes the backend and stores the state remotely in S3.
+Conceptually:
+
+Developer
+    ↓
+Terraform
+    ↓
+S3 bucket
+    ↓
+terraform.tfstate
+
+Instead of:
+Developer's laptop
+       ↓
+terraform.tfstate
+Important
+The S3 bucket should be properly secured, including appropriate IAM permissions and protection against accidental data loss.
+
+
+
+13. Why do we use DynamoDB historically with Terraform S3 backends?
+This is a version-sensitive interview question.
+Historically, Terraform used DynamoDB for state locking with an S3 backend.
+Conceptually:
+Terraform
+   │
+   ├──────→ S3
+   │          ↓
+   │       State file
+   │
+   └──────→ DynamoDB
+              ↓
+           Locking
+
+So:
+S3
+ ↓
+Stores state
+
+DynamoDB
+ ↓
+Historically handled state locking
+
+Important current point
+Modern Terraform's S3 backend supports native S3 locking, using:
+use_lockfile = true
+DynamoDB-based locking is now considered deprecated for the S3 backend.
+So if an interviewer asks:
+"Why DynamoDB?"
+A good answer is: Historically, DynamoDB was used with the S3 backend to provide Terraform state locking.
+Newer Terraform versions support native S3 lock files, so DynamoDB locking is deprecated.
+
+
+14. What is a remote backend?
+
+A remote backend stores Terraform state outside your local machine.
+For example:
+Local backend:
+Laptop
+  ↓
+terraform.tfstate
+
+Remote backend:
+Laptop
+   ↓
+Terraform
+   ↓
+S3
+   ↓
+terraform.tfstate
+
+Other remote backends exist too, such as Terraform Cloud/HCP Terraform and various cloud/object-storage backends.
+The main idea:  State is stored centrally instead of only on one developer's laptop.
+
+
+
+16. How do multiple team members work with the same state?
+This is the main reason teams use remote state.
+Suppose:
+Developer A
+Developer B
+Developer C
+
+All work on the same infrastructure.
+They use a shared remote backend:
+
+Developer A ──┐
+Developer B ──┼──→ Remote Backend
+Developer C ──┘        ↓
+                     State
+
+For AWS, an S3 backend can be used.
+When Developer A runs:  terraform apply
+Terraform obtains the appropriate state lock/coordination mechanism.
+While the operation is happening:
+Developer A
+    ↓
+terraform apply
+    ↓
+STATE LOCKED
+Developer B shouldn't simultaneously modify the same state.
+
+After A finishes:
+State updated
+    ↓
+Lock released
+    ↓
+Developer B can work
+
+
+-------------------------------------------
+Explain the Terraform workflow.
+
+A good interview answer:
+
+Write Terraform code
+        ↓
+terraform init
+        ↓
+terraform validate
+        ↓
+terraform fmt
+        ↓
+terraform plan
+        ↓
+terraform apply
+        ↓
+Infrastructure created
+        ↓
+State updated
+
+
+1. What happens internally during terraform plan?
+Suppose you have:
+resource "aws_instance" "web" {
+  ami           = "ami-123"
+  instance_type = "t2.micro"
+}
+
+You run:  terraform plan
+
+Terraform roughly does this:
+1. Read .tf files
+       ↓
+2. Load configuration
+       ↓
+3. Load Terraform state
+       ↓
+4. Connect to AWS using provider
+       ↓
+5. Read current AWS information
+       ↓
+6. Compare:
+   Configuration vs State/Actual infrastructure
+       ↓
+7. Build dependency graph
+       ↓
+8. Calculate required changes
+       ↓
+9. Show proposed plan
+Example
+
+Your configuration says: EC2 should be t2.small
+
+AWS currently has: EC2 is t2.micro
+
+Terraform detects:
+Desired: t2.small
+Current: t2.micro
+
+So plan might show:
+~ aws_instance.web
+    instance_type: "t2.micro" -> "t2.small"
+
+The ~ means update.
+Important
+terraform plan is mainly a preview.
+It does not normally create, update, or delete your infrastructure.
+
+
+2. What happens internally during terraform apply?
+terraform apply actually performs the changes.
+For example:  terraform apply
+The flow is roughly:
+.tf files
+   ↓
+Read configuration
+   ↓
+Read state
+   ↓
+Read current infrastructure
+   ↓
+Determine changes
+   ↓
+Create execution plan
+   ↓
+Ask for approval
+   ↓
+Execute changes
+   ↓
+AWS API
+   ↓
+AWS infrastructure changes
+   ↓
+Read resulting resource information
+   ↓
+Update Terraform state
+
+For example:
+Terraform configuration
+        ↓
+"Create EC2"
+        ↓
+terraform apply
+        ↓
+AWS API
+        ↓
+EC2 created
+        ↓
+AWS returns EC2 ID
+        ↓
+Terraform records it in state
+
+So after creation:
+AWS:
+EC2 ID = i-123456
+
+Terraform state records the relationship:
+aws_instance.web
+        ↓
+i-123456
+
+
+4. Does terraform apply automatically create the state file?
+Yes.
+If you're using the default local backend and there is no existing state file, Terraform creates it when it successfully manages resources.
+But remember
+If you're using a remote backend, you may not see a local terraform.tfstate containing the state.
+
+For example:
+
+Terraform
+   ↓
+S3 backend
+   ↓
+terraform.tfstate
+
+So the state is created/updated, but its storage location depends on the backend.
+
+
+
+5. What happens if someone manually changes an AWS resource?
+This is called infrastructure drift.
+
+Suppose Terraform created:
+EC2
+instance_type = t2.micro
+
+Terraform state:  t2.micro
+
+Then someone manually changes AWS:
+AWS Console
+    ↓
+EC2
+    ↓
+t2.micro → t2.small
+
+6. How does Terraform detect infrastructure drift?
+When Terraform performs its normal planning workflow, the provider reads information from the real infrastructure.
+So:
+terraform plan
+      ↓
+Terraform reads configuration
+      ↓
+Reads state
+      ↓
+Provider queries AWS
+      ↓
+Gets actual AWS information
+      ↓
+Compare
+      ↓
+Detect differences
+
+Example:
+Configuration
+instance_type = t2.micro
+State
+instance_type = t2.micro
+AWS
+instance_type = t2.small
+
+Terraform can detect:  AWS changed!
+and the plan may show a change.
+What happens next?
+Terraform's behavior depends on the resource and whether the manually changed attribute is managed by the configuration.
+
+For example, if someone changed a managed setting:
+Terraform wants:  t2.micro
+AWS has:  t2.small
+
+Terraform may propose:
+~ aws_instance.web
+    instance_type = "t2.small" -> "t2.micro"
+
+Then:  terraform apply
+can bring AWS back toward the configuration.
+This is one of the key ideas of Terraform:
+The .tf configuration represents the desired state, while the real infrastructure is checked to determine what has changed
+
+"AWS is currently t3.small, but my Terraform configuration says it should be t3.large."
+Then if you run:  terraform apply
+Terraform will change the EC2 back to t3.large (assuming the attribute can be updated in place for that resource/configuration).
+
+Simple flow
+Terraform code
+t3.large
+    ↓
+Someone manually changes AWS
+    ↓
+AWS = t3.small
+    ↓
+terraform plan
+    ↓
+Detects drift
+    ↓
+Plan: t3.small → t3.large
+    ↓
+terraform apply
+    ↓
+AWS = t3.large
+
+
+-----------------------------------------
+
+1. What is a provider?
+A provider is a plugin that allows Terraform to communicate with an external API/service.
+Terraform itself doesn't directly know how to create an AWS EC2, S3 bucket, Azure VM, etc.
+The provider handles that communication.
+Terraform
+    ↓
+Provider
+    ↓
+API
+    ↓
+Infrastructure
+
+
+2. What is the AWS provider?
+The AWS provider is the Terraform provider developed to interact with AWS services.
+It allows Terraform to manage things such as:
+EC2
+VPC
+S3
+IAM
+RDS
+Lambda
+ECS
+EKS
+Security Groups
+etc.
+
+3. Where do we configure the provider?
+Usually we configure it inside a .tf file.
+
+
+4. What is provider versioning?
+Provider versioning means specifying which version of a provider Terraform should use.
+For example:
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+5. What is the difference between Terraform and Terraform provider?
+This is very important.
+Terraform
+Terraform is the IaC tool/core engine.
+It:
+Reads .tf files
+Builds the dependency graph
+Compares desired and current state
+Creates the execution plan
+Determines what actions need to happen
+Coordinates with providers
+Provider
+
+The provider is the plugin that communicates with the actual platform/API.
+
+
+6. Can Terraform use multiple providers?
+Yes.
+Terraform can use multiple providers in the same project.
+For example:
+Terraform
+   │
+   ├── AWS provider
+   │
+   ├── GitHub provider
+   │
+   └── Kubernetes provider
+
+Example:
+provider "aws" {
+  region = "ap-south-1"
+}
+
+provider "github" {
+  owner = "mycompany"
+}
+
+You could then manage AWS infrastructure and GitHub resources from the same Terraform configuration.
+For example:
+AWS
+ ↓
+EC2
+
+GitHub
+ ↓
+Repository
+
+Terraform can manage both.
+You can also use multiple configurations of the same provider, which is where provider aliases become useful.
+
+
+
+7. What are provider aliases?
+Provider aliases allow you to create multiple configurations of the same provider.
+This is especially useful when you need to work with:
+Multiple AWS regions
+Multiple AWS accounts
+Different credentials/configurations
+Example: two AWS regions
+Suppose you want:
+EC2 → Mumbai
+EC2 → Singapore
+
+You can configure:
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+provider "aws" {
+  alias  = "singapore"
+  region = "ap-southeast-1"
+}
+
+providers.tf
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+
+    github = {
+      source  = "integrations/github"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+provider "github" {
+  owner = "sunil09e"
+}
+
+-------------------------------------------------
+
+1. What is a resource?
+A resource represents an infrastructure object that Terraform creates and manages.
+For AWS, examples are:
+
+EC2
+VPC
+Subnet
+Security Group
+S3 Bucket
+IAM Role
+RDS
+
+Example:
+
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = "t3.large"
+}
+
+This tells Terraform:
+"I want Terraform to manage an AWS EC2 instance."
+
+
+
+
+2. Explain the syntax of a Terraform resource
+The basic syntax is:
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+  argument = value
+}
+
+Example:
+
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = "t3.large"
+}
+
+
+Break it down:
+resource
+   ↓
+Terraform keyword
+aws_instance
+   ↓
+Resource type
+web
+   ↓
+Terraform resource name
+
+
+
+3. How do you reference one resource from another?
+You reference another resource using:
+RESOURCE_TYPE.RESOURCE_NAME.ATTRIBUTE
+Example
+
+Suppose we create a VPC:
+
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+}
+
+Then we create a subnet inside that VPC:
+
+resource "aws_subnet" "public" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.1.0/24"
+}
+
+
+Terraform understands:
+"The subnet needs the VPC ID, so the VPC must exist first.
+
+
+
+4. What is implicit dependency?
+An implicit dependency happens when one resource references another resource directly.
+Example:
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+}
+
+resource "aws_subnet" "public" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.1.0/24"
+}
+
+Here:
+vpc_id = aws_vpc.main.id
+creates an implicit dependency.
+
+
+
+
+
+
+
+
+
+
 
 
 
