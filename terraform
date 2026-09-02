@@ -1191,21 +1191,424 @@ depends_on simply means:
 
 ------------------------------------------
 
+1. What are Terraform variables?
+
+Terraform variables are input values that allow us to make our Terraform configuration reusable.
+Without a variable:
+
+resource "aws_instance" "web" {
+  instance_type = "t3.large"
+}
+
+The value t3.large is fixed.
+
+With a variable:
+
+resource "aws_instance" "web" {
+  instance_type = var.instance_type
+}
+
+Now the value can be provided from outside.
+Variable
+   ↓
+var.instance_type
+   ↓
+EC2 instance_type
+
+2. Why do we use variables?
+We use variables so we don't hard-code values in our Terraform code.
+For example, suppose you have:
+
+Development → t3.small
+Testing     → t3.medium
+Production  → t3.large
+
+Instead of creating three different main.tf files, you can use one:
+
+resource "aws_instance" "web" {
+  instance_type = var.instance_type
+}
+
+Then provide different values:
+
+Development → t3.small
+Production  → t3.large
+
+
+
+4. What is terraform.tfvars?
+terraform.tfvars is commonly used to provide values for input variables.
+Suppose you declared:
+variable "instance_type" {
+  type = string
+}
+
+Then create:  terraform.tfvars
+with:  instance_type = "t3.large"
+Then your resource:
+resource "aws_instance" "web" {
+  instance_type = var.instance_type
+}
+
+5. Difference between var.variable_name and local.variable_name
+var
+var is used to access an input variable.
+Example:
+variable "instance_type" {
+  default = "t3.large"
+}
+Use:  var.instance_type
+Meaning:  Get the value of the input variable instance_type.
+
+local
+local is used to access a local value defined inside Terraform.
+Example:
+locals {
+  environment = "production"
+  name        = "web-server"
+}
+Use:
+local.environment
+local.name
+
+6. What are variable types?
+Terraform supports several common types.
+1. string
+Text:
+variable "instance_type" {
+  type = string
+}
+Value:  instance_type = "t3.large"
+
+2. number
+Numbers:
+variable "instance_count" {
+  type = number
+}
+
+Value:  instance_count = 3
+
+3. bool
+True/false:
+
+variable "enable_monitoring" {
+  type = bool
+}
+Value: enable_monitoring = true
+
+4. list
+Multiple ordered values:
+variable "availability_zones" {
+  type = list(string)
+}
+
+Value:
+availability_zones = [
+  "ap-south-1a",
+  "ap-south-1b"
+]
+
+5. map
+Key-value pairs:
+variable "tags" {
+  type = map(string)
+}
+
+Value:
+tags = {
+  Environment = "prod"
+  Team        = "devops"
+}
+
+6. object
+Structured data with specific attributes:
+variable "server" {
+  type = object({
+    name = string
+    size = string
+  })
+}
+
+Example:
+server = {
+  name = "web"
+  size = "t3.large"
+}
+Common types to remember
+string
+number
+bool
+list
+map
+set
+object
+tuple
+
+7. What is a default value?
+A default value is the value Terraform uses if no other value is provided for the variable.
+Example:
+variable "instance_type" {
+  type    = string
+  default = "t3.micro"
+}
+If you don't provide anything:
+instance_type
+       ↓
+t3.micro
+
+Terraform uses: t3.micro
+
+
+
+8. What is a sensitive variable?
+A sensitive variable contains information that should not normally be displayed in Terraform CLI output.
+For example:
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+Then:  db_password = "MySecretPassword"
+Terraform will try to redact the value in CLI output.
+You may see something like:   (sensitive value)
+instead of the actual password.
+
+⚠️ Important
+sensitive = true does not encrypt the value in the Terraform state.
+State can still contain sensitive values.
+Therefore:   Protect your Terraform state carefully, especially when using remote state.
+
+
+9. How do you pass variables from the command line?
+There are several ways. The most direct is -var.
+Suppose:
+variable "instance_type" {
+  type = string
+}
+
+You can run:  terraform plan -var="instance_type=t3.large"
+Or:
+terraform apply -var="instance_type=t3.large"
+Terraform receives:
+instance_type
+      ↓
+t3.large
+
+Then:  instance_type = var.instance_type
+uses:  t3.large
+You can pass multiple variables
+terraform plan \
+  -var="instance_type=t3.large" \
+  -var="environment=production"
+
+
+
+⭐ One complete example
+variables.tf
+variable "instance_type" {
+  type    = string
+  default = "t3.micro"
+}
+
+variable "environment" {
+  type = string
+}
+main.tf
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = var.instance_type
+
+  tags = {
+    Environment = var.environment
+  }
+}
+terraform.tfvars
+instance_type = "t3.large"
+environment   = "production"
+
+Then:
+
+terraform plan
+
+Terraform gets:
+
+variables.tf
+     ↓
+Defines variables
+
+terraform.tfvars
+     ↓
+Provides values
+
+var.instance_type
+     ↓
+t3.large
+
+var.environment
+     ↓
+production
+
+     ↓
+
+AWS EC2
+
+
+So why do we need both?
+Because they answer different questions:
+type
+ ↓
+"What type of value can I give?"
+
+default
+ ↓
+"What value should Terraform use if I give nothing?"
 
 
 
 
 
+1. What is local?
+local is used to access a local value that you define inside Terraform using a locals block.
+
+Example:
+locals {
+  environment = "production"
+  project     = "myapp"
+}
+
+Now you can use these values as:
+
+local.environment
+local.project
+
+
+
+locals.tf
+locals {
+  environment = "production"
+  project     = "myapp"
+}
+main.tf
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = "t3.large"
+
+  tags = {
+    Name        = "${local.project}-web"
+    Environment = local.environment
+  }
+}
+
+
+
+7. Example using both var and local
+variables.tf
+variable "environment" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+terraform.tfvars
+environment  = "production"
+instance_type = "t3.large"
+locals.tf
+locals {
+  server_name = "${var.environment}-web"
+}
+main.tf
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = var.instance_type
+
+  tags = {
+    Name        = local.server_name
+    Environment = var.environment
+  }
+}
+
+
+
+8. Very important: local can use var
+
+This is where locals become powerful.
+
+You can do:
+
+locals {
+  server_name = "${var.environment}-web"
+}
+
+Here:
+
+var.environment
+       ↓
+"production"
+       ↓
+local.server_name
+       ↓
+"production-web"
+
+So a local value can be calculated from variables.
+
+You can also use expressions:
+
+locals {
+  common_tags = {
+    Environment = var.environment
+    Project     = var.project
+    ManagedBy   = "Terraform"
+  }
+}
+
+Then many resources can use:
+
+tags = local.common_tags
 
 
 
 
+9. Why is this useful?
 
+Imagine you have 3 resources:
 
+EC2
+S3
+RDS
 
+All need the same tags.
 
+Without locals:
 
+tags = {
+  Environment = var.environment
+  Project     = var.project
+  ManagedBy   = "Terraform"
+}
 
+You repeat this three times.
 
+With locals:
 
+locals {
+  common_tags = {
+    Environment = var.environment
+    Project     = var.project
+    ManagedBy   = "Terraform"
+  }
+}
 
+Then:
+
+resource "aws_instance" "web" {
+  tags = local.common_tags
+}
+resource "aws_s3_bucket" "data" {
+  tags = local.common_tags
+}
+resource "aws_db_instance" "database" {
+  tags = local.common_tags
+}
+
+Much cleaner.
