@@ -1117,8 +1117,14 @@ must be ready first
 EC2
 
 Even if the EC2 configuration doesn't directly reference the IAM policy.
+No. depends_on does NOT attach the IAM policy to the EC2.
+You need an IAM instance profile and specify it in the EC2:
 
-
+resource "aws_instance" "web" {
+  ami                  = "ami-123456"
+  instance_type        = "t3.large"
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+So depends_on = ordering, not attaching.
 
 6. What is depends_on?
 depends_on is a Terraform meta-argument used to create an explicit dependency between resources or modules.
