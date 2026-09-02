@@ -1618,3 +1618,220 @@ resource "aws_db_instance" "database" {
 }
 
 Much cleaner.
+------------------------------
+
+variable "environment" {
+  default = "dev"
+}
+
+you can still run:
+
+terraform apply -var="environment=prod"
+
+Terraform understands prod as a string because the variable's default value "dev" is a string.
+
+So:
+
+default = "dev"
+             ↓
+       Terraform infers
+             ↓
+       environment = string
+
+Then:
+
+terraform apply -var="environment=prod"
+
+overrides the default:
+
+environment = "prod"
+
+You do not need type = string for this to work.
+
+
+1. What are Terraform locals?
+Locals are variables defined inside Terraform configuration to store values that we want to reuse.
+Example:
+
+locals {
+  environment = "dev"
+  project     = "myapp"
+}
+
+Use them like:
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = "t3.micro"
+
+  tags = {
+    Name        = local.project
+    Environment = local.environment
+  }
+}
+
+Here:
+local.project
+local.environment
+
+are references to the values defined in the locals block.
+
+2. Why use locals?
+Mainly to avoid repeating the same value and make the Terraform code easier to maintain.
+
+Without locals:
+
+tags = {
+  Project     = "myapp"
+  Environment = "dev"
+}
+
+# somewhere else
+name = "myapp-dev"
+
+# somewhere else
+bucket = "myapp-dev"
+
+With locals:
+
+locals {
+  project     = "myapp"
+  environment = "dev"
+  name        = "${local.project}-${local.environment}"
+}
+
+Then:
+
+tags = {
+  Project     = local.project
+  Environment = local.environment
+}
+
+bucket = local.name
+
+So if you change "myapp" once, the places using local.project automatically use the new value.
+
+3. Difference between variables and locals
+Variables	Locals
+Used to receive input	Used to define/reuse values internally
+Can be supplied from outside	Defined inside Terraform configuration
+User/CI/CD can provide different values	Usually calculated or organized from existing values
+Referenced as var.name	Referenced as local.name
+Example
+
+Variable:
+variable "environment" {
+  default = "dev"
+}
+
+You can provide a different value:
+
+terraform apply -var="environment=prod"
+
+So the variable is input.
+
+Local:
+
+locals {
+  environment = var.environment
+  name        = "myapp-${local.environment}"
+}
+
+Here local.name is calculated internally from the variable.
+
+Easy interview answer
+
+Variables are used to accept input into Terraform, while locals are used to store and reuse values or expressions internally within the Terraform configuration.
+-------------------
+
+1. What is an Output?
+A Terraform output is used to display or expose a value after Terraform creates or updates resources.
+Example:
+
+output "instance_public_ip" {
+  value = aws_instance.web.public_ip
+}
+
+After terraform apply, Terraform shows the EC2 public IP.
+
+2. Why do we use Terraform outputs?
+We use outputs to:
+Display important information after terraform apply
+Get values from created resources
+Share values between Terraform modules
+Make resource information easily accessible
+
+For example, instead of checking the AWS console for the EC2 IP, we can get it directly from Terraform.
+
+3. How do you output an EC2 public IP?
+Suppose your EC2 resource is:
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = "t3.micro"
+}
+
+Create an output:
+
+output "instance_public_ip" {
+  value = aws_instance.web.public_ip
+}
+
+
+--------------------------
+81. What is a Data Source?
+A data source in Terraform is used to read or fetch existing information from a provider, instead of creating a new resource.
+data "aws_ami" "amazon_linux_mumbai" {
+  provider    = aws.mumbai
+  most_recent = true
+  owners      = [var.ami_owner]
+
+  filter {
+    name   = "name"
+    values = [var.ami_filter_name]
+  }
+}
+
+82. Difference between Resource and Data Source
+Resource	Data Source
+Creates/manages infrastructure	Reads/fetches existing information
+Can create, update, and delete	Normally read-only from Terraform's perspective
+Syntax: resource	Syntax: data
+Reference: aws_instance.web.id	Reference: data.aws_ami.ubuntu.id
+
+
+83. When would you use a Data Source?
+
+Use a data source when the information/resource already exists and you need to get its details.
+
+Common examples:
+
+1. Find an existing AMI
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+}
+
+2. Get an existing VPC
+
+data "aws_vpc" "existing" {
+  id = "vpc-123456"
+}
+
+3. Get an existing subnet
+
+data "aws_subnet" "existing" {
+  id = "subnet-123456"
+}
+
+Then use the information in a resource:
+
+resource "aws_instance" "web" {
+  ami       = data.aws_ami.ubuntu.id
+  subnet_id = data.aws_subnet.existing.id
+}
+Interview answer
+A data source is used to read existing information from a provider. A resource is used to create and manage 
+infrastructure, while a data source is used to retrieve information about existing infrastructure. We use data sources
+when we need to use something that already exists, such as an existing AMI, VPC, or subnet.
+
+
