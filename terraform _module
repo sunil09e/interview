@@ -1,0 +1,610 @@
+Terraform Module
+A Terraform module is a reusable collection of Terraform code.
+Think of it like a function in programming.
+Instead of writing the same EC2/VPC code again and again, you write it once inside a module and use it whenever you need it.
+We use a Terraform module mainly to reuse the same Terraform code instead of writing it again and again.
+
+A module is not a separate Terraform language. It is simply a folder containing .tf files that you call using:
+module "name" {
+  source = "./modules/ec2"
+}
+
+And the values go into the module through variables:
+Root module
+   ↓
+inputs (variables)
+   ↓
+Child module
+   ↓
+resources
+   ↓
+AWS
+
+The Terraform configuration you currently have (main.tf, provider.tf, variable.tf, data.tf, etc.) is itself the root module. 
+When you create modules/ec2, that becomes a child module.
+
+
+Without module
+
+Suppose you need 3 VPCs:
+
+dev VPC
+prod VPC
+test VPC
+
+Without a module, you may write the VPC resources 3 times:
+
+resource "aws_vpc" "dev" {
+  cidr_block = "10.0.0.0/16"
+}
+
+resource "aws_vpc" "prod" {
+  cidr_block = "10.1.0.0/16"
+}
+
+resource "aws_vpc" "test" {
+  cidr_block = "10.2.0.0/16"
+}
+
+This creates duplicate code.
+
+With a module
+
+You write the VPC code once:
+
+modules/
+└── vpc/
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
+
+Then reuse it:
+
+module "dev_vpc" {
+  source     = "./modules/vpc"
+  name       = "dev"
+  cidr_block = "10.0.0.0/16"
+}
+
+module "prod_vpc" {
+  source     = "./modules/vpc"
+  name       = "prod"
+  cidr_block = "10.1.0.0/16"
+}
+
+module "test_vpc" {
+  source     = "./modules/vpc"
+  name       = "test"
+  cidr_block = "10.2.0.0/16"
+}
+
+
+----------------------------------
+
+vpc ec2 we need for 2 zones measn the structure and the code
+
+If you want VPC + EC2 in 2 Availability Zones, a common Terraform structure is:
+
+terraform-project/
+│
+├── providers.tf
+├── main.tf
+├── variables.tf
+├── outputs.tf
+│
+└── modules/
+    ├── vpc/
+    │   ├── main.tf
+    │   ├── variables.tf
+    │   └── outputs.tf
+    │
+    └── ec2/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+
+The idea is:
+              VPC
+             10.0.0.0/16
+                    │
+        ┌───────────┴───────────┐
+        │                       │
+       AZ-1                    AZ-2
+        │                       │
+   Public Subnet           Public Subnet
+   10.0.1.0/24             10.0.2.0/24
+        │                       │
+      EC2-1                   EC2-2
+
+
+1. providers.tf
+
+This is in the root module.
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+
+2.Root main.tf
+Now we call both modules.
+
+module "vpc" {
+  source = "./modules/vpc"
+}
+
+module "ec2" {
+  source = "./modules/ec2"
+
+  vpc_id        = module.vpc.vpc_id
+  subnet_ids    = module.vpc.subnet_ids
+  ami           = "ami-xxxxxxxxxxxxxxxxx"
+  instance_type = "t3.micro"
+}
+
+The important part is this:
+
+vpc_id     = module.vpc.vpc_id
+subnet_ids = module.vpc.subnet_ids
+
+The VPC module creates the VPC/subnets, then gives their IDs through outputs.
+The EC2 module receives those IDs and creates the EC2 instances.
+
+
+3.Root outputs.tf
+output "vpc_id" {
+  value = module.vpc.vpc_id
+}
+
+output "instance_ids" {
+  value = module.ec2.instance_ids
+}
+
+output "public_ips" {
+  value = module.ec2.public_ips
+}
+
+If there is only 1 EC2
+Better to call it:
+output "instance_id" {
+  value = aws_instance.web.id
+}
+
+This gives:
+instance_id = "i-123456789"
+If there are multiple EC2s
+
+Use:
+output "instance_ids" {
+  value = aws_instance.web[*].id
+}
+
+
+If you want the output to be a single ID instead of a list, you could use:
+output "instance_id" {
+  value = aws_instance.web[0].id
+}
+
+
+VPC module
+2. modules/vpc/main.tf
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "my-vpc"
+  }
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "my-igw"
+  }
+}
+
+resource "aws_subnet" "public_1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[0]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "public-subnet-1"
+  }
+}
+
+resource "aws_subnet" "public_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[1]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "public-subnet-2"
+  }
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "public-route-table"
+  }
+}
+
+resource "aws_route_table_association" "public_1" {
+  subnet_id      = aws_subnet.public_1.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public.id
+}
+
+4. modules/vpc/outputs.tf
+output "subnet_ids" {
+  value = [
+    aws_subnet.public_1.id,
+    aws_subnet.public_2.id
+  ]
+}
+
+output "vpc_id" {
+  value = aws_vpc.main.id
+}
+
+EC2 module
+5. modules/ec2/main.tf
+resource "aws_security_group" "ec2" {
+  name   = "ec2-sg"
+  vpc_id = var.vpc_id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ec2-sg"
+  }
+}
+
+resource "aws_instance" "web" {
+  count = 2
+
+  ami           = var.ami
+  instance_type = var.instance_type
+  subnet_id     = var.subnet_ids[count.index]
+
+  vpc_security_group_ids = [
+    aws_security_group.ec2.id
+  ]
+
+  tags = {
+    Name = "web-${count.index + 1}"
+  }
+}
+
+Here:
+
+count = 2
+
+means Terraform creates 2 EC2 instances.
+And:
+
+subnet_id = var.subnet_ids[count.index]
+
+means:
+
+EC2-1 → subnet-1 → AZ-1
+
+EC2-2 → subnet-2 → AZ-2
+
+
+6. modules/ec2/variables.tf
+variable "vpc_id" {
+  type = string
+}
+
+variable "subnet_ids" {
+  type = list(string)
+}
+
+variable "ami" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+
+the values comes from root main
+Root main.tf provides the values
+module "ec2" {
+  source = "./modules/ec2"
+
+  vpc_id        = module.vpc.vpc_id
+  subnet_ids    = module.vpc.subnet_ids
+  ami           = "ami-123456"
+  instance_type = "t3.micro"
+
+7. modules/ec2/outputs.tf
+output "instance_ids" {
+  value = aws_instance.web[*].id
+}
+
+output "public_ips" {
+  value = aws_instance.web[*].public_ip
+}
+
+
+What happens when you run it?
+terraform init
+terraform plan
+terraform apply
+
+Terraform creates:
+
+VPC
+10.0.0.0/16
+│
+├── Internet Gateway
+│
+├── Public Subnet 1
+│   10.0.1.0/24
+│   AZ-1
+│      │
+│      └── EC2-1
+│
+└── Public Subnet 2
+    10.0.2.0/24
+    AZ-2
+       │
+       └── EC2-2
+
+--------------------------------
+It asks AWS:
+
+"What Availability Zones are available in ap-south-1?"
+
+AWS might return:
+
+names[0] → ap-south-1a
+names[1] → ap-south-1b
+names[2] → ap-south-1c
+
+availability_zone = data.aws_availability_zones.available.names[0]
+
+Suppose AWS gave:
+
+names[0] = ap-south-1a
+names[1] = ap-south-1b
+
+
+
+resource "aws_instance" "web" {
+  count = 2
+
+  ami = var.ami
+
+  instance_type = var.instance_types[count.index]
+
+  subnet_id = var.subnet_ids[count.index]
+
+  tags = {
+    Name = "web-${count.index + 1}"
+  }
+}
+
+Now this becomes very easy.
+
+First EC2
+
+Because:
+
+count = 2
+
+Terraform starts:
+
+count.index = 0
+
+Then:
+
+var.instance_types[0]
+
+gives:
+
+t2.micro
+
+And:
+
+var.subnet_ids[0]
+
+gives:
+
+subnet-111111
+
+That subnet is in AZ-1.
+
+Therefore:
+
+EC2-1
+│
+├── Type: t2.micro
+├── Subnet: subnet-111111
+└── AZ: ap-south-1a
+Step 13 — Second EC2
+
+Terraform then uses:
+
+count.index = 1
+
+So:
+
+var.instance_types[1]
+
+gives:
+
+t3.micro
+
+And:
+
+var.subnet_ids[1]
+
+gives:
+
+subnet-222222
+
+That subnet is in AZ-2.
+
+Therefore:
+
+EC2-2
+│
+├── Type: t3.micro
+├── Subnet: subnet-222222
+└── AZ: ap-south-1b
+
+-----------------------------------------
+
+Yes. If you mean:
+
+AZ-1 → EC2 with t2.micro
+AZ-2 → EC2 with t3.micro
+
+Structure
+VPC
+│
+├── AZ-1
+│    └── Subnet-1
+│         └── EC2-1 → t2.micro
+│
+└── AZ-2
+     └── Subnet-2
+          └── EC2-2 → t3.micro
+EC2 module main.tf
+resource "aws_instance" "web" {
+  count = 2
+
+  ami = var.ami
+
+  instance_type = var.instance_types[count.index]
+
+  subnet_id = var.subnet_ids[count.index]
+
+  vpc_security_group_ids = [
+    aws_security_group.ec2.id
+  ]
+
+  tags = {
+    Name = "web-${count.index + 1}"
+  }
+}
+variables.tf
+variable "ami" {
+  type = string
+}
+
+variable "instance_types" {
+  type = list(string)
+}
+
+variable "subnet_ids" {
+  type = list(string)
+}
+
+variable "vpc_id" {
+  type = string
+}
+Root main.tf
+module "vpc" {
+  source = "./modules/vpc"
+}
+
+module "ec2" {
+  source = "./modules/ec2"
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.subnet_ids
+
+  ami = "ami-xxxxxxxxxxxxxxxxx"
+
+  instance_types = [
+    "t2.micro",
+    "t3.micro"
+  ]
+}
+
+Terraform matches them by index:
+
+instance_types[0] = t2.micro
+subnet_ids[0]     = AZ-1
+                    ↓
+                  EC2-1
+
+
+instance_types[1] = t3.micro
+subnet_ids[1]     = AZ-2
+                    ↓
+                  EC2-2
+
+So you can have different instance types in different AZs.
+---------------------------------
+Why doesn't the first one need alias?
+
+Because Terraform already treats the first configuration as the default.
+
+So this:
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+can simply be referred to as:
+
+aws
+
+The second one needs a name:
+
+provider "aws" {
+  alias  = "us_east"
+  region = "us-east-1"
+}
+
+and is referred to as:
+
+aws.us_east
+---------------------------------
