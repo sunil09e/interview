@@ -498,6 +498,22 @@ EC2-2
 ├── Subnet: subnet-222222
 └── AZ: ap-south-1b
 
+
+If you wanted 2 subnets in only 1 AZ
+
+You would use [0] for both:
+
+resource "aws_subnet" "public_1" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = data.aws_availability_zones.available.names[0]
+}
+
+resource "aws_subnet" "public_2" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.2.0/24"
+  availability_zone = data.aws_availability_zones.available.names[0]
+}
 -----------------------------------------
 
 Yes. If you mean:
@@ -608,3 +624,449 @@ and is referred to as:
 
 aws.us_east
 ---------------------------------
+Let's build a 2-region Terraform module structure step by step.
+
+We will create:
+
+Region 1 → ap-south-1 → EC2 t2.micro
+Region 2 → us-east-1   → EC2 t3.micro
+
+Each region gets its own VPC.
+
+Step 1: Folder structure
+
+Create this:
+
+terraform-project/
+│
+├── providers.tf
+├── main.tf
+├── outputs.tf
+│
+└── modules/
+    ├── vpc/
+    │   ├── main.tf
+    │   ├── variables.tf
+    │   └── outputs.tf
+    │
+    └── ec2/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+
+
+Step 2: providers.tf
+
+This is where we define the two regions.
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+provider "aws" {
+  alias  = "us_east"
+  region = "us-east-1"
+}
+Now we have:
+
+aws
+ ├── default → ap-south-1
+ └── us_east → us-east-1
+
+
+root main.tf
+
+
+# =========================
+# REGION 1 - MUMBAI
+# =========================
+
+module "vpc_mumbai" {
+  source = "./modules/vpc"
+
+  vpc_cidr = "10.0.0.0/16"
+  vpc_name = "mumbai-vpc"
+}
+
+module "ec2_mumbai" {
+  source = "./modules/ec2"
+
+  vpc_id        = module.vpc_mumbai.vpc_id
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t2.micro"
+}
+
+
+# =========================
+# REGION 2 - US EAST
+# =========================
+
+module "vpc_us" {
+  source = "./modules/vpc"
+
+  providers = {
+    aws = aws.us_east
+  }
+
+  vpc_cidr = "10.1.0.0/16"
+  vpc_name = "us-vpc"
+}
+
+module "ec2_us" {
+  source = "./modules/ec2"
+
+  providers = {
+    aws = aws.us_east
+  }
+
+  vpc_id        = module.vpc_us.vpc_id
+  ami           = "ami-yyyyyyyy"
+  instance_type = "t3.micro"
+}
+
+
+Step 4: VPC module main.tf
+resource "aws_vpc" "this" {
+  cidr_block = var.vpc_cidr
+
+  tags = {
+    Name = var.vpc_name
+  }
+}
+
+Step 3: VPC module
+modules/vpc/variables.tf
+variable "vpc_cidr" {
+  type = string
+}
+
+variable "vpc_name" {
+  type = string
+}
+
+The module is saying:
+
+"Give me a VPC CIDR and a VPC name."
+
+
+Step 5: VPC module outputs.tf
+output "vpc_id" {
+  value = aws_vpc.this.id
+}
+
+When AWS creates the VPC, AWS gives it an ID:
+vpc-123456789
+The output sends that ID back to the root.
+
+
+
+Step 7: EC2 module main.tf
+
+For simplicity, create a subnet and EC2 inside the same module:
+
+resource "aws_subnet" "this" {
+  vpc_id     = var.vpc_id
+  cidr_block = "10.0.1.0/24"
+
+  tags = {
+    Name = "ec2-subnet"
+  }
+}
+
+resource "aws_instance" "this" {
+  ami           = var.ami
+  instance_type = var.instance_type
+  subnet_id     = aws_subnet.this.id
+
+  tags = {
+    Name = "web-server"
+  }
+}
+
+Notice:
+subnet_id = aws_subnet.this.id
+Terraform creates the subnet first, gets its ID, then puts the EC2 into that subnet.
+
+Step 6: EC2 module variables.tf
+variable "vpc_id" {
+  type = string
+}
+
+variable "ami" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+
+The EC2 module needs:
+
+vpc_id
+ami
+instance_type
+
+
+
+Step 8: EC2 module outputs.tf
+output "instance_id" {
+  value = aws_instance.this.id
+}
+
+output "subnet_id" {
+  value = aws_subnet.this.id
+}
+
+
+Step 11: Final structure
+
+Now everything looks like this:
+
+                         ROOT
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+          ap-south-1              us-east-1
+              │                       │
+              ↓                       ↓
+        VPC MODULE                VPC MODULE
+              │                       │
+         Mumbai VPC                 US VPC
+              │                       │
+              ↓                       ↓
+        EC2 MODULE                EC2 MODULE
+              │                       │
+          t2.micro                 t3.micro
+
+------------------------------------
+The module's main.tf does NOT decide the region.
+The provider decides the region.
+
+Think of it like this:
+
+MODULE = What to create
+PROVIDER = Where to create it
+1. Module main.tf
+
+You write the resource only:
+
+resource "aws_vpc" "this" {
+  cidr_block = var.vpc_cidr
+
+  tags = {
+    Name = var.vpc_name
+  }
+}
+
+This says:
+
+"Create an AWS VPC."
+
+It does not say Mumbai or US.
+
+2. Provider says where
+
+In root providers.tf:
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+provider "aws" {
+  alias  = "us_east"
+  region = "us-east-1"
+}
+
+Now Terraform has:
+
+aws
+ ↓
+ap-south-1
+
+aws.us_east
+ ↓
+us-east-1
+3. Root calls the same module for Mumbai
+module "vpc_mumbai" {
+  source = "./modules/vpc"
+
+  vpc_cidr = "10.0.0.0/16"
+  vpc_name = "mumbai-vpc"
+}
+
+Because we didn't specify a provider, it uses the default:
+
+vpc_mumbai
+     ↓
+default aws
+     ↓
+ap-south-1
+     ↓
+VPC created in Mumbai
+4. Root calls the SAME module for US
+module "vpc_us" {
+  source = "./modules/vpc"
+
+  providers = {
+    aws = aws.us_east
+  }
+
+  vpc_cidr = "10.1.0.0/16"
+  vpc_name = "us-vpc"
+}
+
+This part:
+
+providers = {
+  aws = aws.us_east
+}
+
+means:
+
+"For this module, use the aws.us_east provider."
+
+So:
+
+vpc_us
+   ↓
+aws.us_east
+   ↓
+us-east-1
+   ↓
+VPC created in US
+So the same main.tf is reused
+modules/vpc/main.tf
+        │
+        │ same code
+        │
+   ┌────┴────┐
+   ↓         ↓
+Mumbai      US
+   ↓         ↓
+aws        aws.us_east
+   ↓         ↓
+ap-south-1 us-east-1
+
+Simple rule to remember:
+
+Module main.tf tells Terraform WHAT resource to create.
+Provider tells Terraform WHERE to create it.
+
+for ec2
+
+Yes. EC2 works exactly the same way.
+
+EC2 module main.tf = what EC2 to create
+Provider = which region to create it in
+
+1. EC2 module main.tf
+
+Inside:
+
+modules/ec2/main.tf
+
+you write:
+
+resource "aws_instance" "this" {
+  ami           = var.ami
+  instance_type = var.instance_type
+  subnet_id     = var.subnet_id
+
+  tags = {
+    Name = var.name
+  }
+}
+
+Notice: there is no region here.
+
+2. Root provider
+provider "aws" {
+  region = "ap-south-1"
+}
+
+provider "aws" {
+  alias  = "us_east"
+  region = "us-east-1"
+}
+
+So:
+
+aws          → Mumbai
+aws.us_east  → US
+3. Create EC2 in Mumbai
+
+Root main.tf:
+
+module "ec2_mumbai" {
+  source = "./modules/ec2"
+
+  ami           = "ami-mumbai"
+  instance_type = "t2.micro"
+  subnet_id     = "subnet-mumbai"
+  name          = "mumbai-ec2"
+}
+
+No provider specified.
+
+Therefore:
+
+ec2_mumbai
+    ↓
+default aws
+    ↓
+ap-south-1
+    ↓
+EC2 created in Mumbai
+4. Create EC2 in US
+
+Use the same EC2 module again:
+
+module "ec2_us" {
+  source = "./modules/ec2"
+
+  providers = {
+    aws = aws.us_east
+  }
+
+  ami           = "ami-us"
+  instance_type = "t3.micro"
+  subnet_id     = "subnet-us"
+  name          = "us-ec2"
+}
+
+Now:
+
+ec2_us
+   ↓
+aws.us_east
+   ↓
+us-east-1
+   ↓
+EC2 created in US
+The whole idea
+             modules/ec2/main.tf
+                     │
+              SAME EC2 CODE
+                /          \
+               /            \
+              ↓              ↓
+      ec2_mumbai          ec2_us
+           ↓                  ↓
+         aws              aws.us_east
+           ↓                  ↓
+     ap-south-1           us-east-1
+           ↓                  ↓
+       EC2-1                EC2-2
+
+So you don't write Mumbai/US inside the EC2 module's main.tf.
+
+You reuse the same module and choose the region from the root using the provider.
