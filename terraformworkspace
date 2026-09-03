@@ -1030,3 +1030,114 @@ Logging into an EC2 does NOT transfer your IAM permissions to that EC2.
 Your permissions work only when Terraform is using your AWS credentials.
 
 The EC2 role is the normal way to give Terraform permissions when Terraform runs on EC2.
+
+
+
+
+
+
+
+
+If Terraform runs in Jenkins/EC2/GitHub Actions
+
+Then normally you use an IAM role:
+
+Jenkins / EC2 / GitHub Actions
+          ↓
+      IAM Role
+          ↓
+    S3 permissions
+          ↓
+     Terraform state
+
+So you do not attach the S3 policy to the S3 bucket only. The identity running Terraform needs permission to access the bucket.
+
+Example IAM policy
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::my-terraform-state-bucket/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::my-terraform-state-bucket"
+    }
+  ]
+}
+
+So remember:
+
+IAM User/Role
+     │
+     │ S3 permissions
+     ↓
+S3 bucket
+     ↓
+Terraform state
+
+And separately, that same Terraform identity needs permissions for EC2/VPC/etc. if Terraform is creating those resources.
+
+
+
+you can put s3:ListBucket in the same policy, but the reason it is separate is because the Resource is different.
+
+Object permissions
+
+These work on objects inside the bucket:
+
+"Action": [
+  "s3:GetObject",
+  "s3:PutObject",
+  "s3:DeleteObject"
+],
+"Resource": "arn:aws:s3:::my-terraform-state-bucket/*"
+
+/* means objects inside the bucket.
+
+ListBucket
+
+ListBucket works on the bucket itself:
+
+"Action": "s3:ListBucket",
+"Resource": "arn:aws:s3:::my-terraform-state-bucket"
+
+So you cannot normally combine them into one statement with the same Resource, because:
+
+arn:aws:s3:::my-terraform-state-bucket
+             ↑
+          bucket
+
+arn:aws:s3:::my-terraform-state-bucket/*
+             ↑
+          objects
+But one IAM policy can contain both
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::my-terraform-state-bucket/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::my-terraform-state-bucket"
+    }
+  ]
+}
+
+So separate statements, but still one IAM policy.
+
