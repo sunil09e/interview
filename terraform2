@@ -1374,6 +1374,22 @@ Without a way to connect, Terraform can't use remote-exec.
 means
 Without connection information, Terraform doesn't know which machine to connect to or how to authenticate, so remote-exec cannot run the command.
 
+Important interview answer
+
+User data:
+
+EC2 creation
+     ↓
+User data runs during initial boot
+
+Remote-exec:
+
+Terraform
+    ↓
+Connect to already-created EC2
+    ↓
+Execute commands remotely
+----------------------------------------------
 
 
 
