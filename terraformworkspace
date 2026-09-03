@@ -1,0 +1,1032 @@
+Module = reusable code
+
+A module is a collection of .tf files that tells Terraform how to create resources.
+
+modules/
+└── ec2/
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
+
+Workspace = separate Terraform state
+A workspace lets you use the same Terraform configuration with a different state.
+For example:
+workspace: dev
+    ↓
+state for dev resources
+
+workspace: prod
+    ↓
+state for prod resources
+
+
+----------------
+1. Folder structure
+terraform-project/
+│
+├── main.tf
+├── variables.tf
+├── dev.tfvars
+└── prod.tfvars
+2. main.tf
+
+This is the resource:
+
+resource "aws_instance" "web" {
+  ami           = var.ami
+  instance_type = var.instance_type
+
+  tags = {
+    Name = var.environment
+  }
+}
+
+Here:
+
+var.instance_type
+        ↑
+        value will come from .tfvars
+
+var.environment
+        ↑
+        value will come from .tfvars
+3. variables.tf
+
+Here we declare the variables:
+
+variable "ami" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+
+variable "environment" {
+  type = string
+}
+
+This does not give the values yet.
+
+It only says:
+
+I need:
+  ami
+  instance_type
+  environment
+4. dev.tfvars
+
+Now we give the Dev values here:
+
+ami           = "ami-123456"
+instance_type = "t2.micro"
+environment   = "dev"
+
+So:
+
+dev.tfvars
+   │
+   ├── ami           → ami-123456
+   ├── instance_type → t2.micro
+   └── environment   → dev
+5. prod.tfvars
+
+Now we give different Prod values:
+
+ami           = "ami-123456"
+instance_type = "t3.micro"
+environment   = "prod"
+
+So:
+
+prod.tfvars
+   │
+   ├── ami           → ami-123456
+   ├── instance_type → t3.micro
+   └── environment   → prod
+6. Create the Dev workspace
+
+Run:
+
+terraform workspace new dev
+
+Now select Dev:
+
+terraform workspace select dev
+
+Then apply using dev.tfvars:
+
+terraform apply -var-file="dev.tfvars"
+
+Terraform gets:
+
+dev workspace
+     ↓
+dev.tfvars
+     ↓
+instance_type = t2.micro
+environment   = dev
+     ↓
+main.tf
+     ↓
+EC2 t2.micro
+Name = dev
+7. Create the Prod workspace
+
+First:
+
+terraform workspace new prod
+
+Then:
+
+terraform workspace select prod
+
+Apply using:
+
+terraform apply -var-file="prod.tfvars"
+
+Terraform gets:
+
+prod workspace
+     ↓
+prod.tfvars
+     ↓
+instance_type = t3.micro
+environment   = prod
+     ↓
+main.tf
+     ↓
+EC2 t3.micro
+Name = prod
+Final picture
+                    main.tf
+                       │
+              ┌────────┴────────┐
+              │                 │
+          DEV WORKSPACE     PROD WORKSPACE
+              │                 │
+         dev.tfvars        prod.tfvars
+              │                 │
+         t2.micro           t3.micro
+              │                 │
+           dev EC2           prod EC2
+              │                 │
+          dev state         prod state
+The important point
+
+Workspace itself does not contain t2.micro or t3.micro.
+
+We give those values through the variable file:
+
+dev workspace  + dev.tfvars  → t2.micro
+prod workspace + prod.tfvars → t3.micro
+
+Then main.tf uses:
+
+instance_type = var.instance_type
+
+So the value travels:
+
+dev.tfvars
+   ↓
+variable
+   ↓
+var.instance_type
+   ↓
+main.tf
+   ↓
+EC2
+
+That's how the workspace + variable values work together.
+-------------------------
+
+
+Let's combine Module + Workspace in one complete example. I’ll keep it simple and show exactly where each value goes.
+
+Example
+
+We want:
+
+DEV       → t2.micro EC2
+PROD      → t3.micro EC2
+
+We want to use:
+
+One EC2 module
+Two workspaces: dev, prod
+Different values for each workspace
+
+
+
+1. Complete structure
+terraform-project/
+│
+├── main.tf
+├── variables.tf
+├── outputs.tf
+│
+├── dev.tfvars
+├── prod.tfvars
+│
+└── modules/
+    │
+    └── ec2/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+
+There is only one EC2 module.
+We reuse that same module for both Dev and Prod.
+
+
+3. Root main.tf
+
+Now we call the module:
+
+module "ec2" {
+  source = "./modules/ec2"
+
+  ami           = var.ami
+  instance_type = var.instance_type
+  environment   = var.environment
+}
+
+This is important.
+
+The root says:
+
+Root
+ ↓
+Call EC2 module
+ ↓
+Give it these values
+
+4. Root variables.tf
+variable "ami" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+
+variable "environment" {
+  type = string
+}
+
+Again, these only declare the variables.
+They don't contain the actual values.
+
+7. Root outputs.tf
+output "instance_id" {
+  value = module.ec2.instance_id
+}
+
+This displays the EC2 ID after apply.
+
+
+5. Dev values
+
+Create:  dev.tfvars
+Put:
+ami           = "ami-123456"
+instance_type = "t2.micro"
+environment   = "dev"
+
+Now Dev has:
+ami           → ami-123456
+instance_type → t2.micro
+environment   → dev
+
+
+6. Prod values
+Create:  prod.tfvars
+Put:
+ami           = "ami-123456"
+instance_type = "t3.micro"
+environment   = "prod"
+
+Now Prod has:
+ami           → ami-123456
+instance_type → t3.micro
+environment   → prod
+
+2. Module
+
+The module is:
+
+modules/ec2/
+├── main.tf
+├── variables.tf
+└── outputs.tf
+modules/ec2/variables.tf
+variable "ami" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+
+variable "environment" {
+  type = string
+}
+
+This says:
+
+"My EC2 module needs these 3 values."
+
+It does not give the values yet.
+
+modules/ec2/main.tf
+resource "aws_instance" "this" {
+  ami           = var.ami
+  instance_type = var.instance_type
+
+  tags = {
+    Name = var.environment
+  }
+}
+
+This says:
+"Create an EC2 using the values I receive."
+Notice:
+instance_type = var.instance_type
+
+The module does not know whether it will be:
+t2.micro
+or:
+t3.micro
+
+It will receive that value from the root.
+
+modules/ec2/outputs.tf
+output "instance_id" {
+  value = aws_instance.this.id
+}
+
+This sends the EC2 ID out of the module.
+
+
+
+8. Now create the Dev workspace
+Run: terraform workspace new dev
+
+Terraform creates the dev workspace.
+Think:
+
+Workspace
+   ↓
+dev
+
+Then:  terraform workspace select dev
+Now Terraform is working with the Dev state.
+
+9. Apply Dev
+
+Run:
+
+terraform apply -var-file="dev.tfvars"
+
+Now watch the value flow:
+
+dev.tfvars
+     │
+     │ instance_type = "t2.micro"
+     ↓
+root variable
+     │
+     │ var.instance_type
+     ↓
+root main.tf
+     │
+     │ instance_type = var.instance_type
+     ↓
+EC2 module
+     │
+     ↓
+module variable
+     │
+     │ var.instance_type
+     ↓
+modules/ec2/main.tf
+     │
+     ↓
+aws_instance
+     │
+     ↓
+t2.micro EC2
+
+So Dev creates:
+EC2
+t2.micro
+Name = dev
+
+
+10. Now create Prod workspace
+Run:  terraform workspace new prod
+
+Now you have:
+dev
+prod
+
+Select Prod:  terraform workspace select prod
+Now Terraform is working with the Prod state.
+
+
+11. Apply Prod
+
+Run:
+
+terraform apply -var-file="prod.tfvars"
+
+Value flow:
+
+prod.tfvars
+     │
+     │ instance_type = "t3.micro"
+     ↓
+root variable
+     ↓
+root main.tf
+     ↓
+EC2 module
+     ↓
+var.instance_type
+     ↓
+aws_instance
+     ↓
+t3.micro EC2
+
+So Prod creates:
+
+EC2
+t3.micro
+Name = prod
+
+
+
+
+
+12. What does Workspace actually do?
+
+This is the most important part.
+
+You have one code:
+
+main.tf
+modules/ec2/
+
+But you have two workspaces:
+
+             SAME CODE
+                │
+       ┌────────┴────────┐
+       ↓                 ↓
+      DEV               PROD
+   workspace          workspace
+       ↓                 ↓
+   Dev state          Prod state
+       ↓                 ↓
+  Dev EC2            Prod EC2
+
+The workspace does not create a second copy of your .tf files.
+
+It gives Terraform a separate state.
+--------------------------
+If you're asking about local in Terraform, it means a local value — a value we define inside Terraform and reuse within that configuration.
+
+For example:
+locals {
+  server_name = "${var.environment}-web-server"
+}
+
+Then use it:
+resource "aws_instance" "this" {
+  ami           = var.ami
+  instance_type = var.instance_type
+
+  tags = {
+    Name = local.server_name
+  }
+}
+Difference
+variable
+   ↓
+Value comes FROM outside the module/configuration
+
+local
+   ↓
+Value is CREATED/COMBINED INSIDE the configuration
+
+For example:
+
+variable "environment" {
+  type = string
+}
+
+locals {
+  server_name = "${var.environment}-web-server"
+}
+
+If:
+environment = "dev"
+
+then:
+local.server_name
+       ↓
+dev-web-server
+
+So:
+Name = local.server_name
+
+creates the AWS Name tag:  dev-web-server
+
+var.xxx = input value
+local.xxx = calculated/reusable value inside Terraform
+
+
+the important part. Workspace mainly affects the state file.
+
+Suppose your project has:
+
+terraform-project/
+├── main.tf
+├── variables.tf
+├── dev.tfvars
+├── prod.tfvars
+└── modules/
+    └── ec2/
+
+You use the same code.
+
+Without workspace
+
+Normally you have:
+
+terraform.tfstate
+
+Terraform stores information about the resources it manages there.
+
+For example:
+
+terraform.tfstate
+    ↓
+EC2 ID = i-111111
+With workspaces
+
+You create:
+
+terraform workspace new dev
+terraform workspace new prod
+
+Now Terraform keeps separate state for each workspace.
+
+Conceptually:
+
+DEV workspace
+    ↓
+Dev state
+    ↓
+EC2 = i-111111
+
+
+PROD workspace
+    ↓
+Prod state
+    ↓
+EC2 = i-222222
+
+With the default local backend, the state is typically organized like:
+
+terraform.tfstate              ← default workspace
+
+terraform.tfstate.d/
+└── dev/
+    └── terraform.tfstate
+
+└── prod/
+    └── terraform.tfstate
+
+So the important point is:
+
+SAME .tf CODE
+       │
+       ├── dev workspace → dev state → Dev EC2
+       │
+       └── prod workspace → prod state → Prod EC2
+Why separate state?
+
+Because Terraform needs to know which resources belong to which environment.
+
+If you're in dev:
+
+terraform workspace select dev
+terraform apply -var-file="dev.tfvars"
+
+Terraform works with the Dev state.
+
+If you're in prod:
+
+terraform workspace select prod
+terraform apply -var-file="prod.tfvars"
+
+Terraform works with the Prod state.
+
+So:
+Workspace = separate state for the same Terraform code
+
+------------------------------------
+
+
+After creating dev and prod workspaces, you can have:
+
+terraform-project/
+│
+├── main.tf
+├── variables.tf
+├── dev.tfvars
+├── prod.tfvars
+│
+├── terraform.tfstate
+│
+└── terraform.tfstate.d/
+    │
+    ├── dev/
+    │   └── terraform.tfstate
+    │
+    └── prod/
+        └── terraform.tfstate
+
+
+What each one means
+terraform.tfstate
+        ↓
+default workspace state
+
+And:
+terraform.tfstate.d/
+    ├── dev/
+    │   └── terraform.tfstate
+    │          ↓
+    │       Dev resources
+    │
+    └── prod/
+        └── terraform.tfstate
+               ↓
+            Prod resources
+
+So when you run:
+terraform workspace select dev
+terraform apply -var-file="dev.tfvars"
+
+Terraform uses the Dev workspace state.
+
+When you run:
+terraform workspace select prod
+terraform apply -var-file="prod.tfvars"
+
+Terraform uses the Prod workspace state.
+
+One important point
+terraform.tfstate.d is the local backend's workspace storage layout. If you use a remote backend such as S3,
+the state is stored remotely instead, with separate state paths/keys for workspaces rather than necessarily appearing in this local folder structure.
+
+-----------------------------------
+1. Complete project structure
+terraform-project/
+│
+├── backend.tf
+├── providers.tf
+├── main.tf
+├── variables.tf
+├── outputs.tf
+│
+├── dev.tfvars
+├── prod.tfvars
+│
+└── modules/
+    │
+    └── ec2/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+
+There is no need to manually create terraform.tfstate.
+
+Terraform will manage the state in S3.
+
+
+If you mean how we configure the state files in S3 for workspaces, here's the simple setup.
+1. Create an S3 bucket
+For example:   my-terraform-state-bucket
+This bucket stores Terraform state remotely.
+
+2. Configure the backend
+In your root project, create backend.tf:
+
+terraform {
+  backend "s3" {
+    bucket = "my-terraform-state-bucket"
+    key    = "terraform.tfstate"
+    region = "ap-south-1"
+  }
+}
+
+Now Terraform knows:
+Terraform
+   ↓
+S3 backend
+   ↓
+my-terraform-state-bucket
+
+3. Initialize
+Run:  terraform init
+Terraform configures the S3 backend.
+
+4. Create workspaces
+terraform workspace new dev
+and:
+terraform workspace new prod
+
+Now the important thing is that Terraform keeps separate state for each workspace in the S3 backend.
+
+Conceptually:
+S3 bucket
+│
+├── dev
+│    └── terraform.tfstate
+│
+└── prod
+     └── terraform.tfstate
+
+You don't manually create these state files. Terraform manages them.
+
+5. Dev
+terraform workspace select dev
+terraform apply -var-file="dev.tfvars"
+
+Terraform stores the Dev state remotely.
+
+6. Prod
+terraform workspace select prod
+terraform apply -var-file="prod.tfvars"
+
+Terraform stores the Prod state separately.
+
+So the complete flow is:
+
+                 S3 BUCKET
+                     │
+          ┌──────────┴──────────┐
+          ↓                     ↓
+      DEV WORKSPACE          PROD WORKSPACE
+          ↓                     ↓
+      Dev state              Prod state
+          ↓                     ↓
+       Dev EC2                Prod EC2
+
+You configure the S3 backend once in backend.tf; Terraform handles the workspace-specific state separation.
+
+-------------------------------------------
+In this configuration:
+
+terraform {
+  backend "s3" {
+    bucket = "my-terraform-state-bucket"
+    key    = "terraform.tfstate"
+    region = "ap-south-1"
+  }
+}
+
+key = "terraform.tfstate" is the base state path.
+
+With workspaces
+Terraform automatically separates the workspace states.
+
+Conceptually in S3:
+my-terraform-state-bucket/
+│
+├── terraform.tfstate              ← default workspace
+│
+└── env:/
+    ├── dev/
+    │   └── terraform.tfstate      ← dev workspace
+    │
+    └── prod/
+        └── terraform.tfstate      ← prod workspace
+
+So you do not configure a separate key for dev and prod.
+
+You write only:   key = "terraform.tfstate"
+Terraform automatically adds the workspace-specific path.
+
+Think of it this way
+key = "terraform.tfstate"
+          ↓
+   Base state location
+          ↓
+   ┌──────┼──────┐
+   ↓      ↓      ↓
+default  dev    prod
+   ↓      ↓      ↓
+ state   state   state
+
+If you select:  terraform workspace select dev
+Terraform uses the dev workspace state.
+
+If you select:   terraform workspace select prod
+Terraform uses the prod workspace state.
+
+You don't manually create those workspace state files. Terraform creates/manages them automatically.
+
+-----------------------------
+
+If Terraform is running from an EC2 instance, that EC2 needs IAM permissions for two main things:
+1. Permission to store Terraform state in S3
+
+Terraform needs permission to read/write the state file:
+
+S3 permissions:
+├── s3:GetObject
+├── s3:PutObject
+├── s3:DeleteObject
+└── s3:ListBucket
+
+For example:
+{
+  "Effect": "Allow",
+  "Action": [
+    "s3:GetObject",
+    "s3:PutObject",
+    "s3:DeleteObject"
+  ],
+  "Resource": "arn:aws:s3:::my-terraform-state/*"
+}
+
+And:
+
+{
+  "Effect": "Allow",
+  "Action": "s3:ListBucket",
+  "Resource": "arn:aws:s3:::my-terraform-state"
+}
+
+
+2. Permission to create the AWS infrastructure
+
+This depends on what Terraform is creating.
+
+For example, if Terraform creates:
+
+EC2
+VPC
+Subnet
+Internet Gateway
+Route Table
+Security Group
+IAM Role
+
+then the EC2's IAM role needs the corresponding AWS permissions, such as:
+
+EC2      → ec2:RunInstances, ec2:TerminateInstances, ...
+VPC      → ec2:CreateVpc, ec2:CreateSubnet, ...
+IAM      → iam:CreateRole, iam:AttachRolePolicy, ...
+
+
+Simple picture
+User
+  ↓
+EC2
+  ↓
+Terraform
+  ├──────────────→ S3
+  │                 ↓
+  │              terraform.tfstate
+  │
+  └──────────────→ AWS
+                    ↓
+              VPC / EC2 / SG / etc.
+
+So the EC2 IAM role needs:
+
+        EC2 IAM Role
+             │
+       ┌─────┴─────┐
+       ↓           ↓
+   S3 access    AWS resource
+   (state)       access
+
+Important: S3 permission only allows Terraform to manage the state file. It does not give permission to create EC2, VPC, etc. Those are separate permissions.
+
+
+Case 1: EC2 has an IAM role
+User
+ ↓
+EC2
+ ↓
+Terraform apply
+ ↓
+EC2 IAM Role
+ ├── S3 permission
+ └── EC2/VPC permissions
+ ↓
+AWS
+
+When the user runs:
+
+terraform apply
+
+Terraform automatically gets credentials from the IAM role attached to that EC2.
+
+So Terraform can:
+
+S3 → store/update terraform.tfstate
+EC2 → create EC2
+VPC → create VPC
+etc.
+Case 2: EC2 has no required permission
+
+Then Terraform tries to do something like:
+
+terraform apply
+      ↓
+AWS
+      ↓
+Permission denied ❌
+
+You need to attach an appropriate IAM role to the EC2 with the required permissions.
+
+
+
+Important
+
+The permissions must cover both:
+
+S3 permissions
+     ↓
+Store/read Terraform state
+
+AWS resource permissions
+     ↓
+Create/manage EC2, VPC, etc.
+
+So your understanding is essentially:
+
+User runs Terraform → Terraform uses the EC2's IAM role → AWS checks the role's permissions → if allowed, Terraform performs the operation.
+
+
+
+If Terraform is running on an EC2
+
+Then the important identity is normally the EC2 IAM role:
+
+User
+ ↓
+EC2
+ ↓
+Terraform
+ ↓
+EC2 IAM Role
+ ↓
+AWS
+
+So even if the human user has permission, that does not automatically give permissions to Terraform running on the EC2.
+
+
+
+
+If the EC2 has no IAM role and there are no AWS credentials configured on the EC2, Terraform cannot authenticate.
+
+Developer has permission ✅
+
+       BUT
+
+EC2 has no credentials ❌
+
+       ↓
+
+terraform apply
+
+       ↓
+
+❌ Access denied / credentials error
+If EC2 has an IAM role
+Developer
+   ↓
+  EC2
+   ↓
+Terraform
+   ↓
+EC2 IAM Role
+   ↓
+AWS
+   ↓
+✅ Works
+The important point
+
+Logging into an EC2 does NOT transfer your IAM permissions to that EC2.
+
+Your permissions work only when Terraform is using your AWS credentials.
+
+The EC2 role is the normal way to give Terraform permissions when Terraform runs on EC2.
