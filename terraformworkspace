@@ -1871,12 +1871,89 @@ And values created by AWS, such as the VPC ID and subnet ID, can flow back throu
 
 
 
+If you want this exact code in the same style as your other example, where you don't pass vpc_cidr and vpc_name, use:
+
+module "vpc_mumbai" {
+  source = "./modules/vpc"
+}
+
+module "ec2_mumbai" {
+  source = "./modules/ec2"
+
+  vpc_id     = module.vpc_mumbai.vpc_id
+  subnet_ids = module.vpc_mumbai.subnet_ids
+
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t2.micro"
+}
+
+But if you want to keep vpc_cidr and vpc_name, then:
+
+module "vpc_mumbai" {
+  source = "./modules/vpc"
+
+  vpc_cidr = "10.0.0.0/16"
+  vpc_name = "mumbai-vpc"
+}
+
+module "ec2_mumbai" {
+  source = "./modules/ec2"
+
+  vpc_id     = module.vpc_mumbai.vpc_id
+  subnet_ids = module.vpc_mumbai.subnet_ids
+
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t2.micro"
+}
+
+The second one is the direct modification of your code.
 
 
 
 
+1. You don't give a value
 
+If the child module has a default value, you can simply write:
 
+module "vpc_mumbai" {
+  source = "./modules/vpc"
+}
+
+Terraform uses the default value from the module's variables.tf.
+
+For example:
+
+variable "vpc_cidr" {
+  default = "10.0.0.0/16"
+}
+2. You want to give your own value
+
+Then you must mention it in the module block:
+
+module "vpc_mumbai" {
+  source = "./modules/vpc"
+
+  vpc_cidr = "10.1.0.0/16"
+  vpc_name = "mumbai-vpc"
+}
+
+This overrides the default.
+
+Remember this
+No value from you
+       ↓
+Use default value
+       ↓
+module "vpc" {
+  source = "./modules/vpc"
+}
+You give a value
+       ↓
+Mention it in module block
+       ↓
+vpc_cidr = "10.1.0.0/16"
+
+So yes: default value → no need to mention; your own value → mention it.
 
 
 
