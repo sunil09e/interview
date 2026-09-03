@@ -813,7 +813,7 @@ Outputs	Return values from a module
 Public module	Available for public use
 Private module	Restricted to a company/team
 --------------------------------------------
-
+Meta Arguments
 
 1. What is count?
 
@@ -1206,13 +1206,173 @@ How should Terraform manage the resource?
            ↓
        Ignore selected changes
 
+-------------------------------------------------------
+Provisioners
+
+1. What is a Terraform provisioner?
+
+A provisioner is used to run a command or script when Terraform creates or destroys a resource.
+
+For example, after creating an EC2, you might want to run a command.
+
+resource "aws_instance" "web" {
+
+  ami           = "ami-123456"
+  instance_type = "t2.micro"
+
+  provisioner "local-exec" {
+    command = "echo EC2 created"
+  }
+}
+
+Here Terraform:
+
+Terraform
+   ↓
+Creates EC2
+   ↓
+Runs the provisioner
+   ↓
+echo EC2 created
+
+So simply:
+
+Provisioner = run a command/script during Terraform resource creation or destruction.
 
 
+If you mean terraform destroy with the local-exec example, by default the provisioner runs during creation, not destruction.
+
+Your code:
+provisioner "local-exec" {
+  command = "echo EC2 created"
+}
+
+When you run:  terraform apply
+It prints:  EC2 created
+But when you run:  terraform destroy
+
+It will not print EC2 created from that provisioner.
+If you want something to run during destroy
+
+Use:
+provisioner "local-exec" {
+  when    = destroy
+  command = "echo EC2 is being destroyed"
+}
+
+Then:  terraform destroy
+will run: EC2 is being destroyed
+
+So remember:
+No "when"
+   ↓
+Runs during CREATE
+
+when = destroy
+   ↓
+Runs during DESTROY
 
 
+2. What is local-exec?
+
+local-exec runs the command on the machine where Terraform is running.
+
+Example:
+
+provisioner "local-exec" {
+  command = "echo EC2 created"
+}
+
+If you run Terraform from your laptop:
+
+Your laptop
+   ↓
+terraform apply
+   ↓
+AWS creates EC2
+   ↓
+local-exec
+   ↓
+Command runs on YOUR LAPTOP
+
+Important: local-exec does not run inside the EC2.
 
 
+5. Why are provisioners generally not recommended?
+Terraform is mainly designed to:   Create and manage infrastructure.
+Provisioners are more like:   "After creating the infrastructure, run this command."
 
+This can cause problems.
+For example:
+
+Terraform creates EC2
+        ↓
+remote-exec connects
+        ↓
+runs installation
+        ↓
+command fails
+
+Now you can end up with an EC2 that is partially configured.
+
+Also, Terraform has less knowledge about what happened inside the machine.
+
+Therefore, Terraform generally recommends using more declarative approaches when possible.
+
+For EC2, for example, you might use:
+
+user_data
+AMI
+configuration management
+
+instead of remote-exec.
+
+
+7. What is connection in remote-exec?
+
+Terraform needs to know:
+
+"How do I connect to this EC2?"
+
+That's what the connection block provides.
+
+For example:
+
+connection {
+  type        = "ssh"
+  user        = "ubuntu"
+  private_key = file("my-key.pem")
+  host        = self.public_ip
+}
+
+This tells Terraform:
+
+type        → SSH
+user        → ubuntu
+private_key → Which SSH key to use
+host        → Which EC2 to connect to                self.public_ip means:   "The public IP address of the same resource where this connection block is written."
+
+Then:
+
+provisioner "remote-exec" {
+  inline = [
+    "sudo apt update"
+  ]
+}
+
+Terraform does:
+
+Terraform machine
+       ↓
+SSH connection
+       ↓
+EC2
+       ↓
+Run command
+
+Without a way to connect, Terraform can't use remote-exec.
+means
+Without connection information, Terraform doesn't know which machine to connect to or how to authenticate, so remote-exec cannot run the command.
 
 
 
