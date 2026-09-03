@@ -1,0 +1,774 @@
+if i terraform apply but there is some mistake in main.tf or same file so it will create the resource or not
+It depends on what kind of mistake is in main.tf.
+
+1. Syntax/configuration mistake → nothing is created
+Example:
+resource "aws_instance" "app" {
+  ami           = "ami-xxxx"
+  instance_type = "t3.micro"
+  invalid_line
+}
+
+Run:  terraform apply
+Terraform will detect the error and stop.
+main.tf
+   ↓
+Error ❌
+   ↓
+Terraform stops
+   ↓
+No resources created
+
+Terraform normally must successfully parse and validate the configuration before it can proceed to create resources.
+
+2. Valid Terraform code but wrong value → it may create something different
+For example:
+resource "aws_instance" "app" {
+  ami           = "some-valid-ami"
+  instance_type = "t3.large"
+}
+
+If the code is valid, Terraform can create the EC2.
+But maybe you intended:  t3.micro
+and accidentally wrote:  t3.large
+Terraform doesn't know your intention. It sees valid code and may create a t3.large.
+
+
+If you created an EC2 as t3.micro and now want t2.micro, just change the value.
+terraform.tfvars
+instance_type = "t2.micro"
+
+Then run:  terraform plan
+You should see something like:
+
+~ instance_type = "t3.micro" -> "t2.micro"
+~ means update in place.
+
+Then:  terraform apply
+Terraform will change the EC2 instance type from:
+t3.micro → t2.micro
+The EC2 is normally not recreated, and the EBS volume remains attached.
+
+
+3. Error happens during apply
+Sometimes Terraform starts creating resources and then encounters an AWS/API error.
+For example:
+
+VPC        → created ✅
+Subnet     → created ✅
+EC2        → error ❌
+
+Terraform records successful changes in the state and reports the failure. On the next terraform apply, it will generally try to create/fix whatever is still missing.
+Best practice
+Before applying, use:
+
+terraform fmt
+terraform validate
+terraform plan
+
+Then:  terraform apply
+
+Think:
+terraform validate → Is my configuration valid?
+         ↓
+terraform plan     → What will change?
+         ↓
+terraform apply    → Actually make the changes
+
+So a mistake in Terraform syntax usually means no creation; a valid but incorrect configuration can create the wrong resource.
+
+
+
+
+
+so it created soeme resource then give error but the resource will there  then we see the what error came then we change 
+Yes, exactly. Terraform can create some resources successfully and then fail on a later resource.
+
+Example:
+terraform apply
+      ↓
+VPC      → created ✅
+Subnet   → created ✅
+EC2      → ERROR ❌
+
+The VPC and subnet will normally remain created. Terraform does not automatically delete everything just because one resource failed.
+Terraform also records the successfully created resources in the state:
+terraform.tfstate
+    ↓
+VPC ✅
+Subnet ✅
+EC2 ❌
+
+Then you look at the error, fix the problem, and run:
+terraform apply
+
+Terraform checks the state and sees:
+
+VPC      → already exists ✅ → skip
+Subnet   → already exists ✅ → skip
+EC2      → not created ❌ → create
+
+So it continues from the missing/incorrect part, rather than normally creating another VPC and subnet.
+
+Example
+Suppose EC2 failed because:
+
+Invalid instance type
+
+You change:
+instance_type = "t3.micro"
+
+to:
+instance_type = "t2.micro"
+
+Then:
+terraform apply
+
+Terraform will use the existing VPC/subnet and try the EC2 again.
+That's one of the important benefits of Terraform state.
+
+
+
+
+For instance_type
+Usually Terraform can modify the EC2 instance type without destroying and recreating the instance.
+
+You may see something like:
+~ aws_instance.app
+    instance_type: "t3.micro" → "t3.large"
+
+~ means update.
+Then:  terraform apply
+The existing EC2 is modified.
+But some changes require recreation
+For example, changing the AMI:  ami = "ami-old"
+to:
+ami = "ami-new"
+For an EC2, changing the AMI generally requires replacement:
+
+Old EC2
+   ↓
+DELETE ❌
+   ↓
+Create new EC2 ✅
+
+Terraform's plan will show:  -/+ aws_instance.app
+This means destroy and create replacement.
+
+
+
+
+
+1. Change t3.micro → t3.large
+instance_type = "t3.large"
+Usually:
+Existing EC2
+     ↓
+Change instance type
+     ↓
+Same EC2
+     ↓
+Same EBS volume
+
+The volume is normally preserved because changing the instance type doesn't require replacing the instance.
+
+2. Change the AMI
+ami = "new-ami"
+
+For an aws_instance, changing the AMI normally causes instance replacement:
+
+Old EC2
+   │
+   ├── Old AMI
+   └── Root EBS
+        ↓
+Terraform replacement
+        ↓
+New EC2
+   └── New root EBS
+
+The important part is that the old root volume is normally deleted along with the old EC2, depending on the volume's delete_on_termination setting.
+For a normal root EBS volume, delete_on_termination is usually true.
+
+What about your data?
+Suppose:
+
+Old EC2
+   ↓
+Root volume
+   ↓
+Your data
+If Terraform replaces the EC2 because of an AMI change, don't assume the old root volume will remain.
+If you need data to survive instance replacement, a common approach is to use a separate EBS volume:
+
+------------------------------------------------------
+
+if you manually change only the state file from t3 to t2, but your .tf configuration still says t3, Terraform will try to make AWS match the configuration (t3).
+Example:
+AWS actual:
+t3.micro
+
+State file manually changed:
+t2.micro
+
+main.tf:
+t3.micro
+
+Then: terraform plan
+
+Terraform compares:
+Configuration → t3.micro
+State          → t2.micro
+
+So it may plan to change the resource to t3.micro to match your configuration.
+But there is an important problem
+The state file is supposed to represent what Terraform knows about the real AWS resource. 
+If you manually edit it to a false value, you can confuse Terraform and cause incorrect plans.
+-----------------------------------
+if you delete an EC2 from the Terraform state file but leave the EC2 resource in your .tf code, Terraform will think the EC2 is not being managed.
+
+Example:
+
+AWS:
+EC2 i-12345 → exists ✅
+
+State:
+EC2 i-12345 → removed ❌
+
+main.tf:
+resource "aws_instance" "app" { ... } → still exists
+
+Now run:
+
+terraform plan
+
+Terraform sees:
+
+Configuration says: "I need an EC2"
+State says:         "I don't have this EC2"
+
+So Terraform will normally plan:
+
++ create aws_instance.app
+
+Then terraform apply can create another EC2.
+
+So you could end up with:
+
+AWS
+├── Old EC2 i-12345  ← still there
+└── New EC2 i-67890  ← Terraform creates
+If you want Terraform to manage the existing EC2
+
+Instead of deleting it from state, you should import the existing EC2 into Terraform state:
+
+terraform import aws_instance.app i-12345
+
+Then Terraform knows:
+
+main.tf
+   ↕
+state
+   ↕
+existing EC2 i-12345
+
+Key point: terraform state rm means "forget this resource", not "delete the AWS resource."
+------------------------------------------------------
+
+
+Let's put User Data, local-exec, and remote-exec together because they are easy to confuse.
+
+1. User Data
+
+User Data runs inside the EC2 when the EC2 starts.
+
+Example:
+
+resource "aws_instance" "app" {
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t3.micro"
+
+  user_data = <<-EOF
+    #!/bin/bash
+
+    apt update -y
+    apt install nginx -y
+    systemctl start nginx
+    systemctl enable nginx
+  EOF
+}
+
+Flow:
+Terraform machine
+       |
+       | creates EC2
+       ↓
+     AWS EC2
+       |
+       | EC2 starts
+       ↓
+   User Data runs
+       |
+       ↓
+ install nginx
+ start nginx
+
+So User Data is executed on the EC2, not on your laptop.
+
+
+2. local-exec
+local-exec runs a command on the machine where Terraform is running.
+Example:
+resource "aws_instance" "app" {
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t3.micro"
+
+  provisioner "local-exec" {
+    command = "echo EC2 created"
+  }
+}
+
+If you run Terraform on your laptop:
+
+Your laptop
+   ↓
+Terraform
+   ↓
+Creates EC2
+   ↓
+local-exec
+   ↓
+Runs on YOUR LAPTOP
+
+For example:
+
+provisioner "local-exec" {
+  command = "echo Hello"
+}
+
+The echo command runs on your computer.
+
+If Terraform is running in a CI/CD server:
+
+CI/CD server
+     ↓
+Terraform
+     ↓
+local-exec
+     ↓
+Runs on CI/CD server
+
+So local means local to the Terraform execution machine.
+
+
+
+
+3. remote-exec
+remote-exec runs commands inside the remote machine, such as your EC2.
+Example:
+resource "aws_instance" "app" {
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t3.micro"
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt update -y",
+      "sudo apt install nginx -y",
+      "sudo systemctl start nginx"
+    ]
+  }
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file("my-key.pem")
+    host        = self.public_ip
+  }
+}
+
+Flow:
+
+Your laptop
+    ↓
+Terraform
+    ↓
+Creates EC2
+    ↓
+SSH connection
+    ↓
+EC2
+    ↓
+remote-exec commands
+    ↓
+Install nginx
+
+
+Main difference
+                 WHERE DOES THE COMMAND RUN?
+                 
+User Data       → Inside EC2
+local-exec      → Terraform machine
+remote-exec     → Remote EC2
+
+Easy example
+
+Suppose you want to install nginx.
+
+User Data:
+
+user_data = <<-EOF
+  #!/bin/bash
+  apt update -y
+  apt install nginx -y
+EOF
+
+Runs:
+
+EC2 → nginx installed
+
+Remote-exec:
+
+provisioner "remote-exec" {
+  inline = [
+    "sudo apt update -y",
+    "sudo apt install nginx -y"
+  ]
+}
+
+Runs:
+
+EC2 → nginx installed
+
+So both can configure the EC2, but they work differently.
+
+
+
+
+
+Then why use User Data instead of remote-exec?
+
+For initial EC2 setup, User Data is usually preferred.
+
+Terraform
+   ↓
+Create EC2
+   ↓
+User Data
+   ↓
+Initial configuration
+
+You don't need Terraform to connect to the EC2 using SSH.
+
+This is especially useful when you don't want to open SSH port 22.
+
+remote-exec generally needs connectivity and credentials, such as SSH.
+
+One complete example
+resource "aws_instance" "app" {
+
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t3.micro"
+
+  # Runs inside EC2
+  user_data = <<-EOF
+    #!/bin/bash
+    apt update -y
+    apt install nginx -y
+    systemctl enable nginx
+    systemctl start nginx
+  EOF
+
+  # Runs on the Terraform machine
+  provisioner "local-exec" {
+    command = "echo EC2 has been created"
+  }
+}
+
+And if you use remote-exec:
+
+resource "aws_instance" "app" {
+
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t3.micro"
+
+  provisioner "remote-exec" {
+
+    inline = [
+      "sudo apt update -y",
+      "sudo apt install nginx -y",
+      "sudo systemctl start nginx"
+    ]
+  }
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file("my-key.pem")
+    host        = self.public_ip
+  }
+}
+Remember this for interviews
+Method	Runs where?	Common use
+User Data	EC2	Initial EC2 setup
+local-exec	Terraform machine	Run a local command/script
+remote-exec	Remote EC2	Run commands on remote machine
+
+Important: local-exec and remote-exec are Terraform provisioners. User Data is an EC2 startup mechanism provided through the AWS instance configuration.
+
+
+
+if User Data can do the initial setup, why do we need remote-exec?
+
+The answer is: remote-exec is useful when you need Terraform to connect to an already-created machine and run commands on it.
+
+So when would you use remote-exec?
+
+For example, suppose the EC2 already exists and you want Terraform to execute a specific command on it as part of a Terraform operation.
+
+Existing EC2
+     ↓
+Terraform connects
+     ↓
+Run command
+     ↓
+Change something
+However, in modern Terraform practice, remote-exec is usually a last resort. Prefer:
+
+User Data/cloud-init → initial setup
+Ansible/configuration management → ongoing server configuration
+AWS Systems Manager → remote administration without SSH
+Terraform → creating/managing infrastructure
+
+----------------------------
+
+1. What is a Terraform module?
+A Terraform module is a collection of Terraform .tf files that are grouped together to create and manage related infrastructure.
+For example, we can create a module for an EC2 server and reuse it multiple times.
+
+2. Why do we use modules?
+We use modules mainly for:
+Reusability – write the infrastructure code once and use it many times.
+Avoid duplication – don't write the same EC2/VPC code repeatedly.
+Organization – keep Terraform code clean and structured.
+Maintainability – change the module once and reuse the updated module.
+Standardization – teams can follow the same infrastructure design.
+
+Example:   Instead of writing EC2 code separately for dev, test, and prod, we can create one EC2 module and call it three times with different values.
+
+
+
+3. What is a root module?
+The root module is the Terraform configuration from which you run Terraform commands such as:
+
+terraform init
+terraform plan
+terraform apply
+
+For example:
+project/
+├── main.tf
+├── variables.tf
+└── outputs.tf
+
+This project directory is the root module.
+
+
+4. What is a child module?
+A child module is a module that is called by another module, usually by the root module.
+Example:
+project/
+├── main.tf
+└── modules/
+    └── ec2/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+
+Here:
+project → Root module
+ec2     → Child module
+
+The root module calls the child module:
+module "web_server" {
+  source        = "./modules/ec2"
+  instance_type = "t3.micro"
+}
+
+Step 1: VPC module creates the VPC
+
+Inside modules/vpc:
+
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+}
+
+AWS creates a VPC, for example:
+
+vpc-123456
+
+Then we create an output:
+
+output "vpc_id" {
+  value = aws_vpc.main.id
+}
+
+This means:
+
+"Give the VPC ID to whoever uses this module."
+
+Step 2: Root module calls the VPC module
+module "vpc_mumbai" {
+  source = "./modules/vpc"
+
+  vpc_cidr = "10.0.0.0/16"
+}
+
+The name vpc_mumbai is the name we gave this module.
+
+The module returns:
+
+vpc_id = vpc-123456
+Step 3: Give that VPC ID to EC2
+module "ec2_mumbai" {
+  source = "./modules/ec2"
+
+  vpc_id = module.vpc_mumbai.vpc_id
+}
+
+Read this from right to left:
+
+module.vpc_mumbai.vpc_id
+      ↓          ↓
+   module      output
+    name        name
+
+It means:
+
+Get the vpc_id output from the vpc_mumbai module.
+
+
+5. How do you create a module?
+A module is simply a directory containing Terraform .tf files.
+For example:
+
+modules/
+└── ec2/
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
+
+
+6. How do you pass variables to a module?
+
+We pass values to a module using arguments in the module block.
+
+Child module:
+
+variable "instance_type" {
+  type = string
+}
+
+Root module:
+
+module "web_server" {
+  source        = "./modules/ec2"
+  instance_type = "t3.micro"
+}
+
+So the flow is:
+
+Root module
+     |
+     | instance_type = "t3.micro"
+     ↓
+Child module
+     |
+     ↓
+var.instance_type
+
+Inside the child module:
+
+resource "aws_instance" "web" {
+  instance_type = var.instance_type
+}
+
+
+7. How do you return values from a module?
+
+We use outputs.
+
+Child module:
+
+output "instance_id" {
+  value = aws_instance.web.id
+}
+
+Then the root module can access it using:
+
+module.web_server.instance_id
+
+For example:
+
+output "server_id" {
+  value = module.web_server.instance_id
+}
+
+The flow is:
+
+Child module
+    |
+    | output
+    ↓
+Root module
+    |
+    | module.web_server.instance_id
+    ↓
+Value
+
+
+
+8. What is a Public Terraform Module?
+A public module is a module that anyone can access and use.
+
+You can use it like this:
+
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+}
+
+Here:
+Terraform Registry
+       ↓
+Public VPC module
+       ↓
+You use it
+       ↓
+VPC gets created
+
+Important point
+You did not write the VPC module yourself.
+Someone else already created it and made it publicly available.
+You are saying:
+
+"I want to use this existing VPC module."
+That's a public module.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
