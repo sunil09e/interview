@@ -755,9 +755,456 @@ That's a public module.
 
 
 
+9. What is a Private Terraform Module?
+A private module is a module that is only available to a particular company, team, or organization.
+For example, imagine your company has a standard VPC design.
+
+Your company creates:
+
+company-vpc-module
+
+Inside it, they put their own VPC, subnet, route table, security rules, etc.
+
+But they don't want everyone on the internet to use it.
+
+So they keep it private.
+
+Company
+   |
+   └── Private VPC Module
+           |
+           ├── VPC
+           ├── Subnets
+           ├── Route tables
+           └── Security rules
+
+Only authorized people in the company can use it.
 
 
 
+
+Real Terraform example
+Public
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+}
+
+The module is publicly available.
+
+Private
+Your company might store a module in a private Git repository:
+
+module "vpc" {
+  source = "git::https://git.company.com/network/vpc.git"
+}
+
+Only people who have access to that private repository can use it.
+One-line interview answer
+Public module: A Terraform module that is publicly available for anyone to use, commonly through the Terraform Registry.
+Private module: A Terraform module restricted to a specific organization or team, commonly stored in a private registry or private Git repository.
+
+Easy interview summary
+Term	Meaning
+Module	Reusable collection of Terraform code
+Root module	The module where you run Terraform commands
+Child module	A module called by another module
+Variables	Pass values into a module
+Outputs	Return values from a module
+Public module	Available for public use
+Private module	Restricted to a company/team
+--------------------------------------------
+
+
+1. What is count?
+
+count is used when you want Terraform to create multiple copies of the same resource.
+
+Example:
+
+resource "aws_instance" "web" {
+  count         = 3
+  ami           = "ami-123456"
+  instance_type = "t2.micro"
+}
+
+Terraform creates:
+
+aws_instance.web[0]
+aws_instance.web[1]
+aws_instance.web[2]
+
+So:
+
+count = 3
+      ↓
+Create 3 EC2 instances
+Simple meaning
+
+count tells Terraform how many copies of a resource to create.
+
+2. What is for_each?
+
+for_each is also used to create multiple copies, but instead of using numbers, it uses unique keys.
+
+Example:
+
+resource "aws_instance" "web" {
+  for_each = {
+    dev  = "t2.micro"
+    prod = "t3.micro"
+  }
+
+  ami           = "ami-123456"
+  instance_type = each.value
+}
+
+Terraform creates:
+
+aws_instance.web["dev"]
+aws_instance.web["prod"]
+
+Here:
+
+each.key   → dev / prod
+each.value → t2.micro / t3.micro
+Simple meaning
+
+for_each creates multiple resources using unique keys and values.
+
+What Terraform sees
+
+This part:
+
+for_each = {
+  dev  = "t2.micro"
+  prod = "t3.micro"
+}
+
+means:
+
+dev  → t2.micro
+prod → t3.micro
+
+Terraform goes one by one.
+
+First item
+dev → t2.micro
+
+So Terraform creates:
+
+EC2 for dev
+instance type = t2.micro
+Second item
+prod → t3.micro
+
+So Terraform creates:
+
+EC2 for prod
+instance type = t3.micro
+
+Therefore:
+
+for_each
+   ↓
+dev  → create EC2
+prod → create EC2
+
+So 2 EC2 instances are created.
+
+
+but we not mention anywhere like 2 ec2 we wnat
+
+Exactly! 👍 We don't explicitly write 2 EC2 anywhere.
+
+Terraform gets the number from the number of items inside for_each.
+
+Look at this:
+
+for_each = {
+  dev  = "t2.micro"
+  prod = "t3.micro"
+}
+
+There are 2 items:
+
+1. dev
+2. prod
+
+So Terraform says:
+
+There are 2 items
+       ↓
+Create 1 resource for each item
+       ↓
+2 EC2 instances
+Compare with count
+
+With count, you explicitly say the number:
+
+count = 2
+
+Meaning:
+
+Create 2 EC2s
+
+With for_each, you don't say 2:
+
+for_each = {
+  dev  = "t2.micro"
+  prod = "t3.micro"
+}
+
+Terraform counts the items:
+
+dev  → EC2 1
+prod → EC2 2
+If you add another item
+for_each = {
+  dev     = "t2.micro"
+  prod    = "t3.micro"
+  testing = "t2.micro"
+}
+
+Now there are 3 items, so Terraform creates 3 EC2 instances.
+
+dev     → EC2
+prod    → EC2
+testing → EC2
+
+So the easiest way to remember:
+
+count → I tell Terraform how many.
+for_each → I give Terraform the items, and Terraform creates one resource for each item.
+
+
+4. What is depends_on?
+
+depends_on tells Terraform:
+
+"Create this resource only after that resource is created."
+
+Example:
+
+resource "aws_instance" "web" {
+  ami           = "ami-123456"
+  instance_type = "t2.micro"
+
+  depends_on = [
+    aws_iam_role_policy.example
+  ]
+}
+
+This means:
+
+IAM policy
+    ↓
+must be created first
+    ↓
+EC2
+
+Without depends_on, Terraform normally figures out dependencies automatically when resources reference each other.
+
+For example:
+
+vpc_id = aws_vpc.main.id
+
+Terraform understands:
+
+VPC
+ ↓
+Subnet
+
+So depends_on is mainly used when Terraform cannot automatically understand a dependency.
+
+5. What is lifecycle?
+lifecycle is a Terraform block that lets you control how Terraform creates, updates, and destroys a resource.
+
+Example:
+
+resource "aws_instance" "web" {
+
+  ami           = "ami-123456"
+  instance_type = "t2.micro"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+Inside lifecycle, we can use things such as:
+
+create_before_destroy
+prevent_destroy
+ignore_changes
+
+Think:
+lifecycle
+    ↓
+Controls how Terraform handles
+creation / modification / destruction
+
+
+
+6. What is create_before_destroy?
+
+Normally, if Terraform needs to replace a resource, it may:
+
+Destroy old resource
+        ↓
+Create new resource
+
+With:
+
+lifecycle {
+  create_before_destroy = true
+}
+
+Terraform tries to:
+
+Create new resource
+        ↓
+Destroy old resource
+
+Example:
+
+resource "aws_instance" "web" {
+
+  ami = "ami-new"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+Why?
+
+To reduce downtime.
+
+Normal:
+
+Old EC2 → DELETE
+              ↓
+          New EC2
+              ↓
+           Downtime
+
+
+create_before_destroy:
+
+Old EC2 ──────────────→ DELETE
+       New EC2 created first
+              ↓
+         Less downtime
+7. What is prevent_destroy?
+
+prevent_destroy tells Terraform:
+
+"Do not allow this resource to be destroyed."
+
+Example:
+
+resource "aws_db_instance" "database" {
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+Now if Terraform tries to destroy the database, Terraform gives an error instead of destroying it.
+
+Terraform wants to DELETE DB
+          ↓
+prevent_destroy = true
+          ↓
+       ERROR
+          ↓
+DB is protected
+
+This is useful for important resources such as production databases.
+
+8. What is ignore_changes?
+
+ignore_changes tells Terraform:
+
+"If this particular attribute changes outside Terraform, don't try to change it back."
+
+Example:
+
+resource "aws_instance" "web" {
+
+  ami           = "ami-123456"
+  instance_type = "t2.micro"
+
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
+}
+
+Suppose Terraform created:
+
+tags:
+  Name = "web-server"
+
+Later, someone changes the tag manually in AWS:
+
+Name = "production-server"
+
+Normally Terraform sees:
+
+Terraform configuration:
+Name = web-server
+
+AWS:
+Name = production-server
+
+Terraform may try to change it back.
+
+But with:
+
+ignore_changes = [tags]
+
+Terraform says:
+
+"I will ignore changes to tags."
+
+So Terraform won't try to change that attribute back.
+
+⭐ Easy interview summary
+Feature	Simple meaning
+count	Create multiple resources using numbers
+for_each	Create multiple resources using keys
+depends_on	Create this only after another resource
+lifecycle	Control resource creation/update/destruction behavior
+create_before_destroy	Create new resource before deleting old one
+prevent_destroy	Prevent Terraform from destroying a resource
+ignore_changes	Ignore changes to selected attributes
+
+
+Remember this flow
+count / for_each
+       ↓
+How many resources?
+
+depends_on
+       ↓
+Which resource first?
+
+lifecycle
+       ↓
+How should Terraform manage the resource?
+
+   ├── create_before_destroy
+   │       ↓
+   │   New → Old deleted
+   │
+   ├── prevent_destroy
+   │       ↓
+   │   Don't delete
+   │
+   └── ignore_changes
+           ↓
+       Ignore selected changes
 
 
 
