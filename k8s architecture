@@ -1,0 +1,66 @@
+1. Control Plane components
+
+These manage the Kubernetes cluster:
+
+Control Plane
+│
+├── API Server
+├── etcd
+├── Scheduler
+└── Controller Manager
+API Server → receives kubectl commands and API requests.
+etcd → stores Kubernetes cluster information/state.
+Scheduler → decides which Worker Node should run a new Pod.
+Controller Manager → continuously makes the actual state match the desired state.
+2. Worker Node components
+
+These run your application Pods:
+
+Worker Node
+│
+├── kubelet
+├── kube-proxy
+├── Container Runtime
+└── Pods
+kubelet → manages Pods on that node.
+kube-proxy → helps provide Kubernetes Service networking.
+Container Runtime → actually runs containers, such as containerd or CRI-O.
+Pods → run your application containers.
+3. Common Kubernetes add-ons/components
+
+You may see these in kube-system:
+
+kube-system
+│
+├── CoreDNS
+├── kube-proxy
+├── Metrics Server
+├── CNI networking components
+└── Cloud/cluster-specific components
+CoreDNS → provides DNS inside the cluster.
+Metrics Server → provides CPU/memory metrics for kubectl top and HPA.
+CNI plugin → provides Pod networking. Examples include Calico, Cilium, and others.
+kube-proxy → Service networking.
+Overall picture
+                 Kubernetes Cluster
+                        │
+          ┌─────────────┴─────────────┐
+          │                           │
+    Control Plane                Worker Nodes
+          │                           │
+    ┌─────┼─────┐              ┌──────┼──────┐
+    │     │     │              │      │      │
+ API   etcd Scheduler       kubelet kube-proxy Runtime
+Server                      │
+    │                       ↓
+ Controller              Pods
+ Manager
+                               
+          Add-ons
+             │
+      ┌──────┼────────┐
+      │      │        │
+   CoreDNS Metrics   CNI
+            Server
+
+Important: Not every component you see is a separate YAML file you create yourself. Some are installed automatically when the cluster is created, while others are installed separately depending on your Kubernetes setup.
