@@ -459,6 +459,84 @@ Here:
 70% = target
 3   = current number of Pods
 
+
+inside the pod how the data it takes from db
+Yes. A Pod's application can connect to a database and read/write data. The Pod itself doesn't automatically
+know where the DB is—you configure the application with the database connection details.
+
+
+How does the Pod know the DB address?
+Usually through environment variables.
+
+For example:
+spec:
+  containers:
+    - name: cart
+      image: cart-app
+
+      env:
+        - name: DB_HOST
+          value: mysql-service
+
+        - name: DB_PORT
+          value: "3306"
+
+        - name: DB_NAME
+          value: shop
+
+        - name: DB_USER
+          value: appuser
+
+Your application reads these values:
+
+DB_HOST = mysql-service
+DB_PORT = 3306
+DB_NAME = shop
+and creates a database connection.
+
+What is mysql-service?
+If MySQL is also running inside Kubernetes, you normally create a Service for MySQL:
+
+Cart Pod
+   |
+   | mysql-service:3306
+   v
+MySQL Service
+   |
+   v
+MySQL Pod
+
+The Cart Pod does not normally connect directly to:  10.244.1.20
+because that Pod IP can change.
+
+Instead:
+cart-service                 mysql-service
+     |                            |
+     v                            v
+Cart Pod                     MySQL Pod
+
+The application connects to the stable mysql-service DNS name.
+If the DB is outside Kubernetes
+For example, if you're using AWS RDS MySQL, the flow can be:
+
+Application Pod
+      |
+      | DB_HOST
+      v
+RDS MySQL
+
+The environment variable might contain the RDS endpoint:   DB_HOST = mydb.xxxxxx.ap-south-1.rds.amazonaws.com
+So remember:  Ingress → Service → Application Pod handles user traffic.
+Application Pod → Database Service/RDS handles database traffic.
+The application code inside the Pod is what actually sends SQL queries such as SELECT, INSERT, UPDATE, etc.
+
+
+
+
+
+
+
+
 ---------------------------------------
 
 
@@ -489,8 +567,14 @@ dev:
 prod:
   nginx
 
-
 They don't conflict because they are in different namespaces.
+
+
+You can put resources inside that namespace:
+
+metadata:
+  name: nginx-deployment
+  namespace: development
 
 Interview answer
 "A Namespace is used to logically isolate and organize resources within a Kubernetes cluster. For example, we can have separate dev, test, and production namespaces."
@@ -602,6 +686,644 @@ A Deployment manages Pods and makes sure the required number of Pods are running
 
 Interview answer
 "A Deployment manages the lifecycle of Pods. It allows us to specify the desired number of replicas and supports rolling updates and rollbacks."
+
+
+
+apiVersion
+apiVersion: apps/v1
+Tells Kubernetes which API version to use for this resource.
+For Deployment, commonly:   apps/v1
+
+
+spec means:     "What do I want Kubernetes to create/do?"      "How should this Deployment work?"
+Everything under spec describes the desired configuration.
+
+
+
+1. First spec → Deployment configuration
+This belongs to the Deployment. 
+It says:   "How should this Deployment work?"
+
+
+2. selector.matchLabels → Which Pods should Deployment manage?
+selector:
+  matchLabels:
+    app: nginx
+
+This means:    "Manage Pods that have the label app: nginx."
+
+
+3. template → How should the Pods be created?
+This is a Pod template.
+It means:  "When you create Pods, use this configuration."
+
+
+Inside template, we have:
+metadata:
+  labels:
+    app: nginx
+
+This gives the new Pods the label:    app = nginx
+
+
+4. Why is there another spec under template?
+The template is basically saying:   "Here is the blueprint for a Pod."
+And a Pod itself has its own spec.
+
+name for container it can be any
+only selector and template should be same
+
+Deployment
+│
+├── spec                  ← Deployment configuration
+│   │
+│   ├── selector
+│   │
+│   └── template         ← Pod blueprint
+│       │
+│       ├── metadata     ← Pod information/labels
+│       │
+│       └── spec         ← Pod configuration
+│           │
+│           └── containers
+│
+
+
+
+We have not manually created a Pod. That's the important point.
+In a Deployment, the template is used to create the Pods automatically.
+
+Step 1 —template tells Kubernetes how to create the Pod
+This is basically saying:    "When you create my Pods, give them the label app: nginx and run the nginx container."
+So Kubernetes automatically creates:
+Deployment
+    ↓
+ReplicaSet
+    ↓
+Pod
+    ↓
+nginx container
+
+
+Step 2 — selector tells Deployment which Pods belong to it
+The Deployment says:    "The Pods I create/manage will have app: nginx."
+Because the template creates Pods with that label:
+Template creates:
+Pod 1 → app=nginx
+Pod 2 → app=nginx
+Pod 3 → app=nginx
+
+              ↑
+       Deployment selector
+       finds/manages them
+
+So you don't create the Pod separately.
+
+That's why you need both:
+template → creates the Pod blueprint
+selector → identifies which Pods the Deployment manages
+
+
+
+Yes, you can write template before selector in the YAML. The order of these fields under spec does not matter.
+For example, this is valid:
+
+spec:
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+
+  selector:
+    matchLabels:
+      app: nginx
+
+It means the same as:
+
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+But understand the relationship
+
+It's not:    selector → template
+Instead, they are two separate fields of the Deployment's spec:
+
+Deployment
+   ↓
+spec
+├── selector      → Which Pods to manage
+│
+└── template      → How to create the Pods
+
+So you can mentally read it as:
+
+template creates Pods with app: nginx.
+selector says the Deployment manages Pods with app: nginx.
+-----------------------------------------------------------------
+
+5. What is a Service?
+A Service provides a stable network endpoint to access Pods.
+Pods are temporary. Their IP addresses can change when Pods are recreated.
+A Service normally gets its own IP address, called a ClusterIP, when you create it.
+Service has a stable IP/DNS name"    it means the Service gives you a stable way to reach a changing group of Pods.
+
+
+A basic Service file:
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: nginx-service
+
+spec:
+  selector:
+    app: nginx
+
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+  type: ClusterIP
+
+
+
+Most important part: selector
+spec:
+  selector:
+    app: nginx
+
+This is extremely important.
+
+Remember your Deployment:
+template:
+  metadata:
+    labels:
+      app: nginx
+
+The Pod created from this template gets:      app=nginx
+The Service says:
+selector:
+  app: nginx
+
+So the Service is basically saying:    "Find all Pods having the label app=nginx and send traffic to them."
+
+
+
+
+
+port: 80     This is the port exposed by the Service.
+Think:      Client → Service:80
+targetPort: 80       This is the port where the application is listening inside the Pod.
+Service port and targetPort can be different. targetPort must match the port where your application is listening.
+For example, if your app listens on 4000:
+port: 80
+targetPort: 4000
+
+
+
+
+type: ClusterIP
+ClusterIP means the Service is accessible inside the Kubernetes cluster.
+
+For example:   Pod → Service
+works.
+But an external user on the internet cannot directly access a normal ClusterIP Service.
+That's where Ingress comes in.
+
+
+
+they can all use port 80, and that's completely normal.
+The important thing is that port: 80 belongs to each Service, not that all applications must use the same Pod port.
+For example:
+
+/cart
+   ↓
+cart-service :80
+   ↓
+Cart Pod :8080
+/buy
+   ↓
+buy-service :80
+   ↓
+Buy Pod :5000
+The Services can all expose port 80 because they are separate Services.
+
+
+
+Example
+cart-service:
+
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+
+buy-service:
+
+spec:
+  ports:
+    - port: 80
+      targetPort: 5000
+
+
+
+Yes, you can use the same 4000 port for all of them if all three applications are listening on port 4000 inside their respective Pods.
+For example:
+/cart
+   ↓
+cart-service :80
+   ↓
+Cart Pod :4000
+/buy
+   ↓
+buy-service :80
+   ↓
+Buy Pod :4000
+That's perfectly valid because the Pods are separate.
+
+
+
+The important thing is:
+Service port     → can be 80 for all
+Pod targetPort   → can be 4000 for all
+
+Because each Service points to different Pods.
+
+                  Ingress
+              /      |       \
+           /cart    /buy   /product
+             |        |        |
+             ↓        ↓        ↓
+          Service  Service  Service
+            :80      :80      :80
+             |        |        |
+             ↓        ↓        ↓
+          Cart Pod  Buy Pod  Product Pod
+            :4000    :4000     :4000
+
+
+wy service need to have port
+Because a Service needs a port where other components can connect to it.
+Think of a Service as a door to the Pods.
+
+Client
+  |
+  | connect to :80
+  v
+Service :80
+  |
+  | forwards to targetPort :4000
+  v
+Pod :4000
+
+
+Can both be 4000?
+Yes.
+ports:
+  - port: 4000
+    targetPort: 4000
+
+Then:
+Client
+  ↓
+Service :4000
+  ↓
+Pod :4000
+There is no requirement that Service port must be 80.
+
+
+The Service name tells Kubernetes WHICH Service. The port tells Kubernetes WHICH PORT of that Service you want to connect to.
+Why can't we just use:     cart-service
+Because a Service can expose multiple ports.
+
+For example:
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 4000
+
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+
+Now the same Service has:
+cart-service:80
+cart-service:9090
+So Kubernetes needs the port to know where you want to connect.
+
+so we need port for service when ingress fordwards the traffic to port so ingress need port and service name
+When Ingress forwards traffic to a Service, it needs both the Service name and the Service port.
+
+
+Why not just Service name?
+Because the Service could expose multiple ports:
+cart-service:80
+cart-service:9000
+cart-service:9090
+
+Ingress needs to say:   "Send /cart to cart-service on port 80."
+Then the Service takes care of finding the correct Pod and forwarding to its targetPort.
+
+
+we can have 1 service for different aplication
+Yes, technically one Service can select Pods from different applications, but normally you should NOT do that.
+The key is the selector.
+
+Example: separate applications
+Suppose you have:
+Cart Pods
+  app=cart
+
+Buy Pods
+  app=buy
+
+
+Why not one Service?
+Suppose you create:
+selector:
+  app: shopping
+
+Then only Pods with app=shopping are selected.
+A Service doesn't automatically understand:
+
+"This is Cart, this is Buy, this is Product."
+It only looks at labels.
+You could technically give all of them the same label:
+
+Cart Pod     → app=shopping
+Buy Pod      → app=shopping
+Product Pod  → app=shopping
+
+Then one Service would send traffic to all of them.
+But that's usually wrong because a request for /cart could be sent to a Buy or Product Pod.
+Correct architecture
+                    Ingress
+                 /     |      \
+                /      |       \
+            /cart     /buy   /product
+              |        |        |
+              ↓        ↓        ↓
+        cart-service buy-service product-service
+              |        |        |
+              ↓        ↓        ↓
+          Cart Pods  Buy Pods  Product Pods
+
+
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: myapp-service
+
+spec:
+  selector:
+    app: myapp
+
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 4000
+
+    - name: metrics
+      protocol: TCP
+      port: 9090
+      targetPort: 9090
+
+  type: ClusterIP
+
+What happens here?
+The same application Pod is listening on two ports:
+Pod
+├── port 4000 → Application
+└── port 9090 → Metrics
+
+The Service provides two ports:
+myapp-service:80
+        ↓
+Pod:4000
+and
+myapp-service:9090
+     ↓
+Pod:9090
+
+- name: metrics
+The names help identify the different Service ports.
+So the full picture is:
+
+                    myapp-service
+                   /              \
+                  /                \
+             :80                    :9090
+              |                       |
+              ↓                       ↓
+           Pod :4000               Pod :9090
+           Application              Metrics
+
+
+ports:
+  - name: http
+    port: 80
+    targetPort: 4000
+
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+
+is valid because Kubernetes defaults the Service protocol to TCP.
+But if you want to make it explicit, write:
+ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 4000
+
+
+
+
+
+
+
+--------------------------------
+6.What is Ingress?
+Ingress manages external HTTP/HTTPS traffic and routes it to Services.
+For example, suppose you have:
+
+
+example.com
+api.example.com
+
+You can route them to different Services:
+
+                  Ingress
+                     │
+          ┌──────────┴──────────┐
+          ↓                     ↓
+    / → frontend-service    /api → backend-service
+          ↓                     ↓
+       Frontend Pods         Backend Pods
+
+
+A basic Ingress:
+ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: nginx-ingress
+
+spec:
+  rules:
+    - host: nginx.example.com
+
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+
+            backend:
+              service:
+                name: nginx-service
+                port:
+                  number: 80
+
+
+
+
+spec:
+  rules:
+This is where you define your routing rules.
+
+- host: nginx.example.com
+This means:   If a request comes for nginx.example.com, use the following routing rule.
+
+
+http:    This says we are defining HTTP routing.
+
+
+
+paths:
+  - path: /
+This means requests coming to:  nginx.example.com/
+should follow this rule.
+For example:
+nginx.example.com/
+nginx.example.com/about
+nginx.example.com/products
+
+
+
+
+pathType: Prefix, it means:   Match the beginning (prefix) of the URL path.
+For example:
+- path: /cart
+  pathType: Prefix
+
+This matches:
+/cart
+/cart/items
+/cart/123
+/cart/checkout
+because they all start with /cart.
+
+But it won't match unrelated paths like:
+/buy
+/product
+
+
+/ is the beginning of every URL path, so it can match:
+ /
+ /cart
+ /buy
+ /product
+ /anything
+
+backend
+It means:   Send this request to the Service named nginx-service on port 80.
+
+
+
+
+For example, suppose you have:
+
+/cart
+/buy
+/product
+
+and each path should go to a different Service.
+
+You can put all of them in one ingress.yaml:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: shopping-ingress
+
+spec:
+  rules:
+    - host: shop.example.com
+
+      http:
+        paths:
+
+          - path: /cart
+            pathType: Prefix
+            backend:
+              service:
+                name: cart-service
+                port:
+                  number: 80
+
+          - path: /buy
+            pathType: Prefix
+            backend:
+              service:
+                name: buy-service
+                port:
+                  number: 80
+
+          - path: /product
+            pathType: Prefix
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 80
+
+Why use one Ingress?
+Because Ingress can contain many routing rules.
+You could also create separate Ingress objects, but for a simple application, keeping related routes in one Ingress is usually easier.
+Remember:    One Ingress can route many paths → many Services → many Pods.
+
+
+-------------------------------------------------------
+
+
+
+
+
+
+
+
+
 
 
 
