@@ -1,3 +1,17 @@
+Terraform Workspace Commands
+
+Terraform workspaces allow you to maintain separate state files for different environments using the same Terraform code.
+
+1. List workspaces      terraform workspace list
+2. Create a workspace     terraform workspace new dev
+This creates and switches to dev.
+
+3. Show current workspace   terraform workspace show
+4. Switch workspace      terraform workspace select prod
+5. Delete a workspace     terraform workspace delete dev
+
+
+
 Module = reusable code
 
 A module is a collection of .tf files that tells Terraform how to create resources.
@@ -1235,21 +1249,21 @@ terraform-project/
     ├── dev/
     │   ├── main.tf
     │   ├── provider.tf
-    │   ├── backend.tf       ← HERE
+    │   ├── backend.tf      
     │   ├── variables.tf
     │   └── dev.tfvars
     │
     ├── test/
     │   ├── main.tf
     │   ├── provider.tf
-    │   ├── backend.tf       ← HERE
+    │   ├── backend.tf       
     │   ├── variables.tf
     │   └── test.tfvars
     │
     └── prod/
         ├── main.tf
         ├── provider.tf
-        ├── backend.tf       ← HERE
+        ├── backend.tf      
         ├── variables.tf
         └── prod.tfvars
 
@@ -1955,7 +1969,58 @@ vpc_cidr = "10.1.0.0/16"
 
 So yes: default value → no need to mention; your own value → mention it.
 
+-----------------------
 
+With:
+
+terraform-project/
+├── main.tf
+├── variables.tf
+├── dev.tfvars
+└── prod.tfvars
+
+If you run:
+
+terraform apply -var-file="dev.tfvars"
+
+and then:
+
+terraform apply -var-file="prod.tfvars"
+
+both will normally use the same terraform.tfstate file.
+
+So this:
+
+dev.tfvars  ──┐
+              ├──> terraform.tfstate   ❌ same state
+prod.tfvars ──┘
+To have separate state files
+
+You need to explicitly configure separate state locations, for example using different backend keys:
+
+dev  → dev/terraform.tfstate
+prod → prod/terraform.tfstate
+
+Or use separate folders:
+
+terraform-project/
+├── dev/
+│   ├── main.tf
+│   └── terraform.tfstate
+│
+└── prod/
+    ├── main.tf
+    └── terraform.tfstate
+Workspace vs .tfvars
+Method	Code	Variables	State
+.tfvars only	Same	Different	Same state by default
+Separate folders	Can be duplicated/modules	Different	Separate state
+Workspaces	Same	Can differ	Separate state
+
+So remember:
+
+.tfvars separates values, not state.
+Workspace separates state.
 
 
 
