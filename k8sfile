@@ -215,9 +215,9 @@ spec:
       image: httpd:latest
       ports:
         - containerPort: 80
-
+------------------------------------
 1. Check current CPU usage :   kubectl top pods
-
+--------------
 
 “Metrics Server is not guaranteed to be installed when we create a Kubernetes cluster. If it is not available, 
 we install it separately to collect CPU and memory metrics for kubectl top and HPA.”
@@ -495,9 +495,52 @@ They don't conflict because they are in different namespaces.
 Interview answer
 "A Namespace is used to logically isolate and organize resources within a Kubernetes cluster. For example, we can have separate dev, test, and production namespaces."
 --------------------------------------------
+3. ReplicaSet
+File: replicaset.yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+
+metadata:
+  name: nginx-replicaset
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+
+What is ReplicaSet?
+A ReplicaSet ensures that a specified number of identical Pods are running.
+
+Important interview point
+Normally, we don't create ReplicaSets directly.
+
+We create:
+Deployment
+    ↓
+ReplicaSet
+    ↓
+Pods
+
+The Deployment creates and manages the ReplicaSet.
+
+Interview answer
+"A ReplicaSet ensures that the desired number of Pod replicas are running. Normally, we don't manage ReplicaSets directly; Deployments manage them for us.
+
+
 
 Deployment creates a ReplicaSet:
-
 Deployment
     ↓
 ReplicaSet
@@ -516,19 +559,49 @@ Deployment manages the update by creating a new ReplicaSet and gradually replaci
 
 
 Easy way to remember
-	ReplicaSet	Deployment
-Creates/manages Pods	✅	✅
-Maintains replicas	✅	✅
-Rolling updates	❌	✅
-Rollback	❌	✅
-Usually used directly?	❌	✅
+                    	ReplicaSet	Deployment
+Creates/manages Pods	✅          	✅
+Maintains replicas	    ✅	            ✅
+Rolling updates	        ❌	            ✅
+Rollback	            ❌	            ✅
+Usually used directly?	❌	            ✅
 
 Interview answer:
 “ReplicaSet maintains the desired number of Pods. Deployment manages ReplicaSets and provides additional
 features like rolling updates and rollback. Normally, we create a Deployment rather than creating a ReplicaSet directly.”
 
+----------------------------------------------
+4. Deployment
+File: deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
 
+metadata:
+  name: nginx-deployment
 
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+What is Deployment?
+A Deployment manages Pods and makes sure the required number of Pods are running.
+
+Interview answer
+"A Deployment manages the lifecycle of Pods. It allows us to specify the desired number of replicas and supports rolling updates and rollbacks."
 
 
 
