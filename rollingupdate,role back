@@ -1,0 +1,114 @@
+1. Rolling update
+Suppose you have 3 Pods running version 1:
+Deployment
+   ↓
+3 Pods → nginx:v1
+
+You change the image to version 2:
+nginx:v2
+
+Deployment doesn't stop all 3 Pods at once.
+
+It gradually replaces them:
+Pod 1 → v1     Pod 2 → v1     Pod 3 → v1
+                ↓
+Pod 1 → v2     Pod 2 → v1     Pod 3 → v1
+                ↓
+Pod 1 → v2     Pod 2 → v2     Pod 3 → v1
+                ↓
+Pod 1 → v2     Pod 2 → v2     Pod 3 → v2
+
+This is called a rolling update.
+
+2. Rollback
+Suppose version 2 has a problem.
+
+You can tell Kubernetes:   “Go back to the previous version.”
+Then Deployment can restore version 1.
+
+v1 → v2
+     ❌ Problem
+     ↓
+    Rollback
+     ↓
+v1
+
+So simply:
+Rolling update = safely move from old version to new version.
+Rollback = go back from new version to old version if there is a problem.
+
+
+
+If you mean the command to rollback a Deployment, use:      kubectl rollout undo deployment/my-app
+
+For example:   kubectl rollout undo deployment/nginx-deployment
+
+Check rollout status    kubectl rollout status deployment/nginx-deployment
+See rollout history     kubectl rollout history deployment/nginx-deployment
+Simple flow
+Update image
+    ↓
+Deployment creates new ReplicaSet
+    ↓
+New Pods
+    ↓
+Problem?
+    ↓
+kubectl rollout undo
+    ↓
+Previous version
+
+
+
+Example
+
+First, Deployment is running:
+kubectl set image deployment/nginx-deployment nginx=nginx:1.26
+
+This tells Kubernetes:  Change the nginx container image to nginx:1.26.
+
+Then Kubernetes automatically does:
+Old ReplicaSet
+   ↓
+Old Pods
+   ↓
+Gradually replace
+   ↓
+New ReplicaSet
+   ↓
+New Pods
+Check the update    kubectl rollout status deployment/nginx-deployment
+
+Another way
+
+You can edit the YAML:
+containers:
+  - name: nginx
+    image: nginx:1.26
+
+Then:   kubectl apply -f deployment.yaml
+
+Kubernetes detects the image change and performs the rolling update automatically.
+Interview answer:
+“When we change the Deployment's Pod template, Kubernetes automatically performs a rolling update. We can use kubectl set image to change 
+the image and kubectl rollout status to monitor the rollout.”
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
