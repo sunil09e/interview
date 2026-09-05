@@ -1,0 +1,148 @@
+Kubernetes term        	Simple meaning
+Cluster                	Complete Kubernetes environment
+Node                  	Machine/server where workloads run
+Pod                  	Smallest deployable unit in Kubernetes
+Container            	Application packaged with its dependencies
+Deployment	           Manages multiple copies of Pods
+Service	            Gives stable network access to Pods
+Namespace             	Logical separation inside a cluster
+ConfigMap	           Stores non-secret configuration
+Secret	                Stores sensitive information
+Ingress             	Routes external HTTP/HTTPS traffic
+
+
+
+role.yaml               	Defines what permissions a user/service account has inside one namespace
+rolebinding.yaml        	Connects a Role to a user/service account
+clusterrole.yaml	        Defines permissions that can apply across the cluster
+clusterrolebinding.yaml	  Connects a ClusterRole to a user/service account across the cluster
+
+
+persistentvolume.yaml (PV)         	Actual storage available to Kubernetes
+persistentvolumeclaim.yaml (PVC)	  Request for storage by an application
+storageclass.yaml                  	Defines how storage should be dynamically created
+
+hpa.yaml                Automatically increases/decreases the number of Pods based on resource usage
+networkpolicy.yaml      Controls which Pods are allowed to communicate with other Pods
+serviceaccount.yaml     Creates an identity for a Pod/application to use when accessing Kubernetes resources
+
+
+File                       	What it does
+namespace.yaml         	Creates a namespace
+pod.yaml	                Creates a Pod
+deployment.yaml         	Manages/recreates Pods
+service.yaml	             Provides stable network access to Pods
+ingress.yaml             	Routes external HTTP/HTTPS traffic
+configmap.yaml               	Stores non-sensitive configuration
+secret.yaml              	Stores sensitive values
+serviceaccount.yaml          	Identity used by Pods
+role.yaml	                      Permissions within one namespace
+rolebinding.yaml	            Gives a Role to a user/ServiceAccount
+clusterrole.yaml              	Cluster-wide permissions
+clusterrolebinding.yaml	         Gives ClusterRole to a user/ServiceAccount
+persistentvolume.yaml             	Defines storage
+persistentvolumeclaim.yaml	        Requests storage
+storageclass.yaml	                         Defines how storage is dynamically created
+hpa.yaml	                               Automatically scales Pods
+networkpolicy.yaml                  	Controls Pod-to-Pod/network traffic
+
+
+
+No. 👍 These are not fixed file names.
+They are just common naming conventions. Kubernetes only cares about what is inside the YAML, especially kind:.
+
+For example, this:  deployment.yaml
+
+
+----------------------------------------------------
+
+kubernetes/
+│
+├── namespace.yaml
+├── deployment.yaml
+├── service.yaml
+├── configmap.yaml
+├── secret.yaml
+├── ingress.yaml
+├── serviceaccount.yaml
+│
+├── rbac/
+│   ├── role.yaml
+│   ├── rolebinding.yaml
+│   ├── clusterrole.yaml
+│   └── clusterrolebinding.yaml
+│
+├── storage/
+│   ├── persistentvolume.yaml
+│   ├── persistentvolumeclaim.yaml
+│   └── storageclass.yaml
+│
+├── autoscaling/
+│   └── hpa.yaml
+│
+└── network/
+    └── networkpolicy.yaml
+
+------------------------------------------
+    What is a Pod?    A Pod is the smallest deployable unit in Kubernetes. It contains one or more containers.
+1. Pod
+File: pod.yaml
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: nginx-pod
+
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+
+Interview answer    "A Pod is the smallest unit in Kubernetes. It provides an environment in which one or more containers run.
+Usually, we run one main application container per Pod."
+
+
+One Pod with 2 containers
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: my-pod
+
+spec:
+  containers:
+
+    - name: app
+      image: nginx
+
+    - name: sidecar
+      image: busybox
+      command: ["sh", "-c", "while true; do echo hello; sleep 10; done"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------------------------
+
+
+
