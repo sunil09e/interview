@@ -2184,6 +2184,267 @@ Important: A workspace is not the same thing as an AWS account or EC2. It is a T
 
 
 
+5. How do you manage Terraform secrets?
+Do not hard-code secrets in .tf files.
+
+Bad:  password = "MyPassword123"
+
+Instead, use mechanisms such as:
+HCP Terraform sensitive variables
+Environment variables
+AWS Secrets Manager
+AWS Systems Manager Parameter Store
+CI/CD secret stores
+
+For example:
+Secret
+  ↓
+Secret manager / CI/CD variables
+  ↓
+Terraform
+  ↓
+AWS
+
+Also mark Terraform variables as sensitive where appropriate:
+
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+Important: sensitive = true mainly prevents the value from being displayed normally in Terraform output; it is not encryption by itself.
+
+
+
+Example: Store a database password
+Instead of doing this ❌:
+resource "aws_db_instance" "db" {
+  password = "MyPassword123"
+}
+
+You store the secret in AWS Secrets Manager:
+
+AWS Secrets Manager
+└── db-password
+      └── MyPassword123
+
+Then Terraform can read the secret:
+
+data "aws_secretsmanager_secret_version" "db_password" {
+  secret_id = "db-password"
+}
+
+And use it:
+
+resource "aws_db_instance" "db" {
+  username = "admin"
+  password = data.aws_secretsmanager_secret_version.db_password.secret_string
+}
+
+The flow is:
+Secret
+   ↓
+AWS Secrets Manager
+   ↓
+Terraform reads it
+   ↓
+Terraform creates/updates resource
+   ↓
+AWS
+But one important point ⚠️
+Even though you don't put the password directly in your .tf file, Terraform may store sensitive values in its state file if they are part of a managed resource.
+That's why the state file itself must be protected—for example, by using a secure remote backend with proper access controls.
+
+Another simple method: HCP Terraform
+You can store a secret as a sensitive variable in HCP Terraform:
+
+HCP Terraform
+└── Variables
+      └── DB_PASSWORD = ********
+                         ↑
+                    Sensitive
+
+Then Terraform uses:
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+So the password isn't written directly into your Terraform code.
+
+
+
+aws_db_instance means an AWS RDS database resource in Terraform.
+aws_secretsmanager_secret_version means:
+
+Terraform data source that reads the value of a secret stored in AWS Secrets Manager.
+
+For example:
+data "aws_secretsmanager_secret_version" "db_password" {
+  secret_id = "db-password"
+}
+
+Simple breakdown:
+aws → AWS
+secretsmanager → AWS Secrets Manager
+secret_version → reads a particular version of the stored secret
+db_password → our Terraform name for this data source
+
+
+.secret_string means the actual secret value stored in AWS Secrets Manager.
+For example, if Secrets Manager contains:
+db-password → MyPassword123
+
+Then:  data.aws_secretsmanager_secret_version.db_password.secret_string
+returns:  MyPassword123
+So:  password = data.aws_secretsmanager_secret_version.db_password.secret_string
+means:  “Get the actual password from Secrets Manager and give it to the RDS password field.”
+
+
+secret_id = "db-password" means:
+“Tell Terraform which secret to read from AWS Secrets Manager.”
+For example, in AWS Secrets Manager you have a secret named:   db-password
+Then Terraform uses:  secret_id = "db-password"
+So the flow is:
+AWS Secrets Manager
+→ secret named db-password
+→ Terraform finds that secret
+→ reads its value using .secret_string
+
+It is basically saying: “I want the secret called db-password.”
+
+
+6. How do you implement Terraform in CI/CD?
+A common pipeline is:
+
+Developer
+    ↓
+Git push
+    ↓
+GitHub / GitLab
+    ↓
+CI/CD pipeline
+    ↓
+terraform fmt
+    ↓
+terraform validate
+    ↓
+terraform plan
+    ↓
+Approval
+    ↓
+terraform apply
+    ↓
+AWS
+
+For example:
+
+terraform init
+terraform fmt -check
+terraform validate
+terraform plan
+terraform apply
+
+Usually, plan happens automatically, while production apply may require manual approval.
+
+This gives the team a controlled and repeatable deployment process.
+
+
+
+if developer change someresource and then push means it will again create a infra or only new
+
+It will not create the whole infrastructure again.
+
+Terraform compares:
+
+Existing infrastructure + Terraform state + new .tf code
+
+Then it changes only what is different.
+
+Example:
+
+Initial infrastructure:
+
+EC2
+S3
+VPC
+RDS
+
+Developer changes only EC2 instance type:
+
+instance_type = "t3.medium"
+
+Then pushes to Git:
+
+Git push
+   ↓
+CI/CD
+   ↓
+terraform plan
+   ↓
+Terraform sees only EC2 changed
+   ↓
+terraform apply
+   ↓
+EC2 is modified
+
+The S3, VPC, and RDS are not recreated.
+
+Important
+
+If the developer adds a new resource:
+
+resource "aws_s3_bucket" "new" {
+  bucket = "my-new-bucket"
+}
+
+Terraform creates only that new S3 bucket.
+
+If a change requires replacement, Terraform may destroy and recreate that particular resource, but not the entire infrastructure.
+
+
+Jenkinsfile
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/example/terraform-project.git'
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh 'terraform init'
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                sh 'terraform validate'
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh 'terraform plan'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh 'terraform apply -auto-approve'
+            }
+        }
+    }
+}
+
+
+
+
+
 
 
 
