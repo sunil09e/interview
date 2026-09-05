@@ -122,27 +122,423 @@ spec:
       command: ["sh", "-c", "while true; do echo hello; sleep 10; done"]
 
 
+The BusyBox container doesn't automatically provide a web application like Nginx. It is often used for:
+Testing network connectivity
+Running small scripts
+Debugging
+Performing helper tasks
+Acting as a simple sidecar container
+
+For example, it can test whether another service is reachable:
+wget http://my-service
+In our previous example
+
+We used:
+image: busybox
+command: ["sh", "-c", "while true; do echo hello; sleep 10; done"]
+
+So that particular BusyBox container simply:
+Starts
+ ↓
+prints "hello"
+ ↓
+waits 10 seconds
+ ↓
+prints "hello"
+ ↓
+repeats
+
+It was only an example of a second container. In a real application, the second container would normally perform some useful helper/sidecar function.
 
 
 
+If you mean why we use this command with BusyBox:
+command: ["sh", "-c", "while true; do echo hello; sleep 10; done"]
+
+We use it to keep the BusyBox container running.
+
+Why?
+If you write only:
+- name: sidecar
+  image: busybox
+
+BusyBox starts, executes its default command, and then exits.
+But we want the second container to stay alive inside the Pod:
+
+Pod
+├── nginx container      → keeps running
+└── busybox container    → should keep running
+
+So we give BusyBox a continuous command:
+while true
+   ↓
+echo hello
+   ↓
+sleep 10
+   ↓
+repeat forever
+
+Therefore:   command: ["sh", "-c", "while true; do echo hello; sleep 10; done"]
+means:  "Start a shell and keep running forever, printing hello every 10 seconds."
+
+But in a real application
+You don't normally add this just because there are 2 containers.
+If your Docker image already has a proper long-running command, you can simply do:
+containers:
+  - name: app
+    image: myapp:latest
+
+  - name: sidecar
+    image: mysidecar:latest
+
+No command is needed.
+So the busybox example was mainly to demonstrate two containers in one Pod.
+
+
+So remember:   command is not specifically for BusyBox. It is used when you want to override the image's default command or specify what the container should execute.
+
+not only BusyBox. The command depends on the container image and what you want the container to do.
+  image: nginx:latest
+No command is needed because the Nginx image already has a default command that keeps Nginx running.
+    command: ["sh", "-c", "while true; do echo hello; sleep 10; done"]
+We use command here because the default BusyBox command doesn't keep the container running.
+
+spec:
+  containers:
+
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+
+    - name: httpd
+      image: httpd:latest
+      ports:
+        - containerPort: 80
+
+1. Check current CPU usage :   kubectl top pods
+
+
+“Metrics Server is not guaranteed to be installed when we create a Kubernetes cluster. If it is not available, 
+we install it separately to collect CPU and memory metrics for kubectl top and HPA.”
+
+Install Metrics Server   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+Check whether it is running     kubectl get pods -n kube-system
+Look for something like:     metrics-server-xxxxx    1/1    Running
+
+
+It means Metrics Server is a Kubernetes component that collects CPU and memory usage of your Pods and Nodes.
+Without it:  kubectl top pods
+may not work because Kubernetes doesn't have the current usage data.
+
+
+If you mean Metrics Server: it is not always installed by default.
+In many Kubernetes clusters, you need to install Metrics Server separately.
+Some managed Kubernetes setups or local tools may already include/configure it.
+Check with:  kubectl top pods
+
+If it shows CPU and memory usage → Metrics Server is working.
+If you get an error like:  error: Metrics API not available
+→ Metrics Server is not available/configured.
 
 
 
+2.Set CPU for a Pod
+
+In your deployment.yaml:
+resources:
+  requests:
+    cpu: "250m"
+  limits:
+    cpu: "500m"
+
+Full example:
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: my-app
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: my-app
+
+  template:
+    metadata:
+      labels:
+        app: my-app
+
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+
+What is requests?
+requests:
+  cpu: "250m"
+
+means:  Kubernetes should reserve 250m CPU for this container when scheduling it.
+The scheduler looks at the request when deciding which Worker Node has enough resources.
+
+Worker Node
+    |
+    ├── Pod A → requests 250m
+    ├── Pod B → requests 500m
+    └── Pod C → requests 250m
+What is limits?
+limits:
+  cpu: "500m"
+
+means:  The container can use up to 500m CPU.
+So:
+Request = 250m
+Limit   = 500m
+
+If traffic increases, the application may need more CPU.
+It can use more CPU, because the limit is 500m.
+
+250m request
+      ↓
+Traffic increases
+      ↓
+CPU can increase
+      ↓
+400m
+      ↓
+up to 500m
+What if traffic becomes VERY high?
+Suppose it needs:  800m CPU
+but you configured:  limit: 500m
+The container cannot use more than its CPU limit. CPU gets throttled.
+
+This is where HPA (Horizontal Pod Autoscaler) becomes useful.
+
+For example:
+Low traffic:
+1 Pod
+
+High traffic:
+3 Pods
+
+Very high traffic:
+5 Pods
+
+So there are two different ways to handle increased traffic:
+
+Vertical capacity of one container:  250m → 400m → 500m
+Horizontal scaling with HPA:   1 Pod → 2 Pods → 3 Pods
 
 
 
+If you mean how to configure HPA so that Pods increase from 1 → 3 → 5 when traffic/CPU increases, you do it with an HPA YAML file.
 
+1. Deployment
+First, create a Deployment with resource requests:
 
+apiVersion: apps/v1
+kind: Deployment
 
+metadata:
+  name: my-app
 
+spec:
+  replicas: 1
 
+  selector:
+    matchLabels:
+      app: my-app
 
+  template:
+    metadata:
+      labels:
+        app: my-app
 
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
 
+          resources:
+            requests:
+              cpu: "250m"
+            limits:
+              cpu: "500m"
 
+The important part for HPA is:
 
+requests:
+  cpu: "250m"
+
+2. HPA file
+
+Create:
+hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+
+metadata:
+  name: my-app-hpa
+
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+
+  minReplicas: 1
+  maxReplicas: 5
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+Apply both:
+kubectl apply -f deployment.yaml
+kubectl apply -f hpa.yaml
+How does it work?
+
+You configured:
+minReplicas = 1
+maxReplicas = 5
+target CPU = 70%
+
+So Kubernetes can do:
+Low traffic
+     ↓
+CPU < 70%
+     ↓
+1 Pod
+
+Traffic increases:
+CPU > 70%
+     ↓
+HPA
+     ↓
+2 Pods
+     ↓
+3 Pods
+
+More traffic:
+CPU still high
+     ↓
+HPA
+     ↓
+4 Pods
+     ↓
+5 Pods
+
+It can scale up to 5 Pods, but HPA doesn't literally mean "1 → 3 → 5" at fixed traffic levels. It calculates the desired replica count based on the current metrics.
+
+Check HPA
+kubectl get hpa
+
+Example:
+NAME         REFERENCE           TARGETS   MINPODS   MAXPODS   REPLICAS
+my-app-hpa   Deployment/my-app   80%/70%   1         5         3
+
+Here:
+80% = current CPU utilization
+70% = target
+3   = current number of Pods
 
 ---------------------------------------
+
+
+2.Namespace
+File: namespace.yaml
+apiVersion: v1
+kind: Namespace
+
+metadata:
+  name: development
+
+Create:kubectl apply -f namespace.yaml
+
+Why Namespace?
+Namespaces provide logical separation inside a Kubernetes cluster.
+
+For example:
+Kubernetes Cluster
+       |
+ ┌─────┼─────┐
+ ↓     ↓     ↓
+dev   test   prod
+
+You can have the same application name in different namespaces:
+dev:
+  nginx
+
+prod:
+  nginx
+
+
+They don't conflict because they are in different namespaces.
+
+Interview answer
+"A Namespace is used to logically isolate and organize resources within a Kubernetes cluster. For example, we can have separate dev, test, and production namespaces."
+--------------------------------------------
+
+Deployment creates a ReplicaSet:
+
+Deployment
+    ↓
+ReplicaSet
+    ↓
+3 Pods
+
+If you change:
+
+image: nginx:1.25
+
+to:
+
+image: nginx:1.26
+
+Deployment manages the update by creating a new ReplicaSet and gradually replacing the old Pods.
+
+
+Easy way to remember
+	ReplicaSet	Deployment
+Creates/manages Pods	✅	✅
+Maintains replicas	✅	✅
+Rolling updates	❌	✅
+Rollback	❌	✅
+Usually used directly?	❌	✅
+
+Interview answer:
+“ReplicaSet maintains the desired number of Pods. Deployment manages ReplicaSets and provides additional
+features like rolling updates and rollback. Normally, we create a Deployment rather than creating a ReplicaSet directly.”
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
