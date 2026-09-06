@@ -54,6 +54,35 @@ They are just common naming conventions. Kubernetes only cares about what is ins
 For example, this:  deployment.yaml
 
 
+Think:
+RBAC
+│
+├── Role
+├── RoleBinding
+├── ClusterRole
+└── ClusterRoleBinding
+Simple meaning
+
+RBAC = Role-Based Access Control
+It answers:  Who can do what in Kubernetes?
+
+For example:
+ServiceAccount: my-app
+        ↓
+Role: pod-reader
+        ↓
+Permissions: get + list Pods
+
+Here:
+Role = defines the permissions
+RoleBinding = gives those permissions to someone
+ServiceAccount = the identity receiving the permissions
+RBAC = the whole system that manages these permissions
+
+So don't think:   RBAC = Role ❌
+Think:  RBAC = Kubernetes permission/access-control system ✅
+
+
 ----------------------------------------------------
 
 kubernetes/
