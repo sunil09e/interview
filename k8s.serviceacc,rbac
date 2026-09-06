@@ -1,0 +1,407 @@
+RBAC
+│
+├── Role
+├── RoleBinding
+├── ClusterRole
+└── ClusterRoleBinding
+
+
+
+serviceaccount.yaml    Creates an identity for a Pod/application to use when accessing Kubernetes resources
+
+Easy example
+Suppose your Pod needs permission to read Pods.
+
+ServiceAccount
+      ↓
+RoleBinding
+      ↓
+Role
+      ↓
+Permission: read Pods
+      ↓
+Pod uses ServiceAccount
+
+So:
+User → can use RBAC permissions
+Pod/Application → usually uses a ServiceAccount
+Role/ClusterRole → defines what they can do
+RoleBinding/ClusterRoleBinding → connects the identity to those permissions
+
+
+Imagine you have an application running inside a Pod:
+Pod
+ └── Application
+
+The application needs to ask Kubernetes:   "Show me the list of Pods."
+Kubernetes needs to know:     Who is asking?
+
+The Pod needs an identity. That identity is a ServiceAccount.
+
+Pod
+ ↓
+ServiceAccount = my-app
+ ↓
+RBAC permissions
+ ↓
+Can read Pods
+
+
+Real example
+Suppose you have a monitoring application:
+Monitoring Pod
+      ↓
+needs to read Pod information
+      ↓
+SrviceAccount
+      ↓
+Role
+      ↓
+"Can read Pods"
+
+Without the proper ServiceAccount/RBAC permission:
+Monitoring Pod
+      ↓
+"Give me Pods"
+      ↓
+❌ Permission denied
+
+With it:
+Monitoring Pod
+      ↓
+ServiceAccount: monitoring
+      ↓
+Role: read Pods
+      ↓
+✅ Kubernetes allows it
+
+A ServiceAccount is NOT a person/user.
+Identity	Used by
+User	Human, like developer/admin
+ServiceAccount	Pod/application
+
+
+
+Step 1 — ServiceAccount
+
+You already have:
+rbac/
+├── serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-app
+  namespace: dev
+
+Apply it:  kubectl apply -f serviceaccount.yaml
+
+
+Step 2 — Create Role
+Now decide what the ServiceAccount is allowed to do.
+For example: allow my-app to get and list Pods.
+
+role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader
+  namespace: dev
+
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+Apply:   kubectl apply -f role.yaml
+
+
+pod-reader
+   ↓
+Can get Pods
+Can list Pods
+
+
+Step 3 — Connect ServiceAccount to Role
+The Role exists, but my-app doesn't have it yet.
+
+Create rolebinding.yaml:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-app-binding
+  namespace: dev
+
+subjects:
+- kind: ServiceAccount
+  name: my-app
+  namespace: dev
+
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+Apply:    kubectl apply -f rolebinding.yaml
+
+Now:
+ServiceAccount
+    my-app
+       ↓
+ RoleBinding
+       ↓
+    Role
+ pod-reader
+       ↓
+ get/list Pods
+
+
+
+
+
+Step 4 — Make the Pod use the ServiceAccount
+In your Pod/Deployment:
+spec:
+  serviceAccountName: my-app
+
+For example:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+  namespace: dev
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: my-app
+
+  template:
+    metadata:
+      labels:
+        app: my-app
+
+    spec:
+      serviceAccountName: my-app
+
+      containers:
+      - name: app
+        image: nginx
+
+
+
+No. serviceAccountName: my-app cannot be given anywhere. It has a specific location.
+It must be under the Pod's spec.
+
+
+Why here?
+Because you are telling Kubernetes:
+"Pods created by this Deployment should use the my-app ServiceAccount."
+
+The flow is:
+Deployment
+   ↓
+creates Pod
+   ↓
+Pod uses ServiceAccount: my-app
+   ↓
+RoleBinding
+   ↓
+Role
+   ↓
+Permissions
+
+You don't put serviceAccountName inside the Role or RoleBinding.
+The ServiceAccount is connected to the Pod here:
+
+spec:
+  serviceAccountName: my-app
+
+And the RoleBinding connects that ServiceAccount to the Role:
+subjects:
+- kind: ServiceAccount
+  name: my-app
+  namespace: dev
+
+So there are two different connections:
+Pod ←── serviceAccountName ──→ ServiceAccount
+ServiceAccount ←── RoleBinding ──→ Role
+
+
+
+
+Now the complete flow is:
+
+              Kubernetes
+                  │
+            ServiceAccount
+              "my-app"
+                  │
+                  ↓
+            RoleBinding
+                  │
+                  ↓
+               Role
+           "pod-reader"
+                  │
+                  ↓
+        get/list Pods permission
+                  │
+                  ↓
+                 Pod
+What about ClusterRole?
+
+After understanding this, the next concept is:
+Role              → permissions within ONE namespace
+ClusterRole       → permissions across the cluster
+
+Then:  Role + RoleBinding
+and
+ClusterRole + ClusterRoleBinding
+
+So your RBAC folder can be:
+rbac/
+├── serviceaccount.yaml
+├── role.yaml
+├── rolebinding.yaml
+├── clusterrole.yaml
+└── clusterrolebinding.yaml
+
+For now, focus on these 3: ServiceAccount → Role → RoleBinding. Once this is clear, ClusterRole becomes much easier.
+
+
+If your current ServiceAccount is not in dev
+without namespace, it was created in the default namespace.
+You cannot move that ServiceAccount from default to dev. Create it again in dev:
+
+
+Resource	           Scope
+Role                	One namespace
+RoleBinding         	One namespace
+ClusterRole              	Cluster-wide / can define permissions for cluster-scoped or namespaced resources
+ClusterRoleBinding   	Cluster-wide
+
+So remember:  Role = permissions for one namespace.
+
+
+
+
+Role
+Role = permissions within one namespace.
+Cluster
+│
+├── dev
+│   └── Role → permissions in dev
+│
+└── prod
+    └── Role → permissions in prod
+
+For example:
+kind: Role
+metadata:
+  namespace: dev
+
+It can give permission to resources such as Pods, Services, ConfigMaps, etc. in dev only.
+
+
+
+ClusterRole
+ClusterRole = permissions that are not limited to one namespace.
+
+It can be used for:
+Resources across multiple/all namespaces
+Cluster-scoped resources such as Nodes, PersistentVolumes, Namespaces, etc.
+
+
+
+Example:
+ClusterRole
+     ↓
+Can view Pods
+     ↓
+dev Pods
+prod Pods
+test Pods
+
+So your understanding can be remembered as:
+Role → one namespace
+ClusterRole → cluster-level / can be used across namespaces
+
+⚠️ One important point: ClusterRole doesn't automatically mean "access to everything in the cluster." Its actual permissions depend on the rules: you define.
+
+-----------------------
+ClusterRole
+ClusterRole defines permissions that are not restricted to one namespace.
+
+For example, suppose you want an application to read Pods in all namespaces:
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+
+metadata:
+  name: pod-reader
+
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+Notice there is no namespace: here.
+
+
+Important
+A ClusterRole by itself does not give anyone permission.
+You still need a binding:
+ClusterRole
+     ↓
+ClusterRoleBinding
+     ↓
+ServiceAccount / User
+
+For example:
+
+ServiceAccount: my-app
+          ↓
+ClusterRoleBinding
+          ↓
+ClusterRole: pod-reader
+          ↓
+Can read Pods across namespaces
+
+
+So remember:
+
+Role = permissions for one namespace
+ClusterRole = reusable permissions at cluster level
+Binding = gives those permissions to an identity.
+
+
+
+you're asking how ClusterRole can give permission to Nodes.
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
