@@ -1345,24 +1345,366 @@ Remember:    One Ingress can route many paths → many Services → many Pods.
 
 -------------------------------------------------------
 
+1. configmap.yaml
+A ConfigMap stores non-sensitive configuration.
+Example:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_NAME: "myapp"
+  APP_ENV: "dev"
+  LOG_LEVEL: "info"
+
+Here:
+APP_NAME → application name
+APP_ENV → environment
+LOG_LEVEL → logging level
+
+These values are not secrets.
+
+
+Why do we use ConfigMap?
+ConfigMap is used to store non-sensitive configuration separately from the application/Deployment YAML.
+
+For example:
+APP_ENV=dev
+LOG_LEVEL=info
+APP_NAME=myapp
+This is useful because if the configuration changes, we don't need to change the container image.
+
+
+
+
+Non-sensitive configuration means information that is not secret and is okay to store as normal text.
+
+For example:
+APP_NAME = myapp
+APP_ENV = dev
+LOG_LEVEL = info
+PORT = 8080
+
+These are configuration values, but they don't need to be hidden.
+Sensitive = secret
+
+Things we should protect:
+DB_PASSWORD = password123
+API_KEY = abc123...
+TOKEN = xyz...
+
+So remember:
+ConfigMap → normal/non-secret configuration
+Secret → sensitive/secret information
+
+
+
+Why do we use ConfigMap?
+ConfigMap is used to store non-sensitive configuration separately from the application/Deployment YAML.
+For example:
+APP_ENV=dev
+LOG_LEVEL=info
+APP_NAME=myapp
+
+This is useful because if the configuration changes, we don't need to change the container image
+we change in config file
+
+
+How do we use ConfigMap in Deployment?
+First, create the ConfigMap:
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_ENV: "dev"
+  LOG_LEVEL: "info"
+
+Then reference it in the Deployment:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: myapp
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+
+    spec:
+      containers:
+        - name: myapp
+          image: myapp:1.0
+
+          envFrom:
+            - configMapRef:
+                name: app-config
+What happens?
+Kubernetes takes the values from:
+ConfigMap
+   ↓
+app-config
+   ↓
+Deployment
+   ↓
+Pod
+   ↓
+Container environment variables
+
+So inside the container:
+APP_ENV=dev
+LOG_LEVEL=info
+
+are available as environment variables.
+
+
+
+
+
+if i need environment variable like  in os like base os has means where i need to give ?
+if you mean environment variables available inside the container/Pod, you normally define them in the Deployment YAML,
+either directly or by taking them from a ConfigMap/Secret.
+
+
+1. Directly in Deployment
+containers:
+  - name: myapp
+    image: myapp:1.0
+    env:
+      - name: APP_ENV
+        value: "dev"
+      - name: PORT
+        value: "8080"
+
+Then inside the container:   echo $APP_ENV
+gives:  dev
+
+
+
+2. Using ConfigMap — recommended for normal configuration
+
+configmap.yaml:
+data:
+  APP_ENV: "dev"
+  PORT: "8080"
+
+Deployment:
+containers:
+  - name: myapp
+    image: myapp:1.0
+    envFrom:
+      - configMapRef:
+          name: app-config
+
+Flow:
+ConfigMap
+   ↓
+Deployment
+   ↓
+Pod
+   ↓
+Container
+   ↓
+Environment variables
+
+
+
+
+Important distinction
+If by "base OS" you mean the environment variables of the machine where Kubernetes is running, those are different.
+
+For example, your Linux machine might have:     export MY_VAR=hello
+That doesn't automatically become an environment variable inside a Kubernetes Pod.
+For a Pod, you explicitly provide it through the Deployment, ConfigMap, Secret, etc.
+
+Interview answer:   "Environment variables for an application running in a Kubernetes container are defined in the Pod/Deployment
+specification, either directly using env or by referencing a ConfigMap or Secret."
+
+If you mean “I want to set an environment variable at the OS level, like on Linux”, then you give it in the OS shell, not in configmap.yaml.
+
+For example:
+export APP_ENV=dev
+export DB_HOST=localhost
+
+Now the variable exists in that Linux shell:    echo $APP_ENV
+Output:  dev
+
+But this is different from a Kubernetes Pod environment variable.
+Linux OS environment
+        ↓
+export APP_ENV=dev
+
+Kubernetes Pod environment
+        ↓
+Deployment → env / ConfigMap / Secret
+
+If your application is running inside a Kubernetes Pod, use the Deployment/ConfigMap/Secret approach rather than relying on the OS environment.
+
+
+then why we give in docker file 
+The key is that Dockerfile and Kubernetes Deployment have different purposes.
+
+Dockerfile
+Dockerfile is used to build the image.
+You can define a default environment variable:
+FROM ubuntu
+ENV APP_ENV=dev
+CMD ["sh"]
+
+When the image is built:
+Dockerfile
+   ↓
+Docker Image
+
+APP_ENV=dev becomes a default value in the image.
+
+Kubernetes Deployment
+When you run that image in Kubernetes, you can override the value:
+containers:
+  - name: myapp
+    image: myapp:1.0
+    env:
+      - name: APP_ENV
+        value: "prod"
+
+Now the container gets:   APP_ENV=prod
+instead of the Dockerfile default.
+
+Why ConfigMap then?
+If you don't want configuration inside the image or Deployment:
+
+Dockerfile
+    ↓
+Image
+    ↓
+Deployment
+    ↓
+ConfigMap → APP_ENV=dev
+    ↓
+Pod
+
+You can change:   APP_ENV=dev
+to:   APP_ENV=prod
+in the ConfigMap without rebuilding the Docker image.
+Easy interview explanation
+Dockerfile ENV is mainly for default environment values inside the image. Kubernetes ConfigMap is used to
+provide environment-specific configuration when the container is deployed.
 
 
 
 
 
 
+the important point is: ENV in a Dockerfile is stored as metadata/default configuration in the image. It is not just used temporarily during docker build.
+
+
+
+If ENV is defined in the Dockerfile and you don't define it in the Kubernetes Deployment, the value is available inside the running container.
+
+Example
+Dockerfile:
+FROM ubuntu
+ENV APP_ENV=dev
+CMD ["sleep", "3600"]
+
+Build the image:   docker build -t myapp:1.0 .
+
+Deployment:
+spec:
+  containers:
+    - name: myapp
+      image: myapp:1.0
+
+Notice: no env: in Deployment.
+Kubernetes creates the Pod using that image.
+
+Inside the container:   echo $APP_ENV
+Output:  dev
+
+So the flow is:
+Dockerfile
+   ↓
+ENV APP_ENV=dev
+   ↓
+Docker Image
+   ↓
+Deployment uses the image
+   ↓
+Pod / Container
+   ↓
+APP_ENV=dev
+One important clarification
+
+The Deployment YAML itself doesn't show APP_ENV=dev.
+You see it inside the running container:   kubectl exec -it <pod-name> -- env
+You can then see:  APP_ENV=dev
+So:  Dockerfile ENV becomes a default environment variable in the image, and that default is inherited by the container when Kubernetes runs the image.
 
 
 
 
 
 
+Creates an environment variable:
+APP_HOME=/usr/src/app
+
+This value becomes part of the Docker image's configuration.
+You can use it later in the Dockerfile:  COPY target/*.jar $APP_HOME/app.jar
+which effectively means:  COPY target/*.jar /usr/src/app/app.jar
 
 
 
 
+Now your previous question
+Suppose your Kubernetes Deployment is:
+containers:
+  - name: myapp
+    image: myapp:1.0
+
+You did not specify:   env:
+The container still has:  APP_HOME=/usr/src/app
+because it came from the Dockerfile.
+
+You can check:  kubectl exec -it <pod-name> -- env
+and you'll see something like:
+APP_HOME=/usr/src/app
+Important distinction
+
+In your Dockerfile:   ENV APP_HOME /usr/src/app
+is useful because the Dockerfile itself needs that value for COPY and WORKDIR.
+
+But application configuration such as:
+DB_HOST
+DB_USERNAME
+DB_PASSWORD
+APP_ENV
+
+is often better supplied at Kubernetes runtime using:
+ConfigMap → non-sensitive configuration
+Secret    → sensitive configuration
+
+So your Dockerfile's APP_HOME is a good example of a container/image-level environment variable, while ConfigMap/Secret are commonly used for deployment/environment-specific configuration.
 
 
 
 
+If you mean without this line:   ENV APP_HOME=/usr/src/app
+Yes, you can write the Dockerfile directly using the path.
 
+For example:
+FROM amazoncorretto:17.0.8-alpine3.18
+EXPOSE 8080
+WORKDIR /usr/src/app
+COPY target/*.jar app.jar
+CMD ["java", "-jar", "app.jar"]
+
+Here we don't need APP_HOME.
+
+so insdide app will have app.jar
