@@ -1,0 +1,266 @@
+Basic multi-cloud example
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 7.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+provider "azurerm" {
+  features {}
+}
+
+provider "google" {
+  project = var.gcp_project
+  region  = "us-central1"
+}
+
+Then resources from different clouds can exist in the same Terraform project:
+
+resource "aws_s3_bucket" "data" {
+  bucket = "example-multicloud-data"
+}
+
+resource "azurerm_resource_group" "main" {
+  name     = "multicloud-rg"
+  location = "East US"
+}
+
+resource "google_storage_bucket" "data" {
+  name     = "example-multicloud-gcp-data"
+  location = "US"
+}
+
+For a real production setup, I usually wouldn't put the entire multi-cloud environment into one giant state file. A cleaner structure is:
+
+terraform/
+├── modules/
+│   ├── network/
+│   ├── kubernetes/
+│   └── database/
+│
+├── aws/
+│   ├── dev/
+│   └── prod/
+│
+├── azure/
+│   ├── dev/
+│   └── prod/
+│
+└── gcp/
+    ├── dev/
+    └── prod/
+
+Each cloud can have its own Terraform state and deployment lifecycle, while reusable modules standardize things such as networking, Kubernetes clusters, tagging/labels, monitoring, and security policies.
+
+For example:
+
+AWS
+ └─ VPC → EKS → RDS
+
+Azure
+ └─ VNet → AKS → Azure SQL
+
+GCP
+ └─ VPC → GKE → Cloud SQL
+
+Terraform's provider model is what makes this possible: you use one language, HCL, while each provider translates Terraform resources into calls to the corresponding cloud APIs.
+
+
+
+
+
+
+
+
+
+we do mention the provider, but not inside each resource block.
+
+Terraform identifies the provider from the resource type.
+
+For example:
+
+resource "aws_s3_bucket" "data" {
+  bucket = "my-bucket"
+}
+
+Here:
+
+aws_s3_bucket
+│   │
+│   └── resource type = s3_bucket
+└────── provider = AWS
+
+Similarly:
+
+resource "azurerm_resource_group" "main" {
+  name     = "my-rg"
+  location = "East US"
+}
+azurerm_resource_group
+│       │
+│       └── resource type = resource_group
+└───────── provider = Azure
+
+And:
+
+resource "google_storage_bucket" "data" {
+  name = "my-bucket"
+}
+google_storage_bucket
+│      │
+│      └── resource type = storage_bucket
+└──────── provider = Google
+Where is the provider configuration?
+
+We separately configure it:
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+provider "azurerm" {
+  features {}
+}
+
+provider "google" {
+  project = var.gcp_project
+  region  = "us-central1"
+}
+
+So the flow is:
+
+resource "aws_s3_bucket"
+          ↓
+       AWS provider
+          ↓
+       AWS API
+          ↓
+      S3 bucket
+resource "azurerm_resource_group"
+          ↓
+      Azure provider
+          ↓
+      Azure API
+          ↓
+   Resource Group
+
+Important: You don't write provider = aws inside every resource because Terraform can automatically determine the provider from the resource type.
+
+
+
+
+
+
+
+
+
+Provider alias is mainly used when you need multiple configurations of the same provider.
+
+For example, suppose you want to create AWS resources in Mumbai and US.
+
+1. Define providers with aliases
+provider "aws" {
+  region = "ap-south-1"
+  alias  = "mumbai"
+}
+
+provider "aws" {
+  region = "us-east-1"
+  alias  = "us"
+}
+
+Now we have:
+
+AWS provider
+├── mumbai → ap-south-1
+└── us     → us-east-1
+2. Use the alias in resources
+resource "aws_s3_bucket" "mumbai_bucket" {
+  provider = aws.mumbai
+
+  bucket = "my-mumbai-bucket"
+}
+
+resource "aws_s3_bucket" "us_bucket" {
+  provider = aws.us
+
+  bucket = "my-us-bucket"
+}
+
+Here:
+
+provider = aws.mumbai
+
+means:
+
+Use the AWS provider configuration whose alias is mumbai.
+
+And:
+
+provider = aws.us
+
+means:
+
+Use the AWS provider configuration whose alias is us.
+
+Why alias is useful in multi-cloud?
+
+For different clouds, you normally don't need aliases:
+
+resource "aws_s3_bucket" "bucket" {
+  # AWS
+}
+
+resource "azurerm_resource_group" "rg" {
+  # Azure
+}
+
+resource "google_storage_bucket" "bucket" {
+  # GCP
+}
+
+Terraform already knows:
+
+aws_*      → AWS
+azurerm_*  → Azure
+google_*   → Google Cloud
+
+Aliases become especially useful when you have multiple configurations of the same provider:
+
+AWS
+├── Mumbai
+├── US
+└── Singapore
+
+or:
+
+Azure
+├── Subscription A
+└── Subscription B
+
+So remember:
+
+Provider = which cloud/service
+
+Alias = which configuration of that provider.
+
+
+
+
