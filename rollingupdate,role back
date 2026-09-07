@@ -96,7 +96,14 @@ the image and kubectl rollout status to monitor the rollout.”
 
 
 
+Why use /?
+Kubernetes CLI commonly allows:   kubectl get deployment/nginx-deployment
+instead of:   kubectl get deployment nginx-deployment
 
+Both identify the same resource.
+deployment/nginx-deployment
+      ↑              ↑
+    type           name
 
 
 
