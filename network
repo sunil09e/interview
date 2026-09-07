@@ -747,4 +747,98 @@ Process
 Virtual Memory
    ↓
 RAM + Disk backing
+--------------------------------
 
+
+
+These three are networking concepts, but they solve different problems:
+
+Term	Full form	Main purpose	Where?
+VPN	Virtual Private Network	Secure connection between networks/users	Over the internet
+VLAN	Virtual Local Area Network	Divide one physical network into logical networks	On-premises/LAN
+VPC	Virtual Private Cloud	Create an isolated virtual network for cloud resources	Cloud
+1. VLAN
+
+Imagine one physical switch:
+
+             Switch
+          /    |    \
+       PC1    PC2    PC3
+        |      |      |
+      VLAN10  VLAN10  VLAN20
+
+Even though the computers use the same physical network, VLANs logically separate them.
+
+Example:
+
+VLAN 10 → Developers
+VLAN 20 → Finance
+VLAN 30 → Servers
+
+Purpose: network segmentation.
+
+2. VPC
+
+A VPC is your private virtual network in a cloud such as AWS.
+
+AWS
+└── VPC: 10.0.0.0/16
+     ├── Public Subnet
+     │    └── EC2
+     │
+     └── Private Subnet
+          └── EC2
+
+Inside a VPC, you can create:
+
+Subnets
+Route tables
+Internet Gateway
+NAT Gateway
+Security Groups
+Network ACLs
+
+Purpose: create and control an isolated cloud network.
+
+3. VPN
+
+VPN creates a secure connection between two endpoints/networks.
+
+For example, your company has an on-premises network and AWS VPC:
+
+Company Network
+10.10.0.0/16
+       |
+       | 🔐 VPN tunnel
+       |
+       ↓
+AWS VPC
+10.20.0.0/16
+
+Now resources in the company network can communicate with resources in the AWS VPC through the VPN tunnel.
+
+Easy way to remember
+VLAN → Separate networks inside a physical LAN
+
+VPC  → Create a virtual network in the cloud
+
+VPN  → Securely connect networks/users over a network
+
+A common real-world setup is actually all three together:
+
+Office
+  │
+  ├── VLAN 10
+  ├── VLAN 20
+  │
+  └── Router
+       │
+       │ VPN
+       ↓
+      AWS
+       │
+       └── VPC
+            ├── Public Subnet
+            └── Private Subnet
+
+So VLAN is for segmentation, VPC is for cloud networking, and VPN is for secure connectivity.
