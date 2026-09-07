@@ -538,3 +538,140 @@ So remember:
 apiGroups → Which category?
 resources → Which resource?
 verbs     → What can they do?
+
+---------------------------------------------------
+
+
+Role and ClusterRole are not specifically for users or applications. They define what permissions are allowed.
+They can be assigned to either users or applications.
+
+
+
+To attach a Role/ClusterRole to a user or application, you use a Binding.
+
+1. Attach Role to a user
+
+First create the Role:
+
+kind: Role
+metadata:
+  name: pod-reader
+  namespace: dev
+
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+Then attach it to the user using RoleBinding:
+
+kind: RoleBinding
+metadata:
+  name: pod-reader-binding
+  namespace: dev
+
+subjects:
+  - kind: User
+    name: john
+
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+Flow:
+
+User: john
+     ↓
+RoleBinding
+     ↓
+Role: pod-reader
+     ↓
+get/list Pods in dev
+2. Attach Role to an application
+
+Create a ServiceAccount:
+
+kind: ServiceAccount
+metadata:
+  name: my-app-sa
+  namespace: dev
+
+Then RoleBinding:
+
+kind: RoleBinding
+metadata:
+  name: app-binding
+  namespace: dev
+
+subjects:
+  - kind: ServiceAccount
+    name: my-app-sa
+    namespace: dev
+
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+
+Then tell the Pod/Deployment to use that ServiceAccount:
+spec:
+  template:
+    spec:
+      serviceAccountName: my-app-sa
+
+Flow:
+Deployment
+    ↓
+   Pod
+    ↓
+ServiceAccount
+    ↓
+RoleBinding
+    ↓
+Role
+    ↓
+Permissions
+
+
+
+
+3. What about ClusterRole?
+
+Same idea, but the binding can use a ClusterRole:
+
+User / ServiceAccount
+        ↓
+RoleBinding
+        ↓
+ClusterRole
+
+or:
+
+User / ServiceAccount
+        ↓
+ClusterRoleBinding
+        ↓
+ClusterRole
+
+The important difference is RoleBinding vs ClusterRoleBinding controls the scope of the assignment.
+
+Easy memory:
+
+Role = permission
+Binding = attach permission
+ServiceAccount = application identity
+
+
+
+
+
+
+
+
+
+
+
+
+
