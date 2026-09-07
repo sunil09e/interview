@@ -1,0 +1,473 @@
+storage/
+│   ├── persistentvolume.yaml
+│   ├── persistentvolumeclaim.yaml
+│   └── storageclass.yaml
+
+
+
+
+1. PersistentVolume (PV)
+
+PV is the storage resource available to Kubernetes. It represents actual persistent storage, such as an AWS EBS volume, NFS storage, etc.
+
+Example:
+
+PV
+└── 10 GiB storage
+2. PersistentVolumeClaim (PVC)
+
+PVC is a request for storage from a user/application. The PVC specifies how much storage it needs and the required access mode.
+
+Example:
+
+PVC
+└── "I need 5 GiB"
+
+Kubernetes then binds the PVC to a suitable PV.
+
+PVC ─────→ PV
+5 GiB        10 GiB
+request      available
+3. StorageClass
+
+StorageClass defines how Kubernetes should provision storage. It is mainly used for dynamic provisioning, so we don't have to manually create PVs.
+
+For AWS EKS:
+
+StorageClass
+     ↓
+EBS CSI Driver
+     ↓
+AWS EBS volume
+     ↓
+PV
+     ↓
+PVC
+     ↓
+Pod
+
+For example:
+
+kind: StorageClass
+
+metadata:
+  name: ebs-storage
+
+provisioner: ebs.csi.aws.com
+
+This tells Kubernetes to use the AWS EBS CSI driver when provisioning storage.
+
+
+
+
+
+Interview answer
+
+If the interviewer asks:
+
+"What is the difference between PV, PVC and StorageClass?"
+
+Say:
+
+"PV is the persistent storage resource available to Kubernetes. PVC is a request for that storage made by an application or user. StorageClass defines the type and method of storage provisioning and is commonly used for dynamic provisioning. For example, in EKS, a PVC can reference a StorageClass that uses the EBS CSI driver, which provisions an AWS EBS volume and Kubernetes creates/binds the corresponding PV."
+
+Easy way to remember
+PV          = Actual storage resource
+PVC         = Request for storage
+StorageClass = How/type of storage to provision
+
+And the Pod uses:
+
+Pod → PVC → PV → Storage
+
+With dynamic provisioning:
+
+Pod → PVC → StorageClass → EBS → PV
+
+Important interview point: A StorageClass is not the storage itself. It is a configuration that tells Kubernetes how to provision storage.
+
+
+
+
+
+Why PV?
+
+Because the Pod is temporary, but application data needs to survive.
+
+Pod
+ ↓
+data ❌ when Pod is deleted
+
+PV provides persistent storage:
+
+Pod
+ ↓
+PV
+ ↓
+data ✅ remains
+Why PVC?
+
+The application shouldn't need to know which actual storage volume to use.
+
+Instead, it says:
+
+"I need 10 GB."
+
+That's the PVC.
+
+Application
+     ↓
+PVC
+"I need 10 GB"
+
+Kubernetes finds/provides suitable storage.
+
+Why StorageClass?
+
+Without StorageClass, you generally need to provide/create the PV yourself.
+
+With StorageClass, Kubernetes can automatically provision storage.
+
+For AWS:
+
+PVC
+"I need 10 GB"
+      ↓
+StorageClass
+"Use AWS EBS"
+      ↓
+AWS EBS volume created
+      ↓
+PV
+      ↓
+Pod
+Interview one-liner
+
+"PV provides persistent storage, PVC requests that storage, and StorageClass allows Kubernetes to dynamically provision the required storage."
+
+-----------------------------------------
+1. storageclass.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+
+metadata:
+  name: ebs-storage
+
+provisioner: ebs.csi.aws.com
+
+Focus only on these:
+
+name: ebs-storage
+
+and
+
+provisioner: ebs.csi.aws.com
+
+Meaning:
+
+ebs-storage = name of this StorageClass.
+
+ebs.csi.aws.com = use AWS EBS to provide the storage.
+StorageClass is NOT the storage.
+
+It is saying:
+
+"If someone asks for storage using me, use AWS EBS."
+
+
+
+2. persistentvolumeclaim.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: my-pvc
+
+spec:
+  storageClassName: ebs-storage
+
+  accessModes:
+    - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 10Gi
+
+
+Now look at:
+
+storageClassName: ebs-storage
+
+Where did ebs-storage come from?
+
+From:
+
+# storageclass.yaml
+
+metadata:
+  name: ebs-storage
+
+
+So these two are connected:
+
+storageclass.yaml
+
+name: ebs-storage
+       ↑
+       │ SAME NAME
+       ↓
+pvc.yaml
+
+storageClassName: ebs-storage
+
+The PVC is saying:
+
+"I need 10 GB of storage, and I want the storage provided according to the ebs-storage StorageClass."
+
+
+
+
+
+3. What happens after you apply these?
+
+You run:
+
+kubectl apply -f storageclass.yaml
+kubectl apply -f persistentvolumeclaim.yaml
+
+Kubernetes sees:
+
+PVC
+"I need 10 GB"
+     │
+     │ storageClassName:
+     │ ebs-storage
+     ↓
+StorageClass
+"Use AWS EBS"
+     │
+     ↓
+AWS EBS
+"Create/provide 10 GB disk"
+     │
+     ↓
+PV
+"Represents that storage"
+
+You didn't create the PV YAML.
+
+Kubernetes dynamically creates the PV for you.
+
+
+
+
+4. deployment.yaml
+
+Now the Pod needs to use that storage.
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: nginx
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+
+          volumeMounts:
+            - name: my-storage
+              mountPath: /data
+
+      volumes:
+        - name: my-storage
+
+          persistentVolumeClaim:
+            claimName: my-pvc
+
+
+
+Look here:
+
+claimName: my-pvc
+
+Where did my-pvc come from?
+
+From:
+
+# persistentvolumeclaim.yaml
+
+metadata:
+  name: my-pvc
+
+So:
+
+PVC file
+metadata:
+  name: my-pvc
+       ↑
+       │ SAME NAME
+       ↓
+Deployment file
+claimName: my-pvc
+
+
+
+storageclass.yaml
+metadata:
+  name: ebs-storage
+
+⬇️
+
+persistentvolumeclaim.yaml
+spec:
+  storageClassName: ebs-storage
+
+  resources:
+    requests:
+      storage: 10Gi
+
+⬇️
+
+Kubernetes creates the PV
+
+⬇️
+
+deployment.yaml
+persistentVolumeClaim:
+  claimName: my-pvc
+
+⬇️
+
+Pod
+
+The Pod gets:
+
+/data
+The complete connection
+storageclass.yaml
+─────────────────
+
+name: ebs-storage
+        │
+        │
+        ↓
+pvc.yaml
+─────────────────
+
+name: my-pvc
+
+storageClassName: ebs-storage
+        │
+        │
+        ↓
+Kubernetes creates PV
+        │
+        ↓
+AWS EBS volume
+        │
+        ↓
+deployment.yaml
+─────────────────
+
+claimName: my-pvc
+        │
+        ↓
+       Pod
+        │
+        ↓
+      /data
+Remember these 4 sentences
+
+StorageClass:
+
+"I tell Kubernetes HOW to provide storage."
+
+PVC:
+
+"I REQUEST storage."
+
+PV:
+
+"I represent the ACTUAL storage."
+
+Pod:
+
+"I USE the storage through the PVC."
+
+So the real flow is:
+
+StorageClass
+     ↓
+   PVC
+     ↓
+Kubernetes provisions
+     ↓
+   PV
+     ↓
+   Pod
+
+StorageClass is not the storage. PVC is the request. PV is the storage.
+
+----------------------------------------------
+Let's see what happens WITHOUT StorageClass. This is actually easier to understand.
+
+Here we manually create the storage.
+
+Files
+storage/
+├── persistentvolume.yaml
+├── persistentvolumeclaim.yaml
+└── deployment.yaml
+
+There is no storageclass.yaml.
+
+
+
+1. persistentvolume.yaml
+apiVersion: v1
+kind: PersistentVolume
+
+metadata:
+  name: my-pv
+
+spec:
+  capacity:
+    storage: 10Gi
+
+  accessModes:
+    - ReadWriteOnce
+
+  persistentVolumeReclaimPolicy: Retain
+
+  hostPath:
+    path: /data
+
+This creates:
+
+PV
+└── 10 GB storage
+
+There is no StorageClass.
+
+
+
+
+
+
+
+
+
