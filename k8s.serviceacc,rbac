@@ -385,6 +385,95 @@ rules:
   verbs: ["get", "list"]
 
 
+-----------------------------------
+
+This tells Kubernetes which API group the resource belongs to.
+
+"" means the core API group.
+
+For example, these are core API resources:
+
+Pods
+Services
+Nodes
+Namespaces
+ConfigMaps
+Secrets
+
+So for nodes, we use:   apiGroups: [""]
+
+
+
+
+2. resources: ["nodes"]
+resources: ["nodes"]
+
+This tells Kubernetes:  Which resource are we giving permission for?
+Here:  nodes
+means the ServiceAccount can access Kubernetes Node objects.
+
+
+
+3. verbs: ["get", "list"]
+verbs: ["get", "list"]
+
+This tells Kubernetes:  What can they do with Nodes?
+get = view one specific Node
+kubectl get node node-1
+list = view all Nodes
+kubectl get nodes
+
+
+
+
+1. apiGroups
+
+This tells Kubernetes which API groups the resources belong to.
+
+For example:
+
+""                       → core resources
+apps                     → Deployments, ReplicaSets, DaemonSets
+autoscaling              → HPA
+batch                    → Jobs
+policy                   → PodDisruptionBudget, etc.
+rbac.authorization...    → RBAC resources
+
+So you are saying:
+
+"I want permissions for resources from these API groups."
+
+2. resources
+
+This tells Kubernetes which resources.
+
+For example:
+
+pods
+deployments
+services
+nodes
+secrets
+configmaps
+persistentvolumes
+persistentvolumeclaims
+
+So this is saying:
+
+"I want to give permissions on these resources."
+
+3. verbs
+
+This tells Kubernetes what actions are allowed.
+
+verbs:
+- get
+- list
+- watch
+- create
+- update
+- patch
+- delete
 
 
 
@@ -394,14 +483,58 @@ rules:
 
 
 
+apiGroups means which Kubernetes API group the resource comes from.
 
+You can think of it like categories/folders of Kubernetes resources.
 
+For example:
 
+Kubernetes API
+│
+├── Core API group ("")
+│   ├── Pods
+│   ├── Services
+│   ├── Secrets
+│   └── Nodes
+│
+├── apps
+│   ├── Deployments
+│   ├── ReplicaSets
+│   └── DaemonSets
+│
+├── batch
+│   ├── Jobs
+│   └── CronJobs
+│
+└── autoscaling
+    └── HorizontalPodAutoscaler
 
+So when you write:
 
+apiGroups: [""]
+resources:
+- pods
 
+it means:
 
+Pods from the core API group.
 
+When you write:
 
+apiGroups: ["apps"]
+resources:
+- deployments
 
+it means:
 
+Deployments from the apps API group.
+
+Why do we need it?
+
+Because Kubernetes has resources with different API groups. Kubernetes needs to know exactly which resource you're giving permission to.
+
+So remember:
+
+apiGroups → Which category?
+resources → Which resource?
+verbs     → What can they do?
