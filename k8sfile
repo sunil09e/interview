@@ -1706,5 +1706,678 @@ COPY target/*.jar app.jar
 CMD ["java", "-jar", "app.jar"]
 
 Here we don't need APP_HOME.
-
 so insdide app will have app.jar
+
+--------------------------------------------------
+
+2. secret.yaml
+A Secret stores sensitive values, such as passwords, tokens, and keys.
+
+Example:
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+type: Opaque
+data:
+  DB_USERNAME: YWRtaW4=
+  DB_PASSWORD: cGFzc3dvcmQ=
+
+The values in data are typically Base64-encoded.
+For example:  admin
+becomes:  YWRtaW4=
+
+
+Base64 encoding is just converting the original text into another format.
+For example:  admin
+becomes:  YWRtaW4=
+And:  password
+becomes:  cGFzc3dvcmQ=
+
+
+So in your Secret:
+data:
+  DB_USERNAME: YWRtaW4=
+  DB_PASSWORD: cGFzc3dvcmQ=
+
+Kubernetes stores the values in Base64 format.
+⚠️ Base64 is not encryption. Anyone who gets the Secret can decode it back to admin and password.
+
+
+If you mean who converts the Base64 value back to the original value, then:
+Kubernetes decodes the Base64 value when the Secret is used by a Pod.
+Kubernetes does it when it provides the Secret to the Pod.
+
+Example:
+data:
+  DB_USERNAME: YWRtaW4=
+Kubernetes stores:  YWRtaW4=
+When the Pod uses this Secret, Kubernetes makes the value available as:   admin
+
+So you don't need to manually decode it for your application.
+However, if a person gets access to the Secret, they can manually decode it too, because Base64 is not encryption:
+echo "YWRtaW4=" | base64 --decode
+Result:  admin
+So:  You → encode → Kubernetes Secret → Kubernetes provides original value → Pod/application.
+
+
+
+Suppose your real username and password are:
+admin
+password
+
+Step 1 — You know the original values
+
+You want Kubernetes to use:
+Username = admin
+Password = password
+
+Step 2 — If you use data:, you cannot put them directly
+You convert them to Base64:
+admin     → YWRtaW4=
+password  → cGFzc3dvcmQ=
+
+Then your file becomes:
+data:
+  DB_USERNAME: YWRtaW4=
+  DB_PASSWORD: cGFzc3dvcmQ=
+
+Step 3 — Kubernetes knows these are encoded
+Kubernetes reads:  YWRtaW4=
+and understands the actual value is:   admin
+
+So:
+YOU
+ ↓
+original value: admin
+ ↓
+encode to Base64
+ ↓
+Secret YAML: YWRtaW4=
+ ↓
+Kubernetes
+ ↓
+application gets: admin
+
+One important point
+You do not write the original value and expect Kubernetes to automatically convert it when using data:.
+
+You either:
+Option 1: data:
+data:
+  DB_USERNAME: YWRtaW4=
+→ You must Base64 encode it yourself.
+
+Option 2: stringData:
+stringData:
+  DB_USERNAME: admin
+→ You write the original value, and Kubernetes handles the conversion.
+
+
+
+
+You mean how to convert admin and password into Base64. You can do it easily.
+1. Linux / Mac terminal
+echo -n "admin" | base64
+Output:  YWRtaW4=
+For password:  echo -n "password" | base64
+Output:  cGFzc3dvcmQ=
+
+Then put them in your Secret:
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+type: Opaque
+data:
+  DB_USERNAME: YWRtaW4=
+  DB_PASSWORD: cGFzc3dvcmQ=
+
+2. Kubernetes can do it for you
+
+Instead of manually converting, you can use:
+
+kubectl create secret generic app-secret \
+  --from-literal=DB_USERNAME=admin \
+  --from-literal=DB_PASSWORD=password
+
+Here you give the original values:
+admin
+password
+
+and kubectl handles the encoding.
+So remember:  Manual YAML → Base64 yourself
+kubectl create secret --from-literal → give original values, kubectl handles it.
+
+
+
+
+
+type tells Kubernetes what kind of Secret this is.
+type: Opaque
+What does Opaque mean?
+Opaque is the default/general-purpose Secret type.
+It means:  "This Secret contains arbitrary key-value data, such as a username, password, token, or API key."
+
+
+Are there other Secret types?
+Yes. Kubernetes has built-in types for specific purposes, for example:
+
+type: kubernetes.io/tls
+for TLS certificates, and:
+
+type: kubernetes.io/dockerconfigjson
+for Docker registry authentication.
+
+So for normal application passwords, usernames, API keys, etc., you commonly use:  type: Opaque
+Important: Opaque does not mean encrypted. The values under data are Base64-encoded, which is encoding, not encryption.
+
+
+
+1. secret.yaml
+Here we use data, so the values are Base64 encoded.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+type: Opaque
+data:
+  DB_USERNAME: YWRtaW4=
+  DB_PASSWORD: cGFzc3dvcmQ=
+
+This means:
+YWRtaW4=       → admin
+cGFzc3dvcmQ=   → password
+
+
+
+
+2. deployment.yaml
+The Deployment tells the Pod to take those values from the Secret:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: my-app
+
+  template:
+    metadata:
+      labels:
+        app: my-app
+
+    spec:
+      containers:
+        - name: my-app
+          image: my-app:latest
+
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_USERNAME
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+
+
+What happens?
+secret.yaml
+     ↓
+DB_USERNAME = YWRtaW4=
+     ↓
+Kubernetes reads Secret
+     ↓
+decodes the value
+     ↓
+Pod gets DB_USERNAME=admin
+
+And:  DB_PASSWORD = cGFzc3dvcmQ=
+         ↓
+  Pod gets DB_PASSWORD=password
+
+So inside the container, your application can read:
+DB_USERNAME = admin
+DB_PASSWORD = password
+
+You do not put admin and password directly in the Deployment. The Deployment references the Secret using:
+secretKeyRef:
+  name: app-secret
+  key: DB_USERNAME
+
+That is how the Pod gets the Secret value.
+-------------------------------------------------
+
+Let's connect AWS Secrets Manager → Kubernetes Pod from beginning to end. This is different from a normal Kubernetes Secret.
+
+Assume your application needs:
+DB_USERNAME = admin
+DB_PASSWORD = password123
+1. Create the secret in AWS Secrets Manager
+
+In AWS Secrets Manager, create a secret with:
+
+{
+  "DB_USERNAME": "admin",
+  "DB_PASSWORD": "password123"
+}
+
+Here you give the original values.
+AWS Secrets Manager encrypts and stores them securely.
+You do not need to convert them to Base64
+
+
+
+2. How does Kubernetes get this AWS Secret?
+Kubernetes itself does not automatically know about AWS Secrets Manager.
+A common approach is to install the External Secrets Operator. It reads the secret from AWS Secrets Manager and creates a Kubernetes Secret.
+
+
+The flow is:
+AWS Secrets Manager
+        |
+        | DB_USERNAME = admin
+        | DB_PASSWORD = password123
+        ↓
+External Secrets Operator
+        ↓
+Kubernetes Secret
+        ↓
+Pod
+        ↓
+Application
+
+
+3. AWS IAM permission
+The component that reads AWS Secrets Manager needs permission.
+For example, an IAM policy could allow:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:ap-south-1:123456789012:secret:myapp/database-*"
+    }
+  ]
+}
+
+This basically says:  "You are allowed to read this particular secret from AWS Secrets Manager."
+
+
+
+4. secretstore.yaml
+Now tell External Secrets Operator:  "Use AWS Secrets Manager as the place where my secret is stored."
+
+Example:
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+
+metadata:
+  name: aws-secretstore
+
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: ap-south-1
+
+The important part is:
+
+provider:
+  aws:
+    service: SecretsManager
+    region: ap-south-1
+
+It means:
+Kubernetes
+    ↓
+AWS Secrets Manager
+    ↓
+ap-south-1
+
+
+5. externalsecret.yaml
+Now tell Kubernetes which AWS Secret you want.
+Suppose your AWS Secrets Manager secret is called:  myapp/database
+
+Create:
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+
+metadata:
+  name: myapp-secret
+
+spec:
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: aws-secretstore
+    kind: SecretStore
+
+  target:
+    name: app-secret
+
+  data:
+    - secretKey: DB_USERNAME
+      remoteRef:
+        key: myapp/database
+        property: DB_USERNAME
+
+    - secretKey: DB_PASSWORD
+      remoteRef:
+        key: myapp/database
+        property: DB_PASSWORD
+
+refreshInterval: 1h means External Secrets Operator checks AWS Secrets Manager every 1 hour for changes.
+If you change the password in AWS:  DB_PASSWORD = newpassword
+the operator will check AWS again within the refresh interval and update the Kubernetes Secret:  oldpassword → newpassword
+
+So simply:
+refreshInterval: 1h = synchronize/check the AWS secret every 1 hour.
+It does not mean your Pod restarts every hour
+
+target:
+  name: app-secret
+It means the name of the Kubernetes Secret that External Secrets Operator will create.
+
+
+remoteRef:
+  key: myapp/database
+  property: DB_USERNAME
+
+means:   Go to AWS Secrets Manager and find the secret named myapp/database, then get DB_USERNAME.
+
+So AWS has:
+{
+  "DB_USERNAME": "admin",
+  "DB_PASSWORD": "password123"
+}
+External Secrets Operator reads those values.
+
+
+6. What Kubernetes creates
+External Secrets Operator creates a normal Kubernetes Secret for you:
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+
+type: Opaque
+
+data:
+  DB_USERNAME: <base64 value>
+  DB_PASSWORD: <base64 value>
+
+You don't manually create this Secret YAML.
+External Secrets Operator creates/updates it.
+
+That's the important difference.
+AWS Secret
+     ↓
+External Secrets Operator
+     ↓
+Kubernetes Secret
+
+
+7. deployment.yaml
+Now your application Deployment uses the Kubernetes Secret:
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: myapp
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: myapp
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+
+    spec:
+      containers:
+        - name: myapp
+          image: myapp:latest
+
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_USERNAME
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+
+The important part is:
+valueFrom:
+  secretKeyRef:
+    name: app-secret
+    key: DB_USERNAME
+
+It says:   Get DB_USERNAME from the Kubernetes Secret called app-secret.
+
+Complete picture
+
+You can remember the whole thing like this:
+
+                 AWS
+        ┌─────────────────────┐
+        │ Secrets Manager     │
+        │                     │
+        │ DB_USERNAME=admin   │
+        │ DB_PASSWORD=xxx     │
+        └──────────┬──────────┘
+                   │
+                   │ reads
+                   ↓
+        ┌─────────────────────┐
+        │ External Secrets    │
+        │ Operator            │
+        └──────────┬──────────┘
+                   │
+                   │ creates
+                   ↓
+        ┌─────────────────────┐
+        │ Kubernetes Secret   │
+        │ app-secret          │
+        └──────────┬──────────┘
+                   │
+                   │ referenced by
+                   ↓
+        ┌─────────────────────┐
+        │ Pod                 │
+        │                     │
+        │ DB_USERNAME=admin   │
+        │ DB_PASSWORD=xxx     │
+        └─────────────────────┘
+
+The key difference from your previous example
+
+With a normal Kubernetes Secret, you manually create the Kubernetes Secret:
+
+You
+ ↓
+secret.yaml
+ ↓
+Kubernetes Secret
+ ↓
+Pod
+
+With AWS Secrets Manager + External Secrets Operator:
+
+You
+ ↓
+AWS Secrets Manager
+ ↓
+External Secrets Operator
+ ↓
+Kubernetes Secret
+ ↓
+Pod
+
+So you put the original username/password in AWS Secrets Manager. The External Secrets Operator fetches them and creates the Kubernetes Secret. You don't manually Base64-encode them for the AWS secret.
+
+
+for permission we need  You attach that IAM policy to the identity that External Secrets Operator uses to access AWS.
+External Secrets Operator Deployment
+here we need to create abd tell them
+
+
+Kubernetes ServiceAccount
+serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+
+metadata:
+  name: external-secrets-sa
+  namespace: external-secrets
+
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/external-secrets-role
+
+
+external-secrets-deployment.yaml
+
+A simplified example:
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: external-secrets
+  namespace: external-secrets
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: external-secrets
+
+  template:
+    metadata:
+      labels:
+        app: external-secrets
+
+    spec:
+
+      serviceAccountName: external-secrets-sa
+
+      containers:
+        - name: external-secrets
+          image: external-secrets/external-secrets:latest
+
+The important line is:
+
+serviceAccountName: external-secrets-sa
+
+This tells the External Secrets Operator Pod:
+
+Use the external-secrets-sa ServiceAccount.
+
+
+-------------------------------------------------------------------
+These 4 terms are different. The easiest way to remember them:
+
+Term	               Purpose	                        Reversible?	Needs a key?	Example
+Encoding	Change data into another format	        ✅ Yes	        ❌ No	        hello → aGVsbG8=
+Decoding	Convert encoded data back	        ✅ Yes         	❌ No	        aGVsbG8= → hello
+Encryption	Protect data from unauthorized people	✅ Yes     	✅ Yes	        hello → X7#kP2...
+Decryption	Convert encrypted data back using a key	✅ Yes  	✅ Yes	        X7#kP2... → hello
+
+1. Encoding
+Encoding is not for security.
+
+Example: Base64 encoding:
+Original:  hello
+Encoded:  aGVsbG8=
+
+Anyone can decode it:  aGVsbG8= → hello
+So don't use Base64 to hide passwords.
+
+2. Decoding
+Decoding simply reverses encoding:
+
+Encoded data
+     ↓
+  Decoding
+     ↓
+Original data
+
+Example:
+aGVsbG8=
+    ↓
+hello
+
+3. Encryption
+Encryption is used for security.
+
+Original:
+mypassword123
+
+       ↓ encryption + key
+
+Encrypted:  X8#kP2@91Lm...
+Someone who sees the encrypted value should not be able to understand the original value without the required key.
+
+4. Decryption
+Decryption reverses encryption using the key:
+
+Encrypted data
+      +
+     Key
+      ↓
+  Decryption
+      ↓
+Original data
+
+Example: X8#kP2@91Lm...
+        +
+       key
+        ↓
+mypassword123
+Kubernetes connection
+This is especially important for your earlier Secret question.
+
+If you have:
+data:
+  username: YWRtaW4=
+  password: cGFzc3dvcmQ=
+
+Those values are Base64 encoded, not necessarily encrypted just because they are in a Secret.
+
+For example:
+
+YWRtaW4= → admin
+cGFzc3dvcmQ= → password
+
+So:  Base64 = encoding → decoding
+Encryption = encryption → decryption
+
+A simple interview answer:
+Encoding changes data into another format for storage or transmission and does not provide security. Encryption protects data using a key. Decoding reverses encoding, while decryption reverses encryption using the appropriate key.
