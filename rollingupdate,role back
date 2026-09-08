@@ -1,4 +1,4 @@
-1. Rolling update
+1. Rolling update                 Rolling update is one strategy for performing that rollout.  rollout = updating/replacing the application version
 Suppose you have 3 Pods running version 1:
 Deployment
    ↓
@@ -6,6 +6,10 @@ Deployment
 
 You change the image to version 2:
 nginx:v2
+
+When you apply it:  kubectl apply -f deployment.yaml
+Kubernetes performs a rolling update.
+Now Kubernetes detects the change and automatically performs the rolling update.
 
 Deployment doesn't stop all 3 Pods at once.
 
@@ -108,14 +112,78 @@ deployment/nginx-deployment
 
 
 
+Use:  kubectl rollout undo deployment/myapp --to-revision=1
+
+Example:
+Revision 1 → nginx:1.25
+Revision 2 → nginx:1.26
+Revision 3 → nginx:1.27   ← current
+
+Run:  kubectl rollout undo deployment/myapp --to-revision=1
+Then:  Revision 1 → nginx:1.25   ← restored
 
 
+Important difference
+kubectl rollout undo deployment/myapp
+→ Goes back to the previous revision (3 → 2).
 
+kubectl rollout undo deployment/myapp --to-revision=1
+→ Goes specifically to revision 1 (3 → 1).
 
+You can first check the revisions with:  kubectl rollout history deployment/myapp
 
+kubectl rollout undo deployment/myapp --to-revision=1
+Kubernetes then automatically performs the transition back to that revision.
+------------------------
 
+kubectl rollout
+       │
+       ├── status   → see current rollout status
+       ├── history  → see rollout history/revisions
+       ├── undo     → rollback to previous revision
+       ├── pause    → pause a rollout
+       └── resume   → resume a rollout
 
+1. Pause the rollout
+kubectl rollout pause deployment/myapp
+This tells Kubernetes:  Stop processing further changes to this Deployment for now.
 
+2. Resume the rollout
+kubectl rollout resume deployment/myapp
+This tells Kubernetes:  Continue processing the Deployment again.
+------------------------------------------
+rollout   Rolling update  both are same only
+Not exactly. They are related, but not the same.
 
+Rollout
+Version 1
+v1
+ ↓
+Rollout starts
+ ↓
+Version 2
+v2
 
+If the Deployment has 3 Pods, and the rollout uses a RollingUpdate strategy:
 
+Start:
+v1  v1  v1
+ ↓
+v2  v1  v1
+ ↓
+v2  v2  v1
+ ↓
+v2  v2  v2
+
+So the key point is:
+
+Rollout = the overall update process
+RollingUpdate = the way Pods are gradually changed during the rollout
+
+And if something goes wrong:
+
+v2  v2  v2
+     ↓
+   Rollback
+     ↓
+v1  v1  v1
