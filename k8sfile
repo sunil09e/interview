@@ -862,6 +862,15 @@ So you can mentally read it as:
 
 template creates Pods with app: nginx.
 selector says the Deployment manages Pods with app: nginx.
+
+
+If you mean you write a namespace in the Deployment YAML, but that namespace has not been created, the Deployment will not be created successfully.
+If you run:  kubectl apply -f deployment.yaml
+you'll get an error similar to:
+
+namespaces "dev" not found
+You need to create the namespace first
+
 -----------------------------------------------------------------
 
 5. What is a Service?
