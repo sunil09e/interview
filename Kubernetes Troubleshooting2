@@ -1,0 +1,396 @@
+Kubernetes Troubleshooting Cheat Sheet
+1. Pod Pending
+
+Problem: Pod is created but not getting scheduled to a node.
+
+Check
+------
+kubectl get pods -n <namespace>
+kubectl describe pod <pod-name> -n <namespace>
+kubectl get nodes
+kubectl get events -n <namespace> --sort-by=.lastTimestamp
+Look at the Events section of describe.
+
+Common causes
+-------------
+Not enough CPU/memory
+Node selector doesn't match
+Taints/tolerations problem
+PVC not available
+Affinity/anti-affinity problem
+
+
+Taints/Tolerations — simple meaning
+They are a way to control which Pods are allowed to run on which Nodes.
+Think of it like:
+Taint = "This node says: Don't schedule Pods here."
+Toleration = "This Pod has permission to run on that tainted node."
+
+Tainted node means a Kubernetes node that has a taint applied to it.
+
+Very simply:
+Node
+  ↓
+Taint applied
+  ↓
+"Don't allow normal Pods here"
+
+For example:  kubectl taint nodes node1 app=database:NoSchedule
+Now node1 is a tainted node.
+
+A normal Pod tries to run there:  Pod ❌ → node1
+A Pod with the matching toleration:  Pod + toleration ✅ → node1
+
+So remember:
+Taint = restriction on Node
+Toleration = permission on Pod
+
+If taint problem:
+kubectl describe node <node-name>
+
+Either remove the taint:  kubectl taint nodes <node-name> key=value:NoSchedule-
+or add the appropriate toleration to the pod.
+Verify  kubectl get pods -n <namespace>
+
+Taint/Toleration troubleshooting
+1. Check why the Pod is Pending
+
+kubectl describe pod <pod-name> -n <namespace>
+
+Look at Events. You may see:
+0/3 nodes are available:
+1 node(s) had untolerated taint
+This means the Pod does not have a toleration matching the node's taint
+
+Normal application Deployment
+You don't add any toleration:
+This Pod can run on:
+node1 ✅
+node2 ✅
+node3 ❌
+
+Because node3 has:  app=database:NoSchedule
+and the nginx Pod doesn't tolerate it.
+
+
+
+
+
+Check the node's taint
+kubectl describe node <node-name>
+or:
+kubectl get nodes
+You may find:  Taints: app=database:NoSchedule
+
+Fix it — Option 1: remove the taint
+If the node should accept normal Pods:  kubectl taint nodes <node-name> app=database:NoSchedule-
+The - at the end means remove the taint.
+
+ Fix it — Option 2: add toleration
+If the node is intentionally reserved for database Pods, add a toleration to the Deployment:
+
+spec:
+  template:
+    spec:
+      tolerations:
+        - key: "app"
+          operator: "Equal"
+          value: "database"
+          effect: "NoSchedule"
+full file
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: database
+
+  template:
+    metadata:
+      labels:
+        app: database
+
+    spec:
+      tolerations:
+        - key: "app"
+          operator: "Equal"
+          value: "database"
+          effect: "NoSchedule"
+
+      containers:
+        - name: database
+          image: mysql:8
+          ports:
+            - containerPort: 3306
+
+For example, the Node has:  app=database:NoSchedule
+This says:  🚫 Don't schedule Pods here unless they have the matching toleration.
+
+Then in the Deployment:
+tolerations:
+  - key: "app"
+    operator: "Equal"
+    value: "database"
+    effect: "NoSchedule"
+
+This says:  ✅ This Pod accepts the app=database:NoSchedule restriction.
+
+So the flow is:
+NODE
+app=database:NoSchedule
+       ↓
+   "Keep Pods out"
+       ↓
+POD
+has matching toleration
+       ↓
+   "I am allowed"
+       ↓
+     POD ✅
+       ↓
+     NODE
+
+In one sentence:  Taint blocks the Pod; toleration allows the Pod to pass the block.
+-------------
+Example
+0/3 nodes are available:
+2 Insufficient cpu
+1 node(s) had taint
+
+Fix
+If insufficient CPU:  kubectl describe nodes
+
+add/scale nodes. or
+Reduce the pod's resource request:
+Yes. “Reducing the request” means telling Kubernetes that your Pod needs less CPU or memory to be scheduled.
+
+For example, originally:
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+
+You change it to:
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+
+So you are telling Kubernetes:  “My Pod can start with 100m CPU and 128Mi memory.”
+
+
+Why?
+Suppose the Node has only:  Available CPU = 200m
+But Pod asks for:  500m
+❌ Pod stays Pending.
+
+If you reduce the request to:  100m
+✅ The Node has enough capacity, so Kubernetes can schedule the Pod.
+
+Request = minimum resources Kubernetes reserves/considers for scheduling.
+Limit = maximum resources the container is allowed to use.
+
+Exactly — 500m in requests does NOT mean the Pod will always use 500m CPU.
+It means:  “Kubernetes, please schedule/reserve this Pod assuming it needs 500m CPU.”
+
+
+1 CPU   = 1000m
+0.5 CPU = 500m
+0.1 CPU = 100m
+
+limits:
+  cpu: "500m"
+  memory: "256Mi"
+
+and
+
+limits:
+  cpu: "1"
+  memory: "256Mi"
+
+----------------------
+Node selector doesn't match” means:   The Pod is asking Kubernetes to run on a Node with a specific label, but no Node has that label.
+
+normally we do NOT tell nodeSelector in a Deployment.
+If you don't specify it, Kubernetes is free to schedule the Pod on any suitable Node.
+
+So Kubernetes does roughly:
+Deployment
+    ↓
+creates Pod
+    ↓
+Scheduler checks available Nodes
+    ↓
+Node 1 suitable? → Yes → schedule there
+Node 2 suitable? → Yes → maybe there
+
+
+When do we use nodeSelector?
+Only when you specifically want the Pod on certain Nodes.
+
+For example, you have:
+Node 1 → normal
+Node 2 → SSD
+Node 3 → GPU
+
+If nodeSelector is not specified, Kubernetes scheduler can place the Pod on any suitable Node. 
+If it is specified, the Pod can only be scheduled on Nodes matching that label.
+
+
+
+
+Add a label to a Node
+kubectl label node node1 hardware=gpu
+kubectl label node <new-node-name> hardware=gpu
+Now:  kubectl get nodes --show-labels
+
+Use that label in your Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: nginx-deployment
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      nodeSelector:
+        hardware: gpu
+
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+
+What happens here?
+First, label a Node:   kubectl label node node3 hardware=gpu
+
+Now Kubernetes sees:
+Deployment
+    ↓
+Pod
+    ↓
+nodeSelector:
+    hardware: gpu
+    ↓
+Scheduler looks for Node
+    ↓
+node3
+hardware=gpu
+    ↓
+Pod runs on node3
+-----------------------------
+
+Warning FailedScheduling means:  Kubernetes tried to find a suitable node for the Pod, but could not find one.
+
+FailedScheduling can cause the Pod to remain in Pending state.
+Example:
+Pod
+ ↓
+Pending
+ ↓
+Scheduler tries to find a node
+ ↓
+FailedScheduling
+ ↓
+Pod cannot be placed on any node
+
+For example:
+Warning  FailedScheduling
+0/2 nodes are available:
+2 Insufficient cpu
+
+This means:
+
+Pod needs CPU
+     ↓
+Kubernetes checks Node 1 ❌
+Kubernetes checks Node 2 ❌
+     ↓
+No suitable node
+     ↓
+Pod stays Pending
+
+Another example:
+
+Warning  FailedScheduling
+0/2 nodes are available:
+2 node(s) had untolerated taint
+
+This means:
+Node 1 → Taint ❌ Pod has no toleration
+Node 2 → Taint ❌ Pod has no toleration
+             ↓
+       Pod cannot be scheduled
+             ↓
+          Pending
+
+this comes under Not enough CPU/memory
+
+Not exactly.
+FailedScheduling is a general message, not specifically a CPU/memory problem.
+
+It can happen because of several reasons:
+Pod Pending
+   ↓
+FailedScheduling
+   ↓
+Why?
+   ├── Not enough CPU/memory
+   ├── Taint / missing toleration
+   ├── NodeSelector doesn't match
+   ├── Affinity rules
+   └── Other scheduling restrictions
+
+
+
+Check with:  kubectl get pods
+
+You might see:
+NAME    READY   STATUS    RESTARTS   AGE
+nginx   0/1     Pending   0          2m
+
+Then:  kubectl describe pod nginx
+
+You may see:
+Warning  FailedScheduling
+0/2 nodes are available: 2 Insufficient cpu       it is specifically a CPU resource problem.
+
+Meaning: The Pod is Pending because Kubernetes couldn't find a node where it can run.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
