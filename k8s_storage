@@ -155,25 +155,15 @@ metadata:
 
 provisioner: ebs.csi.aws.com
 
-Focus only on these:
-
-name: ebs-storage
-
+Focus only on these:  name: ebs-storage
 and
-
 provisioner: ebs.csi.aws.com
-
-Meaning:
-
-ebs-storage = name of this StorageClass.
+Meaning:  ebs-storage = name of this StorageClass.
 
 ebs.csi.aws.com = use AWS EBS to provide the storage.
 StorageClass is NOT the storage.
 
-It is saying:
-
-"If someone asks for storage using me, use AWS EBS."
-
+It is saying:  "If someone asks for storage using me, use AWS EBS."
 
 
 2. persistentvolumeclaim.yaml
@@ -194,24 +184,15 @@ spec:
       storage: 10Gi
 
 
-Now look at:
-
-storageClassName: ebs-storage
-
+Now look at:  storageClassName: ebs-storage
 Where did ebs-storage come from?
-
-From:
-
-# storageclass.yaml
+From:  # storageclass.yaml
 
 metadata:
   name: ebs-storage
 
 
-So these two are connected:
-
-storageclass.yaml
-
+So these two are connected:  storageclass.yaml
 name: ebs-storage
        ↑
        │ SAME NAME
@@ -220,23 +201,16 @@ pvc.yaml
 
 storageClassName: ebs-storage
 
-The PVC is saying:
-
-"I need 10 GB of storage, and I want the storage provided according to the ebs-storage StorageClass."
-
-
-
+The PVC is saying:  "I need 10 GB of storage, and I want the storage provided according to the ebs-storage StorageClass."
 
 
 3. What happens after you apply these?
 
 You run:
-
 kubectl apply -f storageclass.yaml
 kubectl apply -f persistentvolumeclaim.yaml
 
 Kubernetes sees:
-
 PVC
 "I need 10 GB"
      │
@@ -253,16 +227,13 @@ AWS EBS
      ↓
 PV
 "Represents that storage"
-
 You didn't create the PV YAML.
-
 Kubernetes dynamically creates the PV for you.
 
 
 
 
 4. deployment.yaml
-
 Now the Pod needs to use that storage.
 
 apiVersion: apps/v1
@@ -300,21 +271,14 @@ spec:
 
 
 
-Look here:
-
-claimName: my-pvc
-
+Look here:  claimName: my-pvc
 Where did my-pvc come from?
-
-From:
-
-# persistentvolumeclaim.yaml
+From:  # persistentvolumeclaim.yaml
 
 metadata:
   name: my-pvc
 
 So:
-
 PVC file
 metadata:
   name: my-pvc
@@ -435,8 +399,6 @@ storage/
 
 There is no storageclass.yaml.
 
-
-
 1. persistentvolume.yaml
 apiVersion: v1
 kind: PersistentVolume
@@ -462,6 +424,214 @@ PV
 └── 10 GB storage
 
 There is no StorageClass.
+
+
+2. persistentvolumeclaim.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: my-pvc
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 5Gi
+
+PVC says:  "I need 5 GB."
+Kubernetes looks for a suitable PV.
+
+where we also don't mention a PV inside the PVC.
+Yes — the PV must already exist. The PVC can find a matching available PV automatically.
+
+
+No StorageClass.
+No PV name.
+
+The PVC says:   "I need at least 5Gi."
+Kubernetes looks at available PVs:
+Available PVs:
+my-pv
+10Gi
+/data
+
+It sees:
+PVC needs: 5Gi
+PV has:   10Gi
+
+10Gi >= 5Gi
+     ↓
+   MATCH ✅
+
+Then:   PVC ─────────→ PV
+5Gi request    10Gi available
+
+
+3. deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: nginx
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+
+          volumeMounts:
+            - name: storage
+              mountPath: /data
+
+      volumes:
+        - name: storage
+
+          persistentVolumeClaim:
+            claimName: my-pvc
+
+Here:  claimName: my-pvc
+connects the Pod to the PVC.
+
+
+
+
+So without StorageClass
+PV
+10 GB
+ │
+ │ binds to
+ ↓
+PVC
+"I need 5 GB"
+ │
+ │ used by
+ ↓
+Pod
+
+That's it.
+
+Then why do we need StorageClass?
+
+Because without StorageClass, you have to create the PV yourself.
+
+With StorageClass:
+
+PVC
+"I need 5 GB"
+     ↓
+StorageClass
+"Use AWS EBS"
+     ↓
+Kubernetes automatically creates
+     ↓
+PV
+     ↓
+Pod
+
+
+
+
+
+
+------------------------------
+Here:
+
+hostPath:
+  path: /data/myapp
+
+is where the storage comes from.
+
+It means:
+
+"Use the /data/myapp directory on the Kubernetes node as storage."
+
+So:
+
+Kubernetes Node
+     │
+     └── /data/myapp
+             ↑
+             │
+            PV
+             ↑
+             │
+            PVC
+             ↑
+             │
+            Pod
+
+There is no AWS EBS being automatically created.
+
+The important difference
+WITH StorageClass
+PVC
+ ↓
+StorageClass
+ ↓
+AWS EBS created automatically
+ ↓
+PV
+ ↓
+Pod
+WITHOUT StorageClass
+You provide storage
+       ↓
+PV
+       ↓
+PVC
+       ↓
+Pod
+
+So your question:
+
+"Without StorageClass, where does the storage come from?"
+
+Answer:
+
+From whatever storage source you configure in the PV.
+
+Examples include:
+
+hostPath
+NFS
+existing AWS EBS volume
+other storage systems
+
+For EKS, the common modern approach is:
+
+PVC
+ ↓
+StorageClass
+ ↓
+EBS CSI Driver
+ ↓
+AWS EBS volume
+
+because you don't have to manually create each EBS volume/PV.
+
+
+
+
+
+
+
+
+
 
 
 
