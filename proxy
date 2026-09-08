@@ -1,0 +1,296 @@
+Forward Proxy vs Reverse Proxy
+
+First remember:
+
+Forward Proxy → represents the CLIENT
+Reverse Proxy → represents the SERVER
+
+1. Forward Proxy
+
+A forward proxy is a server placed between the client and the internet.
+
+                Internet
+                   |
+              google.com
+                   |
+                   v
+            Forward Proxy
+                   |
+                   v
+              Client
+
+Normally:
+
+Client ───────────────> Google
+
+With a forward proxy:
+
+Client ───> Forward Proxy ───> Google
+What happens?
+
+Suppose you are inside a company.
+
+You want to access:
+
+https://example.com
+
+Your computer doesn't directly connect to the website.
+
+Instead:
+
+Your Laptop
+     |
+     | Request
+     v
+Corporate Proxy
+     |
+     | Request
+     v
+Internet
+     |
+     v
+example.com
+
+The proxy sends the request on behalf of your computer.
+
+So the website sees the proxy's connection, rather than a direct connection from your computer.
+
+Why use a forward proxy?
+1. Internet access control
+
+A company can say:
+
+Employee → Proxy → Internet
+
+The proxy can block certain websites.
+
+For example:
+
+Employee
+   |
+   v
+Proxy
+   |
+   +----> Google       ALLOW
+   |
+   +----> Facebook     BLOCK
+2. Security
+
+The company can inspect/control outgoing traffic.
+
+3. Logging
+
+The proxy can record:
+
+User A → google.com
+User B → github.com
+User C → example.com
+4. Caching
+
+If many users request the same content, the proxy may cache it.
+
+2. Reverse Proxy
+
+A reverse proxy is a server placed between users and backend servers.
+
+Users
+  |
+  v
+Reverse Proxy
+  |
+  +----> Backend Server 1
+  |
+  +----> Backend Server 2
+  |
+  +----> Backend Server 3
+
+For example, imagine your application has:
+
+Application Server 1
+Application Server 2
+Application Server 3
+
+Users should not directly access these servers.
+
+Instead:
+
+Internet
+    |
+    v
+Reverse Proxy
+    |
+    +----> App Server 1
+    |
+    +----> App Server 2
+    |
+    +----> App Server 3
+
+The user only knows about the reverse proxy.
+
+3. Why do we need a Reverse Proxy?
+
+There are several important reasons.
+
+A. Load Balancing
+
+Suppose 3 application servers exist:
+
+              Reverse Proxy
+               /     |     \
+              /      |      \
+             v       v       v
+           App1     App2    App3
+
+Requests can be distributed:
+
+Request 1 → App1
+Request 2 → App2
+Request 3 → App3
+Request 4 → App1
+Request 5 → App2
+
+This prevents one server from receiving all the traffic.
+
+4. SSL/TLS Termination
+
+Suppose users access:
+
+https://myapp.com
+
+The reverse proxy can handle HTTPS.
+
+User
+ |
+ | HTTPS
+ v
+Reverse Proxy
+ |
+ | HTTP
+ v
+Application Server
+
+The reverse proxy decrypts the HTTPS request and forwards it to the backend.
+
+This is called SSL/TLS termination.
+
+5. Hiding Backend Servers
+
+Without reverse proxy:
+
+User → App Server 1
+User → App Server 2
+User → App Server 3
+
+Users can potentially know the backend servers.
+
+With reverse proxy:
+
+User
+ |
+ v
+Reverse Proxy
+ |
+ +----> App1
+ +----> App2
+ +----> App3
+
+The backend servers are behind the reverse proxy.
+
+The user communicates with the reverse proxy rather than directly with the backend servers.
+
+6. Routing
+
+A reverse proxy can route requests based on the URL.
+
+For example:
+
+                  NGINX
+                    |
+          +---------+---------+
+          |                   |
+          v                   v
+     /api/users           /api/orders
+          |                   |
+          v                   v
+     User Service        Order Service
+
+Request:
+
+myapp.com/api/users
+
+goes to:
+
+User Service
+
+Request:
+
+myapp.com/api/orders
+
+goes to:
+
+Order Service
+
+This is commonly called path-based routing.
+
+7. NGINX as Reverse Proxy
+
+This is a very common interview question.
+
+You can say:
+
+NGINX can act as a reverse proxy by receiving requests from clients and forwarding those requests to backend application servers. It can also provide load balancing, SSL termination, caching, and routing.
+
+Example:
+
+Client
+   |
+   | HTTP/HTTPS
+   v
+ NGINX
+   |
+   +----------> Java Application
+   |
+   +----------> Node.js Application
+   |
+   +----------> Python Application
+8. Forward Proxy vs Reverse Proxy
+Feature	Forward Proxy	Reverse Proxy
+Represents	Client	Server
+Located near	Client	Server
+Main direction	Client → Internet	Internet → Server
+Hides	Client	Backend servers
+Used for	Outgoing traffic	Incoming traffic
+Access control	Client internet access	Server/application access
+Load balancing	Usually no	Yes
+SSL termination	Usually no	Yes
+Example	Corporate proxy	NGINX
+Main purpose	Control/protect clients	Protect/manage servers
+
+
+
+
+A forward proxy sits between the client and the internet and represents the client. It is mainly used for controlling, filtering, logging, and securing outgoing traffic.
+
+A reverse proxy sits between clients and backend servers and represents the server side. It is commonly used for load balancing, SSL termination, routing, caching, and hiding backend servers. NGINX is a common example of a reverse proxy.
+
+In Kubernetes, an Ingress Controller such as NGINX Ingress commonly acts as a reverse proxy and routes external requests to Kubernetes Services and Pods.
+
+
+--------------------------
+SSL/TLS
+
+People still commonly say "SSL certificate", but technically modern certificates are used with TLS.
+
+Interview answer
+
+SSL was the older security protocol. TLS is its successor and is the protocol used today. When people say SSL/TLS, they usually mean TLS.
+
+For example:
+
+HTTPS
+  ↓
+HTTP + TLS
+  ↓
+Secure encrypted communication
+
+So when you hear "SSL termination", in modern systems it usually means TLS termination.
