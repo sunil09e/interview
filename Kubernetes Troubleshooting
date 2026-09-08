@@ -312,6 +312,161 @@ FailedMount
 FailedAttachVolume
 
 Then investigate:  PVC → PV → StorageClass → underlying storage
+Underlying storage means the actual physical/cloud storage where the data is stored.
+For example, in AWS:
+
+Pod
+ ↓
+PVC
+ ↓
+PV
+ ↓
+EBS Volume  ← underlying storage
+
+Here:
+
+Pod → uses the storage
+PVC → requests storage
+PV → represents/provides that storage to Kubernetes
+EBS Volume → the actual storage where the data lives
+
+So when we say “check the underlying storage”, we mean check the actual storage system, such as:
+
+AWS → EBS
+Azure → Azure Disk
+GCP → Persistent Disk
+On-premises → NFS, SAN, local disk, etc.
+
+
+
+If the interviewer asks:   How do you troubleshoot a Kubernetes storage issue?
+
+Say:
+"First, I check the Pod status and describe the Pod to look at Events. If there is a FailedMount or FailedAttachVolume error,
+I check the PVC status using kubectl get pvc and kubectl describe pvc. Then I check the associated PV using kubectl get pv and
+kubectl describe pv. If dynamic provisioning is being used, I check the StorageClass and CSI driver. Finally, I check the node and underlying
+cloud storage for attachment or mount issues."
+
+
+
+Now, how do we troubleshoot storage?
+
+Suppose your Pod says:  STATUS: Pending
+or:FailedMount or:FailedAttachVolume
+
+Start with the Pod.
+kubectl get pods
+Then:  kubectl describe pod <pod-name>
+Look at:  Events:
+For example:
+Warning  FailedMount
+Unable to attach or mount volumes
+Now you know there is a storage-related problem.
+
+Check the PVC
+Run:kubectl get pvc
+
+This is important.
+Pending
+means:  The PVC has not successfully obtained/bound to storage yet.
+
+Then:kubectl describe pvc myapp-pvc
+Look at the Events.
+For example:
+Warning  ProvisioningFailed
+failed to provision volume
+Now investigate the StorageClass or underlying storage system.
+
+Check the PV
+Run:kubectl get pv
+
+Important statuses include:
+Available
+Bound
+Released
+Failed
+
+Available    PV is free and can potentially be claimed.
+Bound       PV is already attached/bound to a PVC.
+Released    The PVC was deleted, but the PV may still contain information/data depending on its reclaim policy.
+Failed      Something went wrong with the PV.
+
+Check StorageClass
+Run:kubectl get storageclass
+
+kubectl describe storageclass gp3
+You can check:
+
+Provisioner
+Parameters
+Reclaim policy
+Volume binding mode
+
+
+
+You might see:  FailedMount
+Then the problem can be related to:
+
+Volume attachment
+CSI driver
+Mount permissions
+Filesystem
+Node
+Availability zone
+Access mode
+
+Check:  kubectl describe pod <pod-name>
+
+
+FailedAttachVolume
+means Kubernetes is having trouble attaching the volume to the node.
+For example:
+
+Pod
+ ↓
+Needs volume
+ ↓
+PV
+ ↓
+Cloud disk
+ ↓
+Cannot attach to node
+
+In AWS, you may need to investigate the EBS CSI driver and the underlying EBS volume.
+
+
+
+
+accessModes:
+  - ReadWriteOnce
+
+ReadWriteOnce generally means the volume can be mounted read-write by a single node at a time.
+
+If you have:
+Pod 1 → Node 1
+Pod 2 → Node 2
+
+and both need the same RWO volume, you can run into attachment/mounting problems depending on the storage implementation.
+That's why you need to understand:
+RWO → ReadWriteOnce
+ROX → ReadOnlyMany
+RWX → ReadWriteMany
+
+
+
+What if the Node itself has a problem?
+
+Suppose:
+PVC = Bound
+PV  = Bound
+Pod = Pending/ContainerCreating
+
+but the volume cannot attach.
+
+Check:  kubectl get nodes
+Then:  kubectl describe node <node-name>
+You may find:  NotReady
+or resource/taint problems.
 
 
 14. Deployment troubleshooting
@@ -400,11 +555,43 @@ Finally, I verify the Deployment and rollout status and roll back if necessary.
 
 You use kubectl rollout to check and manage a Deployment's rollout.
 -----------------------------------------------------------------------
+CSI Driver means Container Storage Interface Driver.
+
+In simple words:
+
+CSI driver is the component that allows Kubernetes to communicate with the actual storage system.
+
+Example in AWS:
+
+Pod
+ ↓
+PVC
+ ↓
+PV
+ ↓
+CSI Driver
+ ↓
+AWS EBS Volume
+
+The CSI driver handles things like:
+
+Create a volume
+Attach volume to a node
+Mount volume into a Pod
+Detach/unmount volume
+
+For AWS, a common CSI driver is the EBS CSI Driver.
+
+So remember:
+
+PVC = asks for storage
+PV = represents storage
+CSI driver = connects Kubernetes to the actual storage
+EBS = actual storage
 
 
 
-
-
+--------------------------------------
 
 
 
