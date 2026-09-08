@@ -112,6 +112,95 @@ Doesn't remember previous request	Remembers previous interaction
 Each request is independent	Requests can depend on previous state
 REST APIs commonly use stateless design	Sessions commonly maintain state
 Easier to scale	State management is required
+
+
+Security Group — Stateful
+
+Example:
+
+Your laptop
+   ↓
+   ↓ Request: TCP 80
+   ↓
+EC2
+
+Security Group has:
+
+Inbound:
+Allow TCP 80
+
+The EC2 sends the response:
+
+EC2
+   ↓
+   ↓ Response
+   ↓
+Your laptop
+
+You don't need to separately allow that response in the Security Group.
+
+Why?
+
+Because SG is stateful — it remembers:
+
+"This response belongs to a connection that I already allowed."
+Simple example
+Client → EC2
+       Request ✅
+
+EC2 → Client
+     Response ✅ automatically
+
+That's what "return traffic is automatically allowed" means.
+
+
+
+NACL does NOT remember the connection. It checks inbound and outbound traffic separately.
+
+Example:
+
+Client
+   |
+   | Request → TCP 80
+   ↓
+ NACL
+   ↓
+ EC2
+
+Suppose NACL has:
+
+Inbound:
+Allow TCP 80
+
+The request can enter the EC2.
+
+Now EC2 sends the response:
+
+EC2
+   |
+   | Response
+   ↓
+ NACL
+   ↓
+Client
+
+Because NACL is stateless, you must also have an appropriate outbound rule allowing the response traffic.
+
+Easy way to remember
+
+Security Group → Stateful
+
+Request  → ✅
+Response → ✅ automatically
+
+NACL → Stateless
+
+Request  → Check inbound rule ✅
+Response → Check outbound rule separately ✅
+
+So in an interview:
+
+NACL is stateless because it doesn't remember established connections. Inbound and outbound traffic are evaluated independently.
 ------------------------------------------
 Common TCP/UDP Ports
 Port	Protocol	TCP/UDP	Why / Purpose
@@ -842,3 +931,45 @@ Office
             └── Private Subnet
 
 So VLAN is for segmentation, VPC is for cloud networking, and VPN is for secure connectivity.
+--------------------
+
+If the interviewer asks "What is DHCP?", give this answer:
+
+DHCP stands for Dynamic Host Configuration Protocol. It is used to automatically assign network configuration to devices, such as an IP address, subnet mask, default gateway, and DNS server. DHCP uses UDP ports 67 and 68, and the IP assignment process commonly follows DORA: Discover, Offer, Request, and Acknowledge.
+
+If they ask for a simple explanation
+
+"When a device joins a network, it may not have an IP address. DHCP automatically provides an available IP address and other network details so the device can communicate on the network."
+
+If they ask "Explain DORA"
+D → Discover    → Client searches for DHCP server
+O → Offer       → Server offers an IP
+R → Request     → Client requests that IP
+A → ACK         → Server confirms the IP
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
