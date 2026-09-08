@@ -223,6 +223,202 @@ If you mean to continuously see live CPU and memory usage, use:  watch kubectl t
 It will refresh the output automatically.
 For nodes:  watch kubectl top nodes
 
+Example
+Every 2.0s: kubectl top pods
+
+NAME     CPU(cores)   MEMORY(bytes)
+nginx    10m          25Mi
+app      150m         310Mi
+
+After a few seconds, it updates:
+
+NAME     CPU(cores)   MEMORY(bytes)
+nginx    15m          27Mi
+app      180m         325Mi
+
+So watch = keep running the command repeatedly and refresh the output.
+
+
+
+
+kubectl logs -f <pod-name>
+Here -f means follow.   It continuously shows new log lines as the application produces them, similar to:
+tail -f
+
+Example:  kubectl logs -f nginx
+Output:
+Server started
+Request received
+Request received
+Request received
+
+If a new request happens, the new log appears automatically.
+
+Important difference
+kubectl logs <pod>
+       ↓
+Show existing logs and stop
+
+kubectl logs -f <pod>
+       ↓
+Show logs + keep watching new logs
+
+So:  -f = follow the logs continuously.
+
+-f vs watch
+
+kubectl logs -f
+
+kubectl logs -f <pod>
+-f = follow
+Waits for new log lines
+Used with logs
+
+watch kubectl top pods
+
+watch kubectl top pods
+watch = run the command repeatedly
+Refreshes CPU/memory information
+Used with commands like kubectl top
+Simple difference
+-f       → follow new output (logs)
+watch    → repeatedly run and refresh a command
+
+So, both let you keep watching, but they work differently.
+
+
+12. Configuration problems
+
+Check ConfigMaps:
+kubectl get configmap
+kubectl describe configmap <configmap-name>
+
+Check Secrets:  kubectl get secrets
+Don't expose secret values unnecessarily.
+Check whether the Deployment actually references them:    kubectl describe deployment <deployment-name>
+
+
+13. Storage problem
+If a Pod is stuck because of storage:
+
+kubectl get pv
+kubectl get pvc
+
+Check:  kubectl describe pvc <pvc-name>
+
+Possible problems:
+Pending PVC
+FailedMount
+FailedAttachVolume
+
+Then investigate:  PVC → PV → StorageClass → underlying storage
+
+
+14. Deployment troubleshooting
+
+Check:
+kubectl get deployment
+kubectl describe deployment <deployment-name>
+
+Check ReplicaSets:  kubectl get rs
+Check rollout:  kubectl rollout status deployment/<deployment-name>
+Check rollout history:  kubectl rollout history deployment/<deployment-name>
+If the latest deployment is broken:  kubectl rollout undo deployment/<deployment-name>
+
+ kubectl rollout status deployment/<deployment-name>
+Shows the current rollout progress/status.
+Example:
+Waiting for deployment "nginx" rollout to finish: 2 of 3 updated replicas are available...
+deployment "nginx" successfully rolled out
+Meaning:  Is the latest Deployment update finished successfully or not?
+
+
+kubectl rollout history deployment/<deployment-name>
+Shows the previous revisions/versions of the Deployment.
+Example:
+REVISION  CHANGE-CAUSE
+1         Initial deployment
+2         Updated nginx image
+3         Updated replicas
+
+Meaning: What versions/changes has this Deployment gone through?
+
+
+rollout = updating/replacing the application version
+rollout status = Is the update finished?
+rollout history = What previous versions/updates happened?
+rollout undo = Go back to a previous version
+
+
+rollout   Rolling update
+Rolling update is one strategy for performing that rollout.
+Rollout is the overall process of changing a Deployment from one revision to another.
+
+Rollout
+Version 1
+v1
+ ↓
+Rollout starts
+ ↓
+Version 2
+v2
+
+If the Deployment has 3 Pods, and the rollout uses a RollingUpdate strategy:
+
+Start:
+v1  v1  v1
+ ↓
+v2  v1  v1
+ ↓
+v2  v2  v1
+ ↓
+v2  v2  v2
+
+So the key point is:
+
+Rollout = the overall update process
+RollingUpdate = the way Pods are gradually changed during the rollout
+
+And if something goes wrong:
+
+v2  v2  v2
+     ↓
+   Rollback
+     ↓
+v1  v1  v1
+
+⭐ Interview Troubleshooting Flow
+
+If interviewer says:   "My application is not working. How will you troubleshoot it?"
+You can answer:
+First, I check the Pod status using kubectl get pods. If the Pod is not running, I use kubectl describe pod and check the Events.
+Then I check the application logs using kubectl logs, including --previous if the container has restarted.
+If the Pod is healthy but the application is not reachable, I check the Service and its endpoints, making sure the Service selector matches the Pod labels. 
+Then I check Ingress if external access is involved. I also check node health, CPU/memory, ConfigMaps, Secrets, and PVCs depending on the error.
+Finally, I verify the Deployment and rollout status and roll back if necessary.
+
+
+You use kubectl rollout to check and manage a Deployment's rollout.
+-----------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
