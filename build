@@ -829,6 +829,65 @@ In pom.xml:
 
 Here Spring Core is a dependency of your application, and 6.2.0 specifies which version Maven should use.
 
-So simply:
+So simply:  Dependency = a library/package that your project depends on.
 
-Dependency = a library/package that your project depends on.
+
+
+Comparison
+Language	     Run application
+Java	        java -jar app.jar   CMD ["java", "-jar", "app.jar"]      ""
+Node.js      	node app.js        CMD ["node", "app.js"]    ENTRYPOINT ["node", "app.js"]
+Python	        python app.py    CMD ["python", "app.py"]        ""
+
+
+
+
+Yes, sometimes you don't need to give CMD in the Dockerfile, because the base image already provides a default command.
+
+Example: Python
+If you use:  FROM python:3.12
+the Python image itself does not automatically know which .py file your application should run.
+So normally you need:
+CMD ["python", "app.py"]
+
+
+Example: Node.js
+FROM node:22
+Again, Node doesn't automatically know which application file to run.
+You normally use:  CMD ["node", "app.js"]
+But some images have a default command
+
+
+For example, an Nginx image:
+FROM nginx
+You don't have to write:  CMD ["nginx", "-g", "daemon off;"]
+because the Nginx base image already defines a default CMD.
+
+
+CMD ["nginx", "-g", "daemon off;"]
+is used to start Nginx inside a Docker container.
+
+What each part means
+nginx
+  ↓
+Start the Nginx server
+
+-g
+  ↓
+Set a global Nginx configuration
+
+daemon off;
+  ↓
+Keep Nginx running in the foreground
+
+
+Why daemon off;?
+Normally, Nginx runs as a background process (daemon).
+But Docker expects the main application to keep running as the foreground process.
+
+So:  CMD ["nginx", "-g", "daemon off;"]
+
+means:  Start Nginx and keep it running in the foreground so the Docker container stays alive.
+If Nginx exits, the container also stops.
+This is why the official Nginx Docker image uses this kind of command by default.
+
