@@ -28,7 +28,7 @@ Kubernetes then binds the PVC to a suitable PV.
 PVC ─────→ PV
 5 GiB        10 GiB
 request      available
-3. StorageClass
+3. StorageClass    Dynamic provisioning   For example, in AWS, the StorageClass may dynamically provision an EBS volume.
 
 StorageClass defines how Kubernetes should provision storage. It is mainly used for dynamic provisioning, so we don't have to manually create PVs.
 
