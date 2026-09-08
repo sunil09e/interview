@@ -624,16 +624,133 @@ AWS EBS volume
 
 because you don't have to manually create each EBS volume/PV.
 
+-------------------------------------------------------
+
+network/networkpolicy.yaml means you have a NetworkPolicy YAML file inside a network folder.
+
+For example:
+kubernetes-project/
+│
+├── network/
+│   └── networkpolicy.yaml
+│
+├── deployment/
+│   └── deployment.yaml
+│
+└── service/
+    └── service.yaml
+What is networkpolicy.yaml?
+
+A NetworkPolicy controls which Pods can communicate with which Pods.
+
+
+Think of it like a firewall for Pod-to-Pod network traffic.
+
+For example:
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: backend-policy
+
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+Understand the important parts
+podSelector:
+  matchLabels:
+    app: backend
+
+Means:
+
+This policy applies to Pods having app: backend.
+
+Then:
+
+policyTypes:
+  - Ingress
+
+Means:
+
+We are controlling incoming traffic to the backend Pods.
+
+Then:
+
+from:
+  - podSelector:
+      matchLabels:
+        app: frontend
+
+Means:
+
+Only Pods with app: frontend are allowed to send traffic to the backend.
+
+So:
+
+Frontend Pod
+     |
+     | ✅ allowed
+     v
+Backend Pod
+
+But:
+
+Other Pod
+     |
+     | ❌ blocked
+     v
+Backend Pod
+Important
+
+The NetworkPolicy does not create a Pod or Service.
+
+It only defines network communication rules for existing Pods.
+
+Also, NetworkPolicy works only if your Kubernetes network plugin/CNI supports NetworkPolicy enforcement.
 
 
 
+If you mean without network/networkpolicy.yaml, then:
 
+kubernetes-project/
+│
+├── deployment/
+│   └── deployment.yaml
+│
+└── service/
+    └── service.yaml
 
+There is no NetworkPolicy.
 
+By default, Kubernetes generally allows Pods to communicate with each other over the cluster network (subject to the CNI/network configuration).
 
+For example:
 
+Frontend Pod ───────► Backend Pod
+     ✅                  ✅
 
+If you add networkpolicy.yaml, you can restrict that communication:
 
+Frontend Pod ───────► Backend Pod
+     ✅
+Other Pod ──────────► Backend Pod
+     ❌
+
+So simply:
+
+Without NetworkPolicy = no NetworkPolicy-based restriction.
+With NetworkPolicy = you define which Pod traffic is allowed/blocked.
 
 
 
