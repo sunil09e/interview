@@ -1,0 +1,244 @@
+In Kubernetes, troubleshooting means finding why an application/pod is not working and fixing the problem.
+
+A good interview approach is:
+Pod → Events → Logs → Service → Ingress → Node → Resources → Storage → Configuration
+
+
+1. Check the Pods first   kubectl get pods
+For a specific namespace:  kubectl get pods -n dev
+For more details:  kubectl get pods -o wide
+
+2. Describe the Pod   kubectl describe pod <pod-name>
+
+This is one of the most important troubleshooting commands.
+
+Look mainly at:
+Events:
+For example:
+FailedScheduling
+ImagePullBackOff
+ErrImagePull
+FailedMount
+CrashLoopBackOff
+
+Events often tell you why Kubernetes is having a problem.
+
+
+Events means Kubernetes keeps a record of important things that happened to a resource, especially things related to errors or scheduling.
+For example, run:  kubectl describe pod nginx
+
+At the bottom you may see:
+Events:
+  Type     Reason            Message
+  ----     ------            -------
+  Normal   Scheduled         Successfully assigned pod to node
+  Normal   Pulling           Pulling image "nginx"
+  Normal   Pulled            Successfully pulled image
+  Warning  FailedMount       Unable to mount volume
+
+Simple meaning   Think of Events as Kubernetes' activity/error history for that Pod.
+
+Scheduled → Pod was assigned to a node
+Pulling → Kubernetes is downloading the image
+Pulled → Image downloaded successfully
+Failed → Something failed
+FailedMount → Storage could not be mounted
+FailedScheduling → Kubernetes couldn't find a suitable node
+BackOff → Kubernetes is repeatedly trying again
+
+So during troubleshooting:
+Pod not working
+      ↓
+kubectl describe pod
+      ↓
+Check Events
+      ↓
+Find the reason for the problem
+
+Interview answer:  "Events show the important activities, warnings, and errors that Kubernetes records for a resource. 
+I check them using kubectl describe to understand why a Pod or other resource is not working."
+
+
+Kubernetes Events vs Logs
+
+The easiest way to remember:
+Events = What Kubernetes is doing
+Logs = What the application/container is doing
+
+	               Events	                                 Logs
+Comes from    	Kubernetes	                      Application/container
+Tells you    	Kubernetes-level activities/errors	Application output/errors
+Example         	FailedScheduling               	Database connection refused
+Command	          kubectl describe pod <pod>          	kubectl logs <pod>
+Useful for    	Pod scheduling, image pulling, volumes, probes	       Application crashes, exceptions, errors
+
+Example
+Suppose your Pod is:  CrashLoopBackOff
+First:  kubectl describe pod myapp
+Events might show:   Warning  BackOff  Back-off restarting failed container
+
+This tells you Kubernetes is repeatedly restarting the container.
+
+Then:  kubectl logs myapp
+You might see:  ERROR: Unable to connect to database
+This tells you why the application is crashing.
+
+If you specifically want all Events
+kubectl get events
+
+So:
+kubectl describe pod → Pod details + Events
+kubectl describe svc → Service details + Events
+kubectl get events → Events directly
+
+
+kubectl get events shows the events/activities that Kubernetes has recorded in the current namespace.
+Example:  kubectl get events
+
+You might see:
+LAST SEEN   TYPE      REASON             OBJECT              MESSAGE
+2m          Normal    Scheduled          pod/nginx            Successfully assigned pod to node1
+2m          Normal    Pulling            pod/nginx            Pulling image "nginx"
+1m          Normal    Pulled             pod/nginx            Successfully pulled image
+1m          Normal    Started            pod/nginx            Started container nginx
+30s         Warning   FailedScheduling   pod/myapp            0/2 nodes are available
+What each column means
+LAST SEEN → When the event happened
+TYPE → Normal or Warning
+REASON → What happened, e.g. FailedScheduling
+OBJECT → Which resource had the event, e.g. Pod
+MESSAGE → Detailed explanation
+
+For troubleshooting, the REASON + MESSAGE are especially important.
+You can also see events from a specific namespace:  kubectl get events -n dev
+So simply:  kubectl get events = Show Kubernetes events so we can understand what is happening or what went wrong.
+
+
+
+
+3. Check Pod logs  kubectl logs <pod-name>
+If the Pod has multiple containers:  kubectl logs <pod-name> -c <container-name>
+For previous crashed container logs:    kubectl logs <pod-name> --previous
+
+
+7. Pod is Running but application is not accessible
+Now check the Service.
+kubectl get svc
+
+Then: kubectl describe svc <service-name>   also shows Events at the bottom.
+
+
+Check Endpoints
+kubectl get endpoints <service-name>
+
+If you get:  ENDPOINTS: <none>
+the Service is not finding the Pods.
+Usually the problem is a selector/label mismatch.
+
+Example Service:
+selector:
+  app: nginx
+
+Pod:
+labels:
+  app: nginx
+
+These must match.
+
+
+For a Service problem, you would typically check:  kubectl describe svc nginx-service
+and especially:
+Selector
+Endpoints
+Ports
+
+
+8. Test the Service from inside the cluster
+
+You can enter a Pod:  kubectl exec -it <pod-name> -- sh
+Then:  curl http://nginx-service:80
+
+This helps determine whether the problem is:
+Application → Service
+or
+Service → outside/Ingress
+
+
+9. Ingress problem
+
+Check:  kubectl get ingress
+Then:  kubectl describe ingress <ingress-name>
+
+Check:
+Host
+Path
+Backend Service
+Service port
+Ingress controller
+DNS
+TLS certificate
+
+Also check the Ingress Controller:  kubectl get pods -n ingress-nginx
+and:  kubectl logs -n ingress-nginx <controller-pod>
+
+
+10. Check Nodes
+kubectl get nodes
+
+You want:
+STATUS
+Ready
+
+If:  NotReady
+investigate:  kubectl describe node <node-name>
+Also check:   kubectl get events
+
+
+11. Check CPU and Memory
+
+kubectl top pods                       shows how much CPU and memory each Pod is currently using.
+For nodes:  kubectl top nodes          shows CPU and memory usage of each node.
+If a Pod is consuming too much memory:
+
+NAME       CPU     MEMORY
+app-pod    500m    900Mi
+
+you may need to check its resource configuration:
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+If memory exceeds the limit, the container may be OOMKilled.
+
+
+
+
+If you mean to continuously see live CPU and memory usage, use:  watch kubectl top pods
+It will refresh the output automatically.
+For nodes:  watch kubectl top nodes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
