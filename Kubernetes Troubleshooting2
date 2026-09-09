@@ -1648,6 +1648,508 @@ then it can be:
 OOMKilled
 ------------------------------------------------------------
 
+7. Ingress 404
+
+Problem:
+
+404 Not Found
+
+Usually the request reached the Ingress/controller, but the path doesn't match the expected rule or the backend/application returns 404.
+
+Check
+kubectl get ingress -A
+kubectl describe ingress <ingress-name> -n <namespace>
+
+Check:
+
+rules:
+  - host: example.com
+    http:
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: my-service
+              port:
+                number: 80
+Check Service
+kubectl get svc -n <namespace>
+kubectl get endpoints <service-name> -n <namespace>
+Test Service directly
+kubectl port-forward svc/<service-name> 8080:80
+
+Then test:
+
+curl http://localhost:8080
+Fix
+
+Check:
+
+Host name
+Path
+pathType
+Service name
+Service port
+Backend application path
+
+
+8. Ingress 502 Bad Gateway
+
+Problem:
+
+502 Bad Gateway
+
+This usually means:
+
+Client
+ ↓
+Ingress
+ ↓
+Service
+ ↓
+Pod
+ X
+
+Ingress can receive the request but cannot successfully communicate with the backend.
+
+Check
+kubectl describe ingress <ingress-name>
+kubectl get svc
+kubectl get endpoints <service-name>
+
+If:  Endpoints: <none>
+fix the Service selector/pod labels.
+
+Check Pod
+kubectl get pods
+kubectl logs <pod-name>
+Check Service port
+
+For example:
+
+service:
+  ports:
+    - port: 80
+      targetPort: 8080
+
+Application must listen on 8080.
+
+Test
+kubectl port-forward svc/<service-name> 8080:80
+curl http://localhost:8080
+
+If this fails, the problem is Service → Pod/Application, not Ingress.
+
+
+No problem. Think of port-forward as a temporary tunnel from your laptop to a Pod/Service inside Kubernetes.
+
+Simple example
+
+You have:
+
+Kubernetes
+   |
+   |-- Service: nginx-service :80
+   |
+   |-- Pod: nginx
+          :80
+
+Normally, you cannot directly access that internal Service from your laptop.
+So you run:  kubectl port-forward svc/nginx-service 8080:80
+This creates:
+
+Your Laptop
+localhost:8080
+     |
+     | temporary tunnel
+     ↓
+Kubernetes Service
+nginx-service:80
+     |
+     ↓
+Pod:80
+
+Now, on your laptop, run:  curl http://localhost:8080
+The request goes:
+
+localhost:8080
+      ↓
+nginx-service:80
+      ↓
+nginx Pod:80
+What does 8080:80 mean?
+8080 : 80
+  ↑     ↑
+  |     |
+Laptop  Service
+port    port
+
+So:  "When I access port 8080 on my laptop, send that traffic to port 80 of the Kubernetes Service."
+
+Why use it?
+Suppose your Service is not reachable through Ingress.
+
+Instead of troubleshooting everything at once, you can test the Service directly:   kubectl port-forward svc/nginx-service 8080:8
+Then:  curl http://localhost:8080
+If it works:  Port-forward → Service → Pod ✅
+
+Then you know the problem is probably Ingress/external access, not the Service or Pod.
+One important point: kubectl port-forward is mainly a testing/debugging method, not normally how users access your production application.
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+9. DNS Issue
+
+Problem:  Pod cannot resolve:
+
+Check DNS pods      kubectl get pods -n kube-system
+Test DNS from a pod    kubectl exec -it <pod-name> -- nslookup <service-name>
+or:   kubectl exec -it <pod-name> -- nslookup google.com
+Check Service DNS
+For Service:  my-service
+inside the same namespace.
+
+
+my-serviceWhat is DNS in Kubernetes?
+DNS converts a name into an IP address.
+
+For example, instead of remembering:  10.96.20.5
+your application can use:  mysql-service
+Kubernetes DNS finds the Service IP for mysql-service.
+
+Example
+
+You have:
+Service
+Name: mysql-service
+Cluster IP: 10.96.20.5
+
+Your application Pod wants to connect to MySQL.
+It uses:  mysql-service:3306
+
+DNS does:
+mysql-service
+      ↓
+Kubernetes DNS
+      ↓
+10.96.20.5
+      ↓
+MySQL Service
+      ↓
+MySQL Pod
+
+So DNS is like a phone book:
+Name                  IP
+mysql-service    →    10.96.20.5
+
+
+
+How do we check DNS?
+Enter a Pod:  kubectl exec -it <pod-name> -- sh
+Then:  nslookup mysql-service
+
+If DNS works, you get something like:
+Name:      mysql-service.default.svc.cluster.local
+Address:   10.96.20.5
+
+That means:
+mysql-service
+      ↓
+DNS found the Service IP
+      ↓
+10.96.20.5 ✅
+
+If you get:  nslookup: can't resolve 'mysql-service'
+then you have a DNS resolution problem.
+
+
+What is CoreDNS?
+Kubernetes normally uses CoreDNS to provide cluster DNS.
+
+Check it:  kubectl get pods -n kube-system
+You may see:
+coredns-xxxxx    Running
+coredns-yyyyy    Running
+
+If CoreDNS is not running:
+Pod
+ ↓
+"Where is mysql-service?"
+ ↓
+CoreDNS ❌
+ ↓
+Cannot find IP
+
+Then DNS won't work.
+
+Check CoreDNS logs:    kubectl logs -n kube-system -l k8s-app=kube-dns
+Also:      kubectl get svc -n kube-system kube-dns
+
+Remember this for interview
+DNS issue means the Pod cannot convert a Kubernetes Service name, such as mysql-service, into its IP address.
+I check DNS from inside the Pod using nslookup, then check CoreDNS if name resolution fails.
+
+
+You test DNS from inside the application Pod because you want to know:   "Can my application Pod resolve the Service name?"
+
+Example
+Suppose:
+Application Pod → myapp-pod
+Database Service → mysql-service
+
+First enter the application Pod:  kubectl exec -it myapp-pod -- sh
+Then test:  nslookup mysql-service
+
+Or directly without entering:
+kubectl exec -it myapp-pod -- nslookup mysql-service
+If it works
+mysql-service
+      ↓
+DNS
+      ↓
+10.96.20.5
+
+✅ DNS is working.
+
+If it doesn't work
+mysql-service
+      ↓
+DNS ❌
+      ↓
+cannot resolve
+Then you investigate CoreDNS, DNS configuration, or NetworkPolicy.
+
+
+
+You may see:
+coredns-7db6d8ff4d-abc12
+coredns-7db6d8ff4d-xyz34
+
+Those are Pods.
+So when you run:  kubectl rollout restart deployment coredns -n kube-system
+you are restarting the CoreDNS Deployment, which causes its CoreDNS Pods to be recreated.
+Interview answer:  "CoreDNS is deployed as a Deployment, and that Deployment manages the CoreDNS Pods."
+
+
+Fix
+If CoreDNS is unhealthy:
+kubectl get pods -n kube-system
+kubectl rollout restart deployment coredns -n kube-system
+Also check NetworkPolicies if DNS traffic is being blocked.
+---------------------------------------------------------------------------------
+10. Connectivity Issue      Connectivity issue means one component cannot connect to another component over the network.
+First determine where connectivity breaks.
+
+Pod
+ ↓
+Service
+ ↓
+Pod
+ ↓
+External service
+Check Pod IP
+kubectl get pods -o wide
+Check Service
+kubectl get svc
+kubectl get endpoints
+Test from inside Pod
+kubectl exec -it <pod-name> -- curl http://<service-name>:80
+
+Test IP:  kubectl exec -it <pod-name> -- curl http://<pod-ip>:8080
+Test DNS:  kubectl exec -it <pod-name> -- nslookup <service-name>
+
+Test external connectivity:  kubectl exec -it <pod-name> -- curl -I https://google.com
+If DNS works but connection fails
+
+Check:
+Service
+Endpoints
+NetworkPolicy
+Firewall/security groups
+Application listening port
+Routing
+
+Check NetworkPolicy   kubectl get networkpolicy -A
+kubectl describe networkpolicy <policy-name>
+
+
+
+Connectivity issue means one component cannot connect to another component over the network.
+For example:
+Application Pod
+      ↓
+      X  ❌ cannot connect
+      ↓
+Database Pod
+
+Example
+Your application wants to connect to MySQL:
+Application Pod
+    ↓
+mysql-service:3306
+    ↓
+MySQL Pod
+
+If the connection fails, that's a connectivity issue.
+
+
+
+How to check
+
+First check the Service:
+kubectl get svc
+kubectl get endpoints mysql-service
+
+Then test from the application Pod:  kubectl exec -it <app-pod> -- curl http://mysql-service:3306
+
+For DNS:  kubectl exec -it <app-pod> -- nslookup mysql-service
+
+So there are two different problems:
+DNS problem:
+mysql-service → ❌ cannot find IP
+
+Connectivity problem:
+mysql-service → IP found → ❌ cannot connect
+
+
+
+
+
+Here, <app-pod> means your application Pod, NOT the DNS Pod.
+
+kubectl exec -it <app-pod> -- nslookup mysql-service
+Example:
+kubectl exec -it myapp-7d8f9 -- nslookup mysql-service
+What happens?
+                Kubernetes DNS
+                    ↓
+Application Pod ──→ CoreDNS ──→ mysql-service
+     ↑
+   nslookup
+You enter the application Pod using kubectl exec.
+nslookup mysql-service runs inside the application Pod.
+The application Pod asks Kubernetes DNS:
+"What IP address belongs to mysql-service?"
+CoreDNS receives the DNS request and returns the Service IP.
+
+
+
+Breaking it down
+kubectl exec -it <app-pod> --
+Means: Execute the following command inside the Application Pod.
+
+curl http://mysql-service:3306
+Means:  From inside that Application Pod, connect to mysql-service on port 3306.
+
+-------------------------------------------------------------------
+Application Pod 
+      ↓
+mysql-service:3306 
+      ↓
+  MySQL Pod
+
+
+The Application Pod calls the MySQL Service using the Service's DNS name:
+
+Application Pod
+     |
+     |  mysql-service:3306
+     ↓
+mysql-service
+     |
+     ↓
+MySQL Pod
+Step by step
+
+Inside your Application Pod, your application has a MySQL connection configuration like:
+
+MYSQL_HOST=mysql-service
+MYSQL_PORT=3306
+
+For example, in a Java application, it might use:   jdbc:mysql://mysql-service:3306/mydb
+The application says:  "Connect to host mysql-service on port 3306."
+
+Then Kubernetes does this
+
+1. Application sends DNS request
+Application Pod
+     |
+     | "What is the IP of mysql-service?"
+     ↓
+CoreDNS
+
+2. CoreDNS gives the Service IP
+For example:  mysql-service → 10.96.50.20
+
+3. Application connects to that IP
+
+Application Pod
+     |
+     | 10.96.50.20:3306
+     ↓
+mysql-service
+     |
+     ↓
+MySQL Pod:3306
+
+So the application doesn't directly know the MySQL Pod IP.
+It uses:  mysql-service:3306
+
+The Service finds the MySQL Pod using its selector:
+selector:
+  app: mysql
+
+That's how the Application Pod calls MySQL through the Service.
+
+
+
+ so the application ask what is the ip of service using that ip of service only they xcan see the pod ip
+The Application Pod gets the Service IP, but it does not normally see the Pod IP.
+Application Pod
+      |
+      | "What is the IP of mysql-service?"
+      ↓
+   CoreDNS
+      |
+      | "mysql-service = 10.96.50.20"
+      ↓
+Application Pod
+      |
+      | connects to 10.96.50.20:3306
+      ↓
+mysql-service
+      |
+      | internally forwards traffic
+      ↓
+MySQL Pod
+   10.244.1.15
+So there are 2 different IPs
+
+Service IP:  10.96.50.20
+
+The application uses this IP.
+Pod IP:  10.244.1.15
+
+The Service uses this to forward traffic to the MySQL Pod.
+So:
+Application → Service IP → Service → Pod IP → MySQL Pod
+The application doesn't need to know 10.244.1.15.
+
+If there are 3 MySQL Pods:
+mysql-service
+     |
+     ├── MySQL Pod 10.244.1.15
+     ├── MySQL Pod 10.244.2.20
+     └── MySQL Pod 10.244.3.25
+
+the application still only uses:  mysql-service:3306
+The Service handles which Pod receives the traffic.
+
+
+
+
+
+
 
 
 
