@@ -959,15 +959,694 @@ So "not guaranteed" means you cannot depend on Kubernetes automatically putting 
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------
 
+2. ImagePullBackOff / ErrImagePull
+Problem: Kubernetes cannot download the container image.
+
+Check
+-------
+kubectl get pods -n <namespace>
+kubectl describe pod <pod-name> -n <namespace>
+
+Look at:
+-----------
+Failed to pull image
+pull access denied
+repository does not exist
+unauthorized
+
+Common causes
+----------------
+Wrong image name
+Wrong tag
+Private registry authentication missing
+Image doesn't exist
+Registry/network problem
+
+Fix wrong image
+containers:
+  - name: app
+    image: nginx:1.27
+
+Instead of:
+image: nginx:wrongtag
+
+Private registry
+
+Create an image pull secret:
+kubectl create secret docker-registry regcred \
+  --docker-server=<registry-url> \
+  --docker-username=<username> \
+  --docker-password=<password>
+
+
+Kubernetes creates:
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <Kubernetes-generated-base64-value>
+
+So in your YAML:
+apiVersion: v1
+kind: Secret
+
+metadata:
+  name: regcred
+
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <BASE64_VALUE>
+
+<BASE64_VALUE> is generated from the Docker authentication configuration.
+
+Important
+If you want to write the actual value in the YAML yourself, you can generate it with:    cat ~/.docker/config.json | base64 -w 0
+
+Then put the output here:
+data:
+  .dockerconfigjson: <OUTPUT_FROM_ABOVE_COMMAND>
+
+So:  .dockerconfigjson = Base64-encoded Docker config containing the registry credentials.
 
 
 
 
 
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: myapp-deployment
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: myapp
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+
+    spec:
+      imagePullSecrets:
+        - name: regcred
+
+      containers:
+        - name: myapp
+          image: <registry-url>/myapp:1.0
+          ports:
+            - containerPort: 8080
+
+
+manually means 
+You can put the Docker config directly, without manually Base64-encoding it:
+
+apiVersion: v1
+kind: Secret
+
+metadata:
+  name: regcred
+
+type: kubernetes.io/dockerconfigjson
+
+stringData:
+  .dockerconfigjson: |
+    {
+      "auths": {
+        "https://index.docker.io/v1/": {
+          "username": "siva123",
+          "password": "mypassword",
+          "auth": "BASE64_USERNAME_PASSWORD"
+        }
+      }
+    }
+
+
+"auth": "BASE64_USERNAME_PASSWORD"
+means Base64 encoding of username:password.
+
+For example:
+Username = siva123
+Password = mypassword
+
+First combine them:  siva123:mypassword
+Then Base64 encode that:  c2l2YTEyMzpteXBhc3N3b3Jk
+The auth field is essentially a Base64-encoded username:password used by Docker registry authentication.
+
+Important: Base64 is only encoding. Anyone who can decode it can get the original value, so Kubernetes Secrets 
+should also be protected with proper access controls and encryption at rest.
+
+
+What this means
+imagePullSecrets:
+  - name: regcred
+
+means:  "When Kubernetes tries to pull this private image, use the credentials stored in the regcred Secret."
+
+Flow:
+Deployment
+    ↓
+Pod
+    ↓
+image: private-registry/myapp:1.0
+    ↓
+Private Registry
+    ↑
+regcred Secret
+    ↓
+Authentication
+    ↓
+Image downloaded ✅
+
+Without imagePullSecrets, if the registry is private, you may get:
+ErrImagePull
+ImagePullBackOff
+
+The important point is that regcred is not the username/password itself. It is the name of the Kubernetes Secret that contains the registry credentials.
+------------------------------------------------------------------------------------------------------------------------------------
+
+3. Service Not Reachable
+Problem: Pod is running, but Service cannot reach it.
+
+to check
+------
+selector mismatch
+no endpoints,  wrong targetport,network policy
+
+
+Think:
+
+Client
+  ↓
+Service
+  ↓
+Selector
+  ↓
+Pod
+  ↓
+Container
+Check Service     kubectl get svc -n <namespace>
+kubectl describe svc <service-name> -n <namespace>
+
+Check endpoints   kubectl get endpoints <service-name> -n <namespace>
+------------
+or:
+kubectl get endpointslices -n <namespace>
+
+
+Very important
+If you see:  Endpoints: <none>
+the Service is not finding the pods.
+
+Check labels
+------------
+kubectl get pods --show-labels -n <namespace>
+
+Service:
+selector:
+  app: nginx
+
+Pod:
+labels:
+  app: nginx
+They must match.
+
+
+Check Service port
+--------------
+Example:
+
+ports:
+  - port: 80
+    targetPort: 8080
+
+Meaning:
+Service port 80
+      ↓
+Pod port 8080
+Make sure the application is actually listening on 8080.
+
+
+Test from inside cluster
+kubectl exec -it <pod-name> -- curl http://<service-name>:80
+Verify
+kubectl get endpoints <service-name>
+
+
+It means this command:  kubectl get endpointslices -n <namespace>
+is used to see which Pod IP addresses are connected to a Service.
+Example
+Suppose you have a Service:  
+Service: nginx-service
+and 2 Pods:
+Pod 1 → 10.0.0.5
+Pod 2 → 10.0.0.6
+
+The EndpointSlice keeps track of those backend Pod addresses.
+Run:  kubectl get endpointslices -n default
+You might see:
+NAME             ADDRESSES         PORT
+nginx-service    10.0.0.5,10.0.0.6  80
+
+So the flow is:
+Client
+   ↓
+Service
+   ↓
+EndpointSlice
+   ↓
+Pod 10.0.0.5
+Pod 10.0.0.6
+Why check it?
+
+If the Service is not reachable, check whether the Service has Pods behind it.
+kubectl get endpointslices -n default
+If there are no addresses, Kubernetes isn't finding any matching/ready Pods for that Service.
+
+You can also use the simpler command:  kubectl get endpoints nginx-service
+Interview:  "I check EndpointSlices to verify which Pod endpoints are currently associated with the Service."
+
+
+
+"Endpoints and EndpointSlices both represent the backend addresses of a Service.
+EndpointSlice is the newer and more scalable mechanism, while Endpoints is the older resource."
+
+
+If you run:  kubectl get endpoints nginx-service
+you may see:
+NAME            ENDPOINTS
+nginx-service   10.0.0.5:80,10.0.0.6:80
+
+And:
+
+kubectl get endpointslices -n default
+may show:
+NAME             ADDRESSES             PORT
+nginx-service    10.0.0.5,10.0.0.6     80
+Both are showing the backend Pod IPs behind the Service.
+-----------------------------------------------------------------------------------------------------------------------------------------
+
+
+4. Node Not Ready
+Problem:
+
+STATUS: NotReady
+Check
+kubectl get nodes
+kubectl describe node <node-name>
+
+Look at:
+Conditions
+Events
+
+Also:  kubectl get pods -A -o wide
+
+
+Common causes
+---------------
+kubelet stopped
+Container runtime problem
+Disk full
+Memory pressure
+Network problem
+Node unreachable
+
+If you have SSH access
+systemctl status kubelet
+systemctl restart kubelet
+
+
+Check container runtime:  systemctl status containerd
+Disk:  df -h
+Memory:  free -h
+Verify   kubectl get nodes
+
+fix: restart kubelet, clean disk, check node, verify network
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+5. CrashLoopBackOff
+Problem: Container starts → crashes → Kubernetes restarts it → crashes again.
+
+Start
+ ↓
+Crash
+ ↓
+Restart
+ ↓
+Crash
+ ↓
+CrashLoopBackOff
+Check
+kubectl get pods
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+
+Most important:
+
+kubectl logs <pod-name> --previous
+--previous shows logs from the previous crashed container.
+kubectl logs mypod  you see logs from the current container instance.
+
+Common causes
+Application error
+Wrong environment variable
+Wrong ConfigMap/Secret
+Wrong command
+Wrong configuration
+Dependency unavailable
+Application exits immediately
+Liveness probe failure
+
+fix : fix application/startup issue, update configmap/secret,
+        check DB/API connectivity
+
+
+Check probes
+kubectl describe pod <pod-name>
+
+For example:
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+
+If /health doesn't exist, Kubernetes may repeatedly restart the container.
+
+Fix
+Fix the application/configuration/probe.
+
+Then:  kubectl rollout restart deployment <deployment-name>
+
+Verify
+kubectl get pods
+kubectl logs <pod-name>
+
+
+1. Health endpoint doesn't exist
+
+Deployment:
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+
+But your application does not have /health.
+Kubernetes checks:
+Kubernetes
+    ↓
+GET /health
+    ↓
+Application
+    ↓
+404 Not Found ❌
+
+If the liveness probe continues to fail, Kubernetes considers the container unhealthy and restarts the container.
+You may eventually see:  CrashLoopBackOff
+
+
+
+2. Health endpoint exists but is not healthy
+
+For example, /health returns:  200 OK
+✅ Probe succeeds → container continues running.
+But if it returns:  500 Internal Server Error
+❌ Probe fails → after the configured failure threshold, Kubernetes restarts the container.
+
+Important difference
+
+Liveness probe:  "Is the application still alive? If not, restart it."
+Readiness probe:  "Is the application ready to receive traffic? If not, don't send traffic to this Pod."
+
+So if readiness fails, Kubernetes normally does NOT restart the container. The Pod is removed from the Service's ready endpoints.
+
+Liveness fails
+    ↓
+Container restarted
+
+Readiness fails
+    ↓
+No traffic sent to Pod
+    ↓
+Container keeps running
 
 
 
 
+not have / health means not have the folder
+Not exactly. /health does not mean a folder.
+
+In this:
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+
+/health means an HTTP URL endpoint (route) exposed by your application.
+For example, your application might have:  http://localhost:8080/health
+
+When Kubernetes checks it, it sends:
+GET /health
+If your application has /health
+GET /health
+      ↓
+Application
+      ↓
+200 OK ✅
+
+Probe succeeds.
+If your application does NOT have /health
+GET /health
+      ↓
+Application
+      ↓
+404 Not Found ❌
+
+The application is saying:  "I don't have a route called /health."
+It doesn't mean a /health folder is missing.
+For example, in a Java/Spring Boot application, /health can be an API endpoint created by the application, not a physical folder.
+
+So:
+/health → URL/API endpoint
+not     → folder
+
+If you use a different endpoint, such as:  path: /actuator/health 
+then Kubernetes checks:  http://<pod-ip>:8080/actuator/health
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+6. OOMKilled
+
+Problem: Container uses more memory than its allowed memory limit.
+         pod get killed due to out of memory
+
+Check:
+kubectl describe pod <pod-name>
+You may see:  Reason: OOMKilled
+
+Also:
+kubectl get pod <pod-name> -o wide
+kubectl top pod <pod-name>
+Check resource configuration
+resources:
+  requests:
+    memory: "256Mi"
+
+  limits:
+    memory: "512Mi"
+
+If application needs 700 MiB but limit is:  512Mi
+it can be killed.
+
+Fix
+Increase memory limit if the application legitimately needs more:
+resources:
+  requests:
+    memory: "512Mi"
+  limits:
+    memory: "1Gi"
+
+But don't blindly increase it. Also investigate:
+------------------
+Memory leak
+Large requests
+JVM heap configuration
+Application memory usage
+
+Verify
+kubectl top pod <pod-name>
+kubectl describe pod <pod-name>
+
+
+I should have mentioned both CPU and memory. I focused on memory because we were discussing OOMKilled, which is specifically a memory-related problem.
+
+For Pod Pending
+
+Both can cause Pending:
+CPU request too high
+       ↓
+Not enough CPU on any Node
+       ↓
+Pod Pending
+
+or:
+
+Memory request too high
+       ↓
+Not enough memory on any Node
+       ↓
+Pod Pending
+For running containers
+CPU limit exceeded
+      ↓
+CPU throttling
+      ↓
+Container becomes slow
+Memory limit exceeded
+      ↓
+OOMKilled
+      ↓
+Container restarted
+
+So in an interview, say:   "CPU and memory both have requests and limits. Requests are used for scheduling,
+while limits restrict resource usage. CPU can be throttled when its limit is exceeded, while exceeding the memory limit can result in OOMKilled.
+
+
+Very important difference
+
+If CPU limit is exceeded:
+CPU usage > 500m
+       ↓
+CPU throttling
+       ↓
+Application becomes slower
+
+If memory limit is exceeded:
+Memory usage > 512Mi
+       ↓
+Container can be killed
+       ↓
+OOMKilled
+
+So remember:
+CPU → throttled
+Memory → OOMKilled
+
+
+what to check:  memory usage, limits too low, memory leak
+fix:        increase memory request/limits, tune application, investigate leak
+
+
+----------------
+Memory leak means the application keeps using memory but doesn't release memory that it no longer needs.
+
+Example:
+Application starts
+    ↓
+Uses 200 MB
+    ↓
+Handles requests
+    ↓
+Uses 300 MB
+    ↓
+More requests
+    ↓
+Uses 400 MB
+    ↓
+More requests
+    ↓
+Uses 500 MB
+    ↓
+Uses 600 MB
+    ↓
+Memory limit = 512 MB
+    ↓
+OOMKilled ❌
+
+So even though the application is not intentionally asking for more and more memory, some unused objects/data remain in memory.
+
+Interview definition:
+A memory leak is when an application continuously consumes memory without properly releasing unused memory,
+causing memory usage to grow over time and potentially resulting in OOMKilled.
+
+
+
+1. Large requests
+
+This means the application receives a large amount of data in one request.
+Example:
+
+Normal request → 10 MB
+Large request  → 2 GB
+
+The application may need much more memory to process the large request.
+
+Example:
+
+Memory limit = 512Mi
+       ↓
+Large request needs 700Mi
+       ↓
+Memory > 512Mi
+       ↓
+OOMKilled
+
+
+
+2. JVM heap configuration
+
+This applies to Java applications.
+The JVM uses part of the container's memory for the Java heap.
+
+Example:
+Container memory limit = 512Mi
+JVM heap = 450Mi
+
+The application also needs memory for things outside the heap—such as threads, native memory, and class metadata.
+
+So the total can exceed the container limit:
+
+JVM heap        = 450Mi
+Other memory    = 150Mi
+-----------------------
+Total           = 600Mi
+Container limit = 512Mi
+
+Result:
+600Mi > 512Mi
+     ↓
+OOMKilled
+
+Java heap means the part of memory where a Java application stores objects and data created while the application is running.
+For example:
+
+Java application
+      ↓
+Creates objects/data
+      ↓
+Java Heap
+      ↓
+Memory used
+
+3. Application memory usage
+This simply means how much memory the application is actually using.
+Check it with:  kubectl top pod <pod-name>
+
+Example:
+NAME       CPU    MEMORY
+myapp      200m   600Mi
+
+If your Deployment has:
+limits:
+  memory: "512Mi"
+
+but the application uses: 600Mi
+then it can be:
+600Mi > 512Mi
+      ↓
+OOMKilled
+------------------------------------------------------------
 
 
 
