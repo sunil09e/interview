@@ -375,6 +375,587 @@ Warning  FailedScheduling
 0/2 nodes are available: 2 Insufficient cpu       it is specifically a CPU resource problem.
 
 Meaning: The Pod is Pending because Kubernetes couldn't find a node where it can run.
+-----------------------
+PVC not available
+
+PVC = PersistentVolumeClaim
+A Pod may need storage:
+Pod
+ ↓
+PVC
+ ↓
+Storage
+
+If the Pod asks for a PVC but that PVC is not available, the Pod may remain Pending.
+Example Deployment:
+
+volumes:
+  - name: app-storage
+    persistentVolumeClaim:
+      claimName: my-pvc
+
+But:  kubectl get pvc
+shows:
+NAME      STATUS     VOLUME
+my-pvc    Pending
+
+Then the Pod cannot get its required storage.
+
+Check:
+kubectl get pvc
+kubectl describe pvc my-pvc
+kubectl describe pod <pod-name>
+
+You may see an event such as:
+FailedScheduling
+pod has unbound immediate PersistentVolumeClaims
+
+Simple meaning
+Pod says: "I need this storage."
+PVC says: "I haven't got storage yet."
+Therefore Pod waits → Pending.
+--------------------------
+Affinity / Anti-Affinity problem
+Yes — Node Affinity (when required) is very similar to a nodeSelector mismatch.
+
+Both say:  "This Pod can only run on nodes matching these conditions."
+
+NodeSelector
+nodeSelector:
+  disk: ssd
+
+Kubernetes looks for:
+Node 1 → disk=hdd ❌
+Node 2 → disk=hdd ❌
+
+No matching node → Pod Pending.
+
+Node Affinity
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: disk
+              operator: In
+              values:
+                - ssd
+
+Same situation:
+Node 1 → disk=hdd ❌
+Node 2 → disk=hdd ❌
+
+No matching node → Pod Pending.
+
+Main difference
+NodeSelector → simple matching.
+Node Affinity → more powerful rules, such as:
+In
+NotIn
+Exists
+DoesNotExist
+required rules
+preferred rules
+
+So for troubleshooting, you can think:
+NodeSelector mismatch = Pod can't find a node with the required label.
+Required Node Affinity problem = Pod can't find a node satisfying the required affinity rule.
+But anti-affinity is different: it says where the Pod should not be placed, usually based on other Pods.
+
+
+
+1. In
+
+Means:  The node label must have one of these values.
+matchExpressions:
+  - key: disk
+    operator: In
+    values:
+      - ssd
+
+Meaning:  Pod wants disk=ssd
+Node 1 → disk=ssd ✅
+Node 2 → disk=hdd  ❌
+
+So the Pod can use Node 1.
+
+You can also give multiple values:
+operator: In
+values:
+  - ssd
+  - nvme
+
+Meaning:  disk can be ssd OR nvme.
+
+
+If you mean this:
+operator: In
+values:
+  - ssd
+  - nvme
+
+It means the Pod can run on any ONE node whose label matches either disk=ssd OR disk=nvme.
+For example:
+Node 1 → disk=ssd   ✅
+Node 2 → disk=nvme  ✅
+Node 3 → disk=hdd   ❌
+
+The scheduler does not put the same Pod on both Node 1 and Node 2.
+It chooses one suitable node:
+Pod → Node 1
+or:
+Pod → Node 2
+
+If you have 2 replicas
+replicas: 2
+Then you have 2 Pods, and Kubernetes can choose:
+Node 1 (ssd)  → Pod 1
+Node 2 (nvme) → Pod 2
+or
+Node 1 (ssd)  → Pod 1
+Node 1 (ssd)  → Pod 2
+unless you add rules such as anti-affinity/topology spreading to control distribution.
+So remember:  In: ssd, nvme = one Pod can run on either type of matching node, not both.
+
+
+2. NotIn
+
+Means:
+The node label must NOT have these values.
+
+matchExpressions:
+  - key: disk
+    operator: NotIn
+    values:
+      - hdd
+
+Meaning:
+Node 1 → disk=ssd ✅
+Node 2 → disk=hdd  ❌
+
+So the Pod says:  "Don't schedule me on HDD nodes."
+
+Suppose:
+Node 1 → disk=ssd
+Node 2 → disk=hdd
+Node 3 → disk=kkd
+
+Your rule:
+operator: NotIn
+values:
+  - hdd
+
+means:  Do NOT use nodes where disk=hdd.
+So:
+ssd → ✅ allowed
+hdd → ❌ not allowed
+kkd → ✅ allowed
+
+But the Pod will run on one suitable node, not automatically on both:
+Pod → Node 1 (ssd) ✅
+or
+Pod → Node 3 (kkd) ✅
+If you have 2 replicas, then Kubernetes could put them on either/both of those nodes depending on scheduling:
+Node 1 → Pod 1
+Node 3 → Pod 2
+
+or potentially both on Node 1.
+
+
+3. Exists
+
+Means:  The label key must exist. I don't care what its value is.
+matchExpressions:
+  - key: disk
+    operator: Exists
+
+For example:
+Node 1 → disk=ssd  ✅
+Node 2 → disk=hdd  ✅
+Node 3 → no disk label ❌
+
+Notice we don't specify:
+values:  Because we only care that the disk label exists.
+
+
+4. DoesNotExist
+Means:The label key must NOT exist.
+
+matchExpressions:
+  - key: disk
+    operator: DoesNotExist
+
+Now:
+Node 1 → disk=ssd  ❌
+Node 2 → disk=hdd  ❌
+Node 3 → no disk label ✅
+
+So the Pod wants nodes without the disk label.
+
+Imagine you have 5 Kubernetes nodes with these labels:
+Node 1 → disk=ssd
+Node 2 → disk=hdd
+Node 3 → disk=kkd
+Node 4 → no disk label
+Node 5 → msk=ssd
+
+Kubernetes checks each node:
+Node 1 → disk=ssd   ❌  disk exists
+Node 2 → disk=hdd   ❌  disk exists
+Node 3 → disk=kkd   ❌  disk exists
+Node 4 → no disk    ✅  disk does not exist
+Node 5 → msk=ssd    ✅  disk does not exist
+
+Therefore, the Pod can be scheduled on:
+Node 4 ✅
+Node 5 ✅
+
+It cannot be scheduled on:
+Node 1 ❌
+Node 2 ❌
+Node 3 ❌
+
+5. required
+requiredDuringSchedulingIgnoredDuringExecution
+Means: "This is mandatory. The Pod MUST find a node matching this rule."
+
+Example:
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: disk
+              operator: In
+              values:
+                - ssd
+
+Suppose:
+Node 1 → disk=hdd
+Node 2 → disk=hdd
+No SSD node exists.
+
+Then:  Pod → Pending ❌
+Because the requirement was mandatory.
+Think:  required = MUST
+
+
+6. preferred
+preferredDuringSchedulingIgnoredDuringExecution
+Means:  "I prefer this type of node, but if it isn't available, you can use another suitable node."
+
+Example:
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: disk
+              operator: In
+              values:
+                - ssd
+
+Suppose:
+Node 1 → disk=hdd
+Node 2 → disk=hdd
+There is no SSD node.
+
+Because this is only a preference, Kubernetes can still schedule the Pod on Node 1 or Node 2.
+Pod → Node 1 ✅
+It does not necessarily become Pending just because the preferred rule wasn't satisfied.
+Think:  preferred = TRY
+
+
+
+
+
+
+----------------------------------------------------------------
+1. Node Affinity
+
+Node Affinity means:   "I want my Pod to run on a particular type of Node."
+
+For example, you have 3 nodes:
+Node 1 → disk=ssd
+Node 2 → disk=hdd
+Node 3 → disk=hdd
+You want your application to run only on SSD nodes.
+
+for Node Affinity, you normally need to label the node first, because the Pod uses that label to decide which node it can run on.
+
+Label the node
+Suppose you want Node 1 to be an SSD node:  kubectl label node node1 disk=ssd
+Check:  kubectl get nodes --show-labels
+
+
+You put this in the Deployment:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: myapp
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: disk
+                    operator: In
+                    values:
+                      - ssd
+
+      containers:
+        - name: myapp
+          image: nginx
+
+
+
+Now Kubernetes checks:
+
+Pod needs: disk=ssd
+Node 1 → disk=ssd ✅
+Node 2 → disk=hdd ❌
+Node 3 → disk=hdd ❌
+
+So the Pod can run on Node 1.
+
+What if there is no SSD node?
+Node 1 → disk=hdd ❌
+Node 2 → disk=hdd ❌
+Node 3 → disk=hdd ❌
+
+The Pod has nowhere to go:  Pod → Pending
+
+The event may say:
+FailedScheduling
+0/3 nodes are available:
+3 node(s) didn't match Pod's node affinity/selector
+So Node Affinity is basically:
+Pod
+ ↓
+"I require this type of Node"
+ ↓
+Check node labels
+ ↓
+Matching node? → Yes → Schedule
+              → No  → Pending
+
+------------------------------------
+
+2. Pod Anti-Affinity
+This is different.
+
+Anti-affinity means:  "Don't put my Pod on the same node as certain other Pods."
+
+Suppose you have:
+Node 1
+Node 2
+
+And you already have:  Pod A → Node 1
+Now you want another copy of the same application.
+You can tell Kubernetes:  "Don't put two copies of this application on the same node."
+That is Pod Anti-Affinity.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: myapp
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - myapp
+
+              topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: myapp
+          image: nginx
+
+podAntiAffinity:
+
+It means:  "Don't place this Pod together with another Pod matching app=myapp."
+So Kubernetes tries:
+Node 1 → Pod 1 ✅
+Node 2 → Pod 2 ✅
+This is good because if Node 1 fails, Pod 2 is still on Node 2.
+
+
+What causes Pending?
+Suppose you have only one node:
+Node 1
+  ↓
+Pod 1
+
+You request 2 replicas:  replicas: 2
+And anti-affinity says:  "Don't put both Pods on the same node."
+
+Kubernetes tries:
+Pod 1 → Node 1 ✅
+Pod 2 → Node 1 ❌
+There is no Node 2.
+
+Therefore:
+Pod 1 → Running
+Pod 2 → Pending
+
+You may see:
+FailedScheduling
+0/1 nodes are available:
+1 node(s) didn't match pod anti-affinity rules
+
+if kubernetes has 2 node means automatically do same 2pods 1 in node1 
+Kubernetes does NOT automatically guarantee 1 Pod per node.
+
+Suppose you have:
+Node 1
+Node 2
+
+and your Deployment has:  replicas: 2
+
+Kubernetes may do:
+Node 1 → Pod 1
+Node 2 → Pod 2
+
+or it may do:
+Node 1 → Pod 1
+Node 1 → Pod 2
+Node 2 → nothing
+
+Both can be valid.
+
+Why?
+The scheduler chooses a suitable node based on things like:
+CPU/memory availability
+node selectors/affinity
+taints/tolerations
+other scheduling rules
+
+It does not mean:  2 nodes + 2 Pods = automatically 1 Pod on each node.
+If you specifically want 1 Pod on each node
+You use Pod Anti-Affinity or topology spread constraints.
+For example:
+Node 1 → Pod 1
+Node 2 → Pod 2
+
+And if you have 3 nodes and 3 replicas:
+Node 1 → Pod 1
+Node 2 → Pod 2
+Node 3 → Pod 3
+
+
+Without anti-affinity
+2 Nodes:
+Node 1
+Node 2
+
+replicas: 2
+Kubernetes could choose:
+
+Node 1 → Pod 1
+Node 1 → Pod 2
+Node 2 → nothing
+
+Or:
+Node 1 → Pod 1
+Node 2 → Pod 2
+Both are possible.
+
+With required Pod anti-affinity
+You are telling Kubernetes:  "These two Pods must not be on the same node."
+
+Then:
+Node 1 → Pod 1 ✅
+Node 2 → Pod 2 ✅
+
+So with 2 nodes + 2 replicas + required anti-affinity, you get 1 Pod on each node.
+
+And if you had only 1 node + 2 replicas + required anti-affinity:
+Node 1 → Pod 1 ✅
+Node 1 → Pod 2 ❌
+Pod 2 stays Pending, because there is no second node.
+
+
+
+Yes, Kubernetes will schedule the Pods automatically. But there is an important distinction:
+
+Without anti-affinity
+Kubernetes automatically decides where to put the Pods.
+2 Nodes
+2 Pods
+Kubernetes Scheduler
+       ↓
+chooses suitable nodes
+
+It may do:
+Node 1 → Pod 1
+Node 2 → Pod 2
+But it is not guaranteed.
+
+With anti-affinity
+You tell Kubernetes:  "Do not put these Pods on the same node."
+Then Kubernetes scheduler automatically follows that rule:
+
+Node 1 → Pod 1
+Node 2 → Pod 2
+
+So:  Kubernetes always does the scheduling automatically.
+Anti-affinity controls how Kubernetes should distribute the Pods.
+
+
+
+ "not guaranteed" means you cannot depend on Kubernetes automatically putting one Pod on each node.
+It means Kubernetes decides automatically, but it does not promise one Pod per node.
+
+Example:
+
+You have:
+Node 1
+Node 2
+replicas: 2
+Kubernetes scheduler may choose:
+Node 1 → Pod 1
+Node 2 → Pod 2
+
+But it could also choose:
+Node 1 → Pod 1
+Node 1 → Pod 2
+Node 2 → nothing
+So "not guaranteed" means you cannot depend on Kubernetes automatically putting one Pod on each node.
+
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------
 
