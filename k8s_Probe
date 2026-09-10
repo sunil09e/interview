@@ -1,0 +1,645 @@
+Important difference
+
+Probe	           Purpose	                                    If it fails
+livenessProbe     	Is the container alive?	                 Restart container
+readinessProbe	   Can the container receive traffic?         	Remove Pod from Service endpoints
+startupProbe	Has the slow-starting application finished starting?	Prevent liveness/readiness checks until startup succeeds
+
+So remember:
+Liveness = restart
+Readiness = traffic
+Startup = starting
+
+-------------------------------------------------
+livenessProbe in Kubernetes
+----------------
+livenessProbe is used to check whether a container is still alive/healthy.
+
+If the liveness probe fails repeatedly, Kubernetes assumes the container is stuck and restarts the container.
+
+Example
+containers:
+  - name: nginx
+    image: nginx:latest
+
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 10
+      periodSeconds: 5
+
+What each part means
+livenessProbe:     ➡️ Tell Kubernetes: "Check whether this container is alive."
+httpGet:           ➡️ Kubernetes sends an HTTP request to the container.
+path: /            ➡️ It checks: http://<pod-ip>:80/
+port: 80           ➡️ The application must be listening on port 80.
+initialDelaySeconds: 10  ➡️ Wait 10 seconds after the container starts before beginning the checks.
+periodSeconds: 5    ➡️ Check every 5 seconds.
+
+If the check fails
+For example:
+
+Container starts
+      ↓
+Wait 10 seconds
+      ↓
+Check /
+      ↓
+   Success → Container continues
+      ↓
+   Failure
+      ↓
+Repeated failures
+      ↓
+Kubernetes restarts container
+
+Interview answer:  "livenessProbe checks whether a container is alive and functioning. If the probe fails repeatedly, Kubernetes restarts the container."
+
+----------------------------------------------------
+The easiest way is to understand what problem each probe solves.
+
+1. First understand the situation
+Suppose we have an application Pod:
+
+                Application Pod
+              ┌─────────────────┐
+              │   Container     │
+              │                 │
+Client ──────►│   Application   │
+              │                 │
+              └─────────────────┘
+
+The application can be in different states:
+
+State A — Application is working
+Application
+    ↓
+Working normally
+    ↓
+Can receive requests
+
+Everything is fine.
+
+State B — Application process is stuck
+
+The container is still running, but the application is not responding.
+
+Container = RUNNING
+Application = STUCK
+
+Kubernetes needs to know:  "Is this container actually alive, or is it stuck?"
+That's what livenessProbe is for.
+
+
+2. livenessProbe
+Meaning
+Liveness = "Is my application still alive?"
+
+Example:
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+
+Kubernetes periodically checks:  http://Pod-IP:8080/health
+Suppose the application responds:  HTTP 200 OK
+
+Kubernetes thinks:  Application is alive ✅
+
+But suppose it repeatedly fails:
+HTTP request
+    ↓
+No response / error
+    ↓
+Probe fails
+    ↓
+Repeated failures
+    ↓
+Kubernetes restarts the container
+Why restart?
+
+Because the application may be stuck.
+For example:
+
+Container
+   ↓
+Java application
+   ↓
+Deadlock / stuck
+   ↓
+Application doesn't respond
+
+Restarting may fix the problem.
+
+Important
+A liveness failure does not normally mean Kubernetes deletes the Pod.
+It restarts the container inside the Pod.
+
+
+-------------------------------------------------------------------------------------------------
+
+3. readinessProbe
+
+Now imagine a different problem.
+The application is alive:
+Container = running ✅
+Application = alive ✅
+
+But it is temporarily not ready to receive user traffic.
+
+For example, your application is starting:
+Application started
+      ↓
+Loading data from database
+      ↓
+Loading configuration
+      ↓
+Not ready yet
+
+The application is alive, but sending user requests to it may cause errors.
+That's what readinessProbe checks.
+
+
+Meaning
+Readiness = "Can I send traffic to this Pod?"
+
+Example:
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+
+Kubernetes checks:  http://Pod-IP:8080/ready
+
+If successful:
+Pod READY ✅
+    ↓
+Service can send traffic
+
+If it fails:
+Pod NOT READY ❌
+    ↓
+Service stops sending traffic to this Pod
+
+Very important
+Readiness failure does NOT restart the container.
+It simply says:  "Don't send traffic to me right now."
+
+
+
+Connect this with Service
+Suppose you have:
+                 Service
+                    |
+        ┌───────────┼───────────┐
+        ↓           ↓           ↓
+      Pod A       Pod B       Pod C
+      Ready       Ready      Not Ready
+
+The Service has three Pods as possible endpoints.
+
+But Pod C fails its readiness probe:
+Pod C
+  ↓
+readinessProbe fails
+  ↓
+Not Ready
+  ↓
+Service removes Pod C from usable endpoints
+
+Now traffic goes:
+
+                 Service
+                 /      \
+                ↓        ↓
+             Pod A     Pod B
+             Ready     Ready
+
+             Pod C
+           Not Ready ❌
+
+Pod C is still running.
+It is just not receiving Service traffic.
+
+
+
+
+
+
+Imagine 2 Pods behind a Service
+             Service
+                |
+        ┌───────┴───────┐
+        ↓               ↓
+      Pod A           Pod B
+      Ready           Ready
+
+The Service sends traffic to both:
+
+User
+ ↓
+Service
+ ↓       ↓
+Pod A   Pod B
+
+Now Kubernetes is checking Pod A's readiness probe every 5 seconds.
+
+10:00:00 → check Pod A → ✅
+10:00:05 → check Pod A → ✅
+10:00:10 → check Pod A → ❌
+
+When the check fails, Kubernetes changes:
+
+Pod A
+Ready → NotReady
+
+Now:
+
+             Service
+                |
+                ↓
+              Pod B
+              Ready
+
+              Pod A
+            NotReady ❌
+
+So new traffic goes:
+
+User
+ ↓
+Service
+ ↓
+Pod B
+
+Pod A is still running! It is just not receiving traffic from that Service.
+
+How can YOU see this?
+Run:  kubectl get pods
+
+You might see:
+NAME     READY   STATUS
+pod-a    0/1     Running
+pod-b    1/1     Running
+
+This means:
+pod-a
+0/1 → Not Ready
+Running → Container is still running
+
+And:
+
+pod-b
+1/1 → Ready
+Running → Container is running
+The main thing to remember
+Running ≠ Ready
+
+A Pod can be:
+
+Running + Ready       → Service sends traffic ✅
+Running + NotReady    → Service does not send traffic ❌
+
+The readiness probe is what tells Kubernetes:
+
+"This Pod is ready to receive traffic" or "Don't send traffic to this Pod right now."
+
+
+
+It will continue checking every ~5 seconds even after a failure.
+
+Example:
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  periodSeconds: 5
+
+Imagine:
+
+10:00:00 → /health → ✅ Healthy → Ready
+10:00:05 → /health → ✅ Healthy → Ready
+10:00:10 → /health → ❌ Failed  → NotReady
+10:00:15 → /health → ❌ Failed  → NotReady
+10:00:20 → /health → ❌ Failed  → NotReady
+10:00:25 → /health → ✅ Healthy → Ready again
+
+So failure does not stop the checking.
+
+It keeps checking:
+
+        every ~5 seconds
+              ↓
+       ┌─────────────┐
+       │ readiness   │
+       │   check     │
+       └──────┬──────┘
+              ↓
+       ┌──────┴──────┐
+       ↓             ↓
+     Success       Failure
+       ↓             ↓
+     Ready        NotReady
+       │             │
+       └──────┬──────┘
+              ↓
+       wait ~5 seconds
+              ↓
+        CHECK AGAIN
+Why?
+
+Because the application might recover.
+
+For example:
+
+10:10 → ❌ database unavailable
+       → Pod becomes NotReady
+
+10:15 → database works again
+       → /health → ✅
+       → Pod becomes Ready
+
+If Kubernetes stopped checking after the first failure, it would never know that the Pod recovered.
+
+So remember:
+
+Readiness probe keeps checking continuously while the Pod exists. Success = Ready. Failure = NotReady. Then it checks again.
+
+---------------------------------------------------------------------------------
+
+
+5. startupProbe
+Now consider a slow application.
+
+For example, a Java application might need:
+Container starts
+      ↓
+Java starts
+      ↓
+Load configuration
+      ↓
+Connect to database
+      ↓
+Load cache
+      ↓
+Application starts
+It might take 60 seconds.
+
+
+If you immediately use livenessProbe:
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  periodSeconds: 5
+
+Kubernetes might check too early:
+0 sec → application starting
+5 sec → probe fails
+10 sec → probe fails
+15 sec → probe fails
+...
+
+Kubernetes may conclude:  "Application is unhealthy."
+and restart it.
+
+But the application wasn't actually broken.
+It was simply slow to start.
+
+That's why we have:  startupProbe
+It means:  "Give my application time to start."
+
+Example:
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  failureThreshold: 30
+  periodSeconds: 5
+
+This allows:  30 × 5 seconds = 150 seconds
+for startup.
+
+
+Your application needs 180 seconds
+0 sec
+ ↓
+Container starts
+ ↓
+Startup probe keeps checking
+ ↓
+5 sec  ❌
+10 sec ❌
+15 sec ❌
+...
+ ↓
+150 sec ❌  ← failureThreshold reached
+ ↓
+Kubernetes says:
+"Application didn't start in time"
+ ↓
+Container is restarted 🔄
+
+The problem is:
+
+Allowed startup time = 150 sec
+Application startup time = 180 sec
+
+180 > 150
+So the application doesn't get enough time to start.
+
+
+
+Think of it like this:
+Maximum allowed startup period ≈ 150 seconds
+                 │
+                 ▼
+0s     → check ❌
+5s     → check ❌
+10s    → check ❌
+15s    → check ❌
+20s    → check ❌
+...
+50s    → check ❌
+...
+100s   → check ❌
+...
+140s   → check ❌
+150s   → check ❌
+                 │
+                 ▼
+        30 failures reached
+                 │
+                 ▼
+       Container restarted
+
+But if your application becomes ready at 80 seconds:
+
+0s   → ❌
+5s   → ❌
+10s  → ❌
+...
+75s  → ❌
+80s  → ✅
+       │
+       ▼
+Startup probe succeeds
+       │
+       ▼
+Startup probing stops
+       │
+       ▼
+Liveness/readiness probes can take over
+
+
+
+
+
+6. How startupProbe works with livenessProbe
+This is the important part.
+
+Suppose:
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  periodSeconds: 5
+  failureThreshold: 30
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  periodSeconds: 5
+
+When the container starts:
+Container starts
+      ↓
+Startup probe runs
+      ↓
+Is application started?
+      ↓
+      NO
+      ↓
+Keep waiting
+      ↓
+Startup probe runs again
+      ↓
+      NO
+      ↓
+Keep waiting
+
+Eventually:
+Application finishes starting
+          ↓
+Startup probe succeeds ✅
+          ↓
+Startup phase finished
+          ↓
+Liveness probe starts checking
+
+So:
+STARTUP
+   ↓
+startupProbe
+   ↓
+Successful
+   ↓
+LIVENESS
+   ↓
+livenessProbe
+   ↓
+Healthy → continue
+Unhealthy → restart
+
+
+
+7. All three together
+
+This is the easiest diagram to remember:
+
+                 Container starts
+                       │
+                       ▼
+               ┌─────────────────┐
+               │ startupProbe     │
+               │                 │
+               │ "Has it started?"│
+               └────────┬────────┘
+                        │
+                  Success?
+                        │
+                       YES
+                        │
+                        ▼
+               ┌─────────────────┐
+               │ livenessProbe    │
+               │                 │
+               │ "Is it alive?"   │
+               └────────┬────────┘
+                        │
+                ┌───────┴────────┐
+                │                │
+              Healthy          Failed
+                │                │
+                ▼                ▼
+             Continue         Restart
+                                container
+
+
+Meanwhile:
+
+               ┌─────────────────┐
+               │ readinessProbe   │
+               │                 │
+               │ "Can it receive  │
+               │  traffic?"       │
+               └────────┬────────┘
+                        │
+                 ┌──────┴──────┐
+                 │             │
+               Ready        Not Ready
+                 │             │
+                 ▼             ▼
+             Receive       No Service
+             traffic        traffic
+
+
+
+If interviewer asks:
+
+"What is livenessProbe?"
+
+Say:
+"livenessProbe checks whether the application inside a container is still functioning.
+If it continuously fails, Kubernetes considers the container unhealthy and restarts the container."
+
+"What is readinessProbe?"
+"readinessProbe checks whether a Pod is ready to receive traffic.
+If it fails, Kubernetes removes that Pod from the Service's ready endpoints, but it does not restart the container."
+
+"What is startupProbe?"
+"startupProbe is used for slow-starting applications. Kubernetes waits for the startup probe to succeed before applying 
+liveness and readiness probes. This prevents a slow application from being restarted before it has finished starting."
+-------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
