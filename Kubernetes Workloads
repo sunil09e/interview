@@ -1,0 +1,1659 @@
+Kubernetes Workloads
+
+A workload controller is basically something that tells Kubernetes:   "How should I create, run, maintain, or replace my Pods?"
+
+The main six are:
+1. Deployment
+2. ReplicaSet
+3. StatefulSet
+4. DaemonSet
+5. Job
+6. CronJob
+
+
+Deployment → stateless applications
+ReplicaSet → maintains a specified number of Pods
+StatefulSet → stateful applications
+DaemonSet → one Pod on each matching node
+Job → runs a task and finishes
+CronJob → runs a task on a schedule
+
+Easy way to remember:
+
+Workloads
+│
+├── Deployment     → Web/API application
+├── ReplicaSet     → Maintain Pod count
+├── StatefulSet    → MySQL/Kafka
+├── DaemonSet      → One Pod per node
+├── Job            → Run once → finish
+└── CronJob        → Run on schedule
+
+-------------------------------------------------------------------------------
+
+1. Deployment
+What is Deployment?
+A Deployment manages Pods for applications that are generally stateless.
+
+For example:
+Frontend
+Backend API
+Nginx
+Node.js application
+Java application
+Python application
+
+Suppose you want 3 Pods:
+Deployment
+    │
+    └── ReplicaSet
+          ├── Pod 1
+          ├── Pod 2
+          └── Pod 3
+
+You normally don't create those Pods manually.
+
+You create a Deployment:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+What happens?
+You say:  replicas: 3
+
+Deployment creates a ReplicaSet.
+ReplicaSet creates:
+Pod 1
+Pod 2
+Pod 3
+
+If Pod 2 crashes:
+Pod 1  ✅
+Pod 2  ❌
+Pod 3  ✅
+
+ReplicaSet notices:  "I need 3 Pods, but I only have 2."
+
+So it creates another Pod:
+Pod 1  ✅
+Pod 3  ✅
+Pod 4  ✅
+
+So the important point is:  Deployment → ReplicaSet → Pods
+
+Deployment also provides:
+Rolling updates
+Rollbacks
+Scaling
+Desired replica count
+Pod replacement
+
+For example:
+
+nginx:1.25
+      ↓
+nginx:1.26
+
+Deployment can gradually replace the old Pods with new Pods.
+
+Interview answer
+Deployment manages stateless applications and provides scaling, rolling updates, rollbacks, and Pod replacement.
+
+
+
+Stateless application means:  The application does not depend on data stored inside a particular Pod.
+Example: Web application
+
+Suppose you have 3 Pods:
+
+          Service
+        /    |    \
+       ↓     ↓     ↓
+     Pod 1  Pod 2  Pod 3
+
+A user request can go to any Pod.
+
+Request 1 → Pod 1
+Request 2 → Pod 3
+Request 3 → Pod 2
+
+It doesn't matter which Pod receives the request because the Pod doesn't need to remember the user's previous request.
+If Pod 1 dies:  Pod 1 ❌
+Kubernetes creates another Pod:  Pod 4 ✅
+The application continues working.
+
+Simple example
+Nginx serving a website is typically stateless:
+Pod 1 → serves website
+Pod 2 → serves website
+Pod 3 → serves website
+
+All Pods can do the same job.
+
+
+Opposite: Stateful
+A database like MySQL has important data:
+
+MySQL Pod
+   ↓
+Customer data
+Orders
+Passwords
+Transactions
+
+You cannot simply treat every MySQL Pod as identical because each instance may have important persistent data/identity.
+That's why StatefulSet is commonly used for stateful applications.
+
+Easy memory
+Stateless
+= Pod doesn't need to remember data
+= Pods are interchangeable
+= Deployment commonly used
+Stateful
+= Pod has important identity/data
+= Pods are not simply interchangeable
+= StatefulSet commonly used
+
+
+In Kubernetes
+
+Horizontal scaling:
+replicas: 3
+       ↓
+replicas: 5
+
+More Pods.
+
+Vertical scaling:
+CPU: 500m → 2 CPU
+Memory: 512Mi → 2Gi
+
+More resources per Pod.
+Easy interview answer
+Horizontal scaling means increasing or decreasing the number of Pod replicas. 
+Vertical scaling means increasing or decreasing the CPU and memory resources assigned to a Pod.
+
+
+
+1. Horizontal scaling — manually
+Initially:
+
+Deployment
+    │
+    ├── Java Pod 1
+    └── Java Pod 2
+
+You want more Pods.
+
+kubectl scale deployment java-app --replicas=4
+
+Now:
+Deployment
+    │
+    ├── Java Pod 1
+    ├── Java Pod 2
+    ├── Java Pod 3
+    └── Java Pod 4
+
+You manually changed:  2 Pods → 4 Pods
+That's manual horizontal scaling.
+
+2. Horizontal scaling — automatically with HPA
+
+You configure HPA:
+
+minReplicas: 2
+maxReplicas: 5
+CPU target: 70%
+
+Initially:
+
+2 Pods
+ ↓
+CPU = 40%
+
+No change.
+
+Then traffic increases:
+
+2 Pods
+ ↓
+CPU = 90%
+ ↓
+HPA detects high CPU
+ ↓
+4 Pods
+
+Now:
+Deployment
+    │
+    ├── Pod 1
+    ├── Pod 2
+    ├── Pod 3
+    └── Pod 4
+
+Later traffic decreases:
+
+CPU = 30%
+ ↓
+HPA
+ ↓
+2 Pods
+
+So you don't manually change the replica count. HPA does it.
+
+3. Vertical scaling — manually
+
+Initially one Pod has:
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+
+Meaning roughly:
+
+Pod
+├── CPU: 500m
+└── Memory: 512Mi
+
+The application needs more resources.
+
+You manually change it:
+
+resources:
+  requests:
+    cpu: "1"
+    memory: "1Gi"
+
+Now:
+
+Pod
+├── CPU: 1 CPU
+└── Memory: 1Gi
+
+You changed the size/resources of the Pod, not the number of Pods.
+
+That's manual vertical scaling.
+
+
+If you mean how to do automatic vertical scaling with VPA, here is the flow.
+
+1. First install VPA
+VPA is not normally available just because Kubernetes is installed. You install the Vertical Pod Autoscaler components in your cluster.
+
+After installation, you can check:  kubectl get pods -n kube-system
+-------------------------
+Download VPA
+
+On your machine:  git clone https://github.com/kubernetes/autoscaler.git
+Then:  cd autoscaler/vertical-pod-autoscaler
+
+2. Install VPA
+
+The VPA project provides installation files under the deploy directory.
+Run:  ./hack/vpa-up.sh
+
+This installs the VPA components into your cluster.
+
+The main VPA components are:
+kube-system
+   │
+   ├── vpa-recommender
+   ├── vpa-updater
+   └── vpa-admission-controller
+
+These three components have different jobs: the recommender calculates resource recommendations, the updater handles updating Pods, and the admission controller applies recommendations when Pods are created/recreated.
+
+3. Check whether VPA is running
+kubectl get pods -n kube-system | grep vpa
+
+You should see something similar to:
+vpa-recommender-xxxxx             Running
+vpa-updater-xxxxx                Running
+vpa-admission-controller-xxxxx   Running
+
+The official quickstart recommends checking for these three VPA Pods.
+
+4. Check the VPA CRD
+Run: kubectl get crd | grep verticalpodautoscaler
+You should see the VPA CRD.
+
+Why is this needed?
+Because Kubernetes normally doesn't understand:
+kind: VerticalPodAutoscaler
+until VPA's CRD has been installed.
+
+After installation:
+Kubernetes
+    │
+    ├── Deployment
+    ├── Service
+    ├── HPA
+    │
+    └── VPA  ← now Kubernetes understands this
+
+If you mean VPA's CRD, CRD means Custom Resource Definition.
+
+Very simply:
+Kubernetes already understands built-in objects like:
+Pod
+Deployment
+Service
+ConfigMap
+Secret
+
+But Kubernetes does not originally understand:  kind: VerticalPodAutoscaler
+So VPA installs a CRD that tells Kubernetes:  "There is a new Kubernetes resource called VerticalPodAutoscaler."
+
+Then you can create:
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+Think of it like this
+Before installing VPA:
+
+Kubernetes
+ ├── Pod           ✅
+ ├── Deployment    ✅
+ ├── Service       ✅
+ └── VPA           ❌ "I don't know this"
+
+Install VPA CRD
+       ↓
+
+Kubernetes
+ ├── Pod           ✅
+ ├── Deployment    ✅
+ ├── Service       ✅
+ └── VPA           ✅ "Now I understand VPA"
+
+So:
+CRD = a way to add a new type of resource to Kubernetes.
+And VPA CRD specifically allows Kubernetes to understand the VerticalPodAutoscaler resource.
+
+-----------------------
+
+2. Create your application
+
+For example:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: my-app
+
+  template:
+    metadata:
+      labels:
+        app: my-app
+
+    spec:
+      containers:
+        - name: app
+          image: nginx
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+Initially:
+
+Pod 1 → CPU 100m, Memory 128Mi
+Pod 2 → CPU 100m, Memory 128Mi
+
+
+3. Create a VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+
+metadata:
+  name: my-app-vpa
+
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+
+  updatePolicy:
+    updateMode: "Auto"
+
+
+The important part is:
+targetRef:
+  kind: Deployment
+  name: my-app
+
+This tells VPA:  "Watch the Pods created by my-app Deployment."
+And:  updateMode: "Auto"
+means VPA can automatically adjust the resource requests.
+
+Apply it
+kubectl apply -f deployment.yaml
+kubectl apply -f vpa.yaml
+
+
+5. What happens automatically?
+
+Suppose initially:
+Pod
+CPU request:    100m
+Memory request: 128Mi
+
+VPA watches the application's resource usage.
+Suppose it sees that the application consistently needs more:
+
+Application
+   ↓
+Needs more CPU/Memory
+   ↓
+VPA analyzes usage
+   ↓
+VPA recommends higher resources
+
+For example:
+Before:
+CPU    = 100m
+Memory = 128Mi
+
+After:
+CPU    = 300m
+Memory = 512Mi
+
+That's vertical scaling.
+Notice:  2 Pods → still 2 Pods
+
+Only the resources changed:
+Pod 1: 100m → 300m CPU
+Pod 2: 100m → 300m CPU
+
+
+
+-----------------------------------------
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+
+metadata:
+  name: my-app-vpa
+
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+
+  updatePolicy:
+    updateMode: "Recreate"
+
+
+updateMode: "Recreate" means VPA will recreate the Pod to apply the new CPU/memory values.
+
+Example:
+
+Before:
+
+Pod
+CPU    = 100m
+Memory = 128Mi
+
+VPA observes that more resources are needed:
+
+VPA recommendation
+
+CPU    = 300m
+Memory = 512Mi
+
+With:
+
+updatePolicy:
+  updateMode: "Recreate"
+
+VPA does:
+
+Old Pod
+   ↓
+Delete old Pod
+   ↓
+Create new Pod
+   ↓
+New CPU/Memory values applied
+
+So:
+100m CPU  → 300m CPU
+128Mi     → 512Mi
+-----------------------------------------------------------------------------------------------------------------
+2. ReplicaSet
+
+Now let's understand ReplicaSet.
+
+A ReplicaSet's main job is very simple:
+
+Maintain the required number of identical Pods.
+
+Suppose:
+
+replicas: 3
+
+ReplicaSet wants:
+
+3 Pods
+
+So:
+
+ReplicaSet
+   │
+   ├── Pod 1
+   ├── Pod 2
+   └── Pod 3
+
+If one Pod disappears:
+ReplicaSet
+   │
+   ├── Pod 1
+   └── Pod 3
+
+ReplicaSet says:  "I need 3. I currently have 2."
+
+It creates another:
+ReplicaSet
+   │
+   ├── Pod 1
+   ├── Pod 3
+   └── Pod 4
+Important
+
+Usually, you do not create ReplicaSets directly.
+
+Instead:
+
+You create Deployment
+          ↓
+Deployment creates ReplicaSet
+          ↓
+ReplicaSet creates Pods
+Why?
+
+Because Deployment gives you more features:
+
+Deployment
+├── Scaling
+├── Rolling update
+├── Rollback
+└── ReplicaSet management
+Interview answer
+
+ReplicaSet ensures that the desired number of Pod replicas are running. A Deployment normally manages the ReplicaSet.
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+3. StatefulSet
+
+This one is different.
+A StatefulSet is used when the application needs stable identity and often persistent storage.
+
+Examples:
+MySQL
+PostgreSQL
+MongoDB
+Kafka
+
+Imagine:
+StatefulSet
+   │
+   ├── mysql-0
+   ├── mysql-1
+   └── mysql-2
+
+Notice the names.
+
+They are predictable:
+mysql-0
+mysql-1
+mysql-2
+With Deployment, Pods normally have generated names such as:
+With Deployment, Pods normally have generated names such as:
+
+nginx-deployment-7d8f9c6b5d-abc12
+nginx-deployment-7d8f9c6b5d-def34
+
+StatefulSet gives Pods a stable identity.
+
+--------------------
+you can give the Deployment a name, but that is different from giving each Pod a stable identity.
+
+Deployment
+You give the Deployment a name:
+
+metadata:
+  name: nginx
+
+But the Pods get generated names:
+
+nginx-7d8f9c6b5d-abc12
+nginx-7d8f9c6b5d-def34
+
+If nginx-7d8f9c6b5d-abc12 dies, a replacement might be:  nginx-7d8f9c6b5d-xyz78
+So the Deployment name is stable, but the individual Pod identity is not.
+
+---------------------
+StatefulSet
+metadata:
+  name: mysql
+
+Pods get:
+
+mysql-0
+mysql-1
+mysql-2
+
+If mysql-1 dies:
+
+mysql-1 ❌
+   ↓
+mysql-1 ✅
+
+The same identity is maintained.
+
+The important difference
+Deployment
+    ↓
+Deployment name = stable
+Pod identity     = not stable
+StatefulSet
+    ↓
+StatefulSet name = stable
+Pod identity      = stable
+                    ↓
+                 mysql-0
+                 mysql-1
+                 mysql-2
+
+So when we say StatefulSet provides stable identity, we mean each individual Pod has a predictable, persistent identity, 
+not just that the controller itself has a name.
+-----------------
+Why does MySQL need this?
+Imagine you have:
+
+mysql-0
+mysql-1
+mysql-2
+
+Each might have its own data.
+
+For example:
+
+mysql-0 → ts storage
+mysql-1 → its storage
+mysql-2 → its storage
+
+If mysql-1 is deleted, StatefulSet recreates:  mysql-1
+rather than creating an unrelated identity.
+Persistent storage can also remain associated with that Pod's identity.
+
+tatefulSet Pod creation
+
+If:
+
+replicas: 3
+
+StatefulSet normally creates:
+
+mysql-0
+   ↓
+mysql-1
+   ↓
+mysql-2
+
+They have an ordered identity.
+
+StatefulSet also provides:
+Stable Pod names
+Stable network identity
+Persistent storage patterns
+Ordered creation/deletion behavior
+Scaling
+Simple example
+apiVersion: apps/v1
+kind: StatefulSet
+
+metadata:
+  name: mysql
+
+spec:
+  serviceName: mysql
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: mysql
+
+  template:
+    metadata:
+      labels:
+        app: mysql
+
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8
+
+Interview answer
+StatefulSet is used for stateful applications that require stable Pod identity, stable network identity, 
+and persistent storage, such as databases and distributed systems.
+
+
+
+
+spec:
+  serviceName: mysql
+  replicas: 3
+Why serviceName: mysql?
+
+The Service provides a stable network name for the StatefulSet Pods.
+
+Think:
+
+StatefulSet
+   │
+   ├── mysql-0
+   ├── mysql-1
+   └── mysql-2
+
+We create a Service named:  mysql
+
+Then Kubernetes DNS can provide stable addresses for the Pods, typically like:
+mysql-0.mysql
+mysql-1.mysql
+mysql-2.mysql
+
+So another Pod can communicate with a specific MySQL Pod using its stable DNS identity.
+
+Why not just use Pod IP?
+Pod IPs can change.
+For example:
+mysql-1
+   ↓
+IP = 10.0.0.5
+
+Pod gets recreated:
+mysql-1
+   ↓
+IP = 10.0.0.9
+
+The name stays, but the IP can change.
+
+So:
+❌ Don't depend on:
+10.0.0.5
+
+✅ Depend on:
+mysql-1.mysql
+What does serviceName actually do?
+
+It tells the StatefulSet:  "Use this Service (mysql) as the network identity for the StatefulSet Pods."
+
+So:
+serviceName: mysql
+       ↓
+Service: mysql
+       ↓
+Stable DNS for StatefulSet Pods
+       ↓
+mysql-0.mysql
+mysql-1.mysql
+mysql-2.mysql
+Important
+
+serviceName: mysql does not create the Service for you.
+
+You normally create the Service separately:
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+
+spec:
+  clusterIP: None
+
+  selector:
+    app: mysql
+
+clusterIP: None makes it a headless Service, which is commonly used with StatefulSets so individual Pods can be discovered directly.
+
+So the relationship is:
+
+StatefulSet
+   │
+   ├── mysql-0
+   ├── mysql-1
+   └── mysql-2
+          ↑
+          │
+    Service: mysql
+          │
+          ↓
+Individual stable DNS names
+
+In short: serviceName is used so the StatefulSet Pods can have stable network identities, not because the Service is storing the MySQL data.
+
+
+
+
+
+
+why we need stable name for this paticular mysql pod
+Because with MySQL/stateful applications, each Pod can have its own identity and data. Kubernetes needs to know which Pod is which.
+
+
+Suppose you have:
+
+mysql-0 → primary database
+mysql-1 → replica
+mysql-2 → replica
+
+Each has its own persistent storage:
+
+mysql-0 → disk-0
+mysql-1 → disk-1
+mysql-2 → disk-2
+
+Now mysql-1 crashes.
+
+We want:
+
+mysql-1 ❌
+   ↓
+mysql-1 ✅
+   ↓
+disk-1
+
+So mysql-1 comes back with its same identity and associated storage
+
+Another important example
+
+A database cluster might have:
+
+mysql-0
+mysql-1
+mysql-2
+
+They can address each other predictably:
+
+mysql-0 → mysql-1
+mysql-1 → mysql-2
+
+If Pod names constantly changed, database cluster membership and configuration would be harder to maintain.
+
+
+What does stable identity give us?
+1. Stable name
+mysql-1
+The name doesn't randomly change.
+
+2. Stable network identity
+Other Pods can reliably find that specific instance.
+
+3. Stable storage association
+mysql-1
+   ↓
+its persistent storage
+
+When the Pod is recreated, its storage can be reattached according to the StatefulSet/PVC setup.
+
+
+
+
+
+
+
+
+Database cluster
+Imagine 3 database Pods:
+
+mysql-0
+mysql-1
+mysql-2
+
+Suppose:
+mysql-0 → Primary (accepts writes)
+mysql-1 → Replica
+mysql-2 → Replica
+
+Now an application needs to write data.
+It needs to know:
+"Where is the Primary?"
+        ↓
+mysql-0
+
+So mysql-0 has a specific identity/role.
+
+If mysql-0 crashes:  mysql-0 ❌
+When it comes back:   mysql-0 ✅
+The database cluster can recognize that this is the same logical instance and reconnect it to its associated storage/configuration.
+
+
+Let's follow one user request so you can see why identity matters.
+
+Suppose we have a MySQL cluster:
+
+mysql-0
+mysql-1
+mysql-2
+
+And assume:
+
+mysql-0 → Primary
+mysql-1 → Replica
+mysql-2 → Replica
+
+Now a user makes a request:
+
+User
+  ↓
+Application
+  ↓
+"I want to buy a product"
+  ↓
+Need to SAVE order
+Step 1 — Application needs to write data
+
+The application needs to send the order to the database primary:
+
+Application
+     ↓
+mysql-0
+     ↓
+Save order
+
+Data is stored:
+
+mysql-0
+   ↓
+Database
+   ↓
+Order #123
+Step 2 — Replication
+
+The database can replicate that data to replicas:
+
+             mysql-0
+             Primary
+                │
+          ┌─────┴─────┐
+          ↓           ↓
+       mysql-1      mysql-2
+       Replica      Replica
+
+So the same order may be replicated to:
+
+mysql-1
+mysql-2
+Step 3 — What if mysql-0 crashes?
+mysql-0 ❌
+
+The cluster needs to know:
+
+"Which database instance was mysql-0?"
+
+Because mysql-0 has its own identity and storage.
+
+StatefulSet gives it a predictable identity:
+
+mysql-0
+   ↓
+its associated storage
+
+When recreated:
+
+mysql-0 ❌
+   ↓
+recreated
+   ↓
+mysql-0 ✅
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+4. DaemonSet
+
+DaemonSet has a completely different purpose.
+
+Its job is:  Run a Pod on every matching node.
+
+Suppose your cluster has:
+Node 1
+Node 2
+Node 3
+
+You create a DaemonSet.
+
+It creates:
+Node 1 → Agent Pod
+Node 2 → Agent Pod
+Node 3 → Agent Pod
+
+If a new node joins:
+Node 1 → Agent Pod
+Node 2 → Agent Pod
+Node 3 → Agent Pod
+Node 4 → Agent Pod  ← automatically
+
+That's the important feature.
+
+Why would we need one Pod on every node?
+Suppose you want to collect logs from every node.
+
+You can run:
+Node 1 → Log collector
+Node 2 → Log collector
+Node 3 → Log collector
+
+Common DaemonSet uses:
+Log collection
+Monitoring agents
+Node-level security agents
+Networking agents
+
+Examples include agents such as Fluent Bit, node-level monitoring agents, etc.
+
+Example
+apiVersion: apps/v1
+kind: DaemonSet
+
+metadata:
+  name: log-agent
+
+spec:
+  selector:
+    matchLabels:
+      app: log-agent
+
+  template:
+    metadata:
+      labels:
+        app: log-agent
+
+    spec:
+      nodeSelector:
+        disk: ssd
+
+      containers:
+        - name: log-agent
+          image: fluent/fluent-bit:latest
+
+If you have 4 matching nodes:
+
+DaemonSet
+   │
+   ├── Node 1 → log-agent
+   ├── Node 2 → log-agent
+   ├── Node 3 → log-agent
+   └── Node 4 → log-agent
+Important
+
+DaemonSet does not necessarily mean every node.
+You can use node selection rules.
+For example, if only nodes with:  disk=ssd
+should run the agent, the DaemonSet can target those nodes.
+
+Interview answer
+DaemonSet ensures that a copy of a Pod runs on every node that matches its scheduling requirements.
+It is commonly used for node-level logging, monitoring, and networking agents.
+
+
+
+Instead, its rule is:  "For every node that matches my requirements, make sure one of my Pods is running there."
+
+So:
+New matching node
+       ↓
+DaemonSet detects it
+       ↓
+Pod automatically created
+
+And:
+DaemonSet Pod deleted
+       ↓
+DaemonSet detects it
+       ↓
+Replacement Pod automatically created
+
+
+
+you mean how do we tell the DaemonSet which nodes it should use?
+We tell it using node labels + nodeSelector/node affinity.
+
+Example
+Suppose we have 3 nodes:
+
+Node-1   disk=ssd
+Node-2   disk=hdd
+Node-3   disk=ssd
+
+We want the DaemonSet Pod only on SSD nodes.
+
+First, label the nodes:
+kubectl label node Node-1 disk=ssd
+kubectl label node Node-2 disk=hdd
+kubectl label node Node-3 disk=ssd
+
+Then in the DaemonSet:
+
+spec:
+  template:
+    spec:
+      nodeSelector:
+        disk: ssd
+
+Now Kubernetes sees:
+
+Node-1 → disk=ssd ✅ → create Pod
+Node-2 → disk=hdd ❌ → don't create Pod
+Node-3 → disk=ssd ✅ → create Pod
+
+
+What if a new node is created?
+
+Suppose:  Node-4 → disk=ssd
+Because it has the matching label:  disk=ssd
+DaemonSet automatically creates:  Node-4 → Pod ✅
+
+So "matching node" means a node that satisfies the rules you specified, such as:
+nodeSelector:
+  disk: ssd
+
+
+Suppose you create:  Node-4
+Initially:  Node-4 → no disk label
+DaemonSet checks:  Node-4 → disk=ssd? ❌
+So it doesn't create a Pod there.
+Then you label it:  kubectl label node Node-4 disk=ssd
+Now:  Node-4 → disk=ssd ✅
+
+
+What if Node-3's Pod is deleted?
+Suppose:  Node-3 → log-agent ❌
+
+DaemonSet checks its rule:
+Node-3
+disk=ssd
+
+The node matches, but the required Pod is missing.
+
+So automatically:
+Node-3
+   ↓
+DaemonSet
+   ↓
+creates new log-agent Pod
+
+Result:  Node-3 → new log-agent Pod ✅
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+5. Job
+
+Now we have a different requirement.
+Suppose you don't want an application running continuously.
+
+You want:  Run a task, complete it, and stop.
+That's a Job.
+
+Example:
+Run database migration
+        ↓
+Migration completes
+        ↓
+Job finishes
+
+Or:
+Process a file
+        ↓
+Finished
+        ↓
+Stop
+
+
+Deployment vs Job
+
+Deployment:
+Start Pod
+   ↓
+Keep running
+   ↓
+If it crashes → replace it
+
+Job:
+Start Pod
+   ↓
+Do task
+   ↓
+Complete successfully
+   ↓
+Finish
+
+
+
+Example
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: my-job
+
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: task
+          image: busybox
+          command:
+            - sh
+            - -c
+            - echo "Task completed"
+
+The Pod runs:
+
+echo "Task completed"
+
+Then:
+
+Pod → Completed
+Job → Completed
+
+It doesn't need to stay running like an Nginx application.
+
+What if the task fails?
+
+Suppose:
+
+Job
+ ↓
+Pod
+ ↓
+Task fails ❌
+
+The Job can create/retry a Pod according to its configuration.
+
+Eventually:
+
+Success → Job completes
+
+or, after allowed retries:
+Failure → Job fails
+
+Common uses
+Database migrations
+Backups
+Batch processing
+One-time scripts
+Data processing
+
+Interview answer
+A Job creates Pods to perform a task until it successfully completes. It is used for one-time or batch workloads.
+
+
+
+Break it down
+command:
+  - sh
+  - -c
+  - echo "Task completed"
+
+means:
+Start container
+     ↓
+Run "sh"
+     ↓
+Give it "-c"
+     ↓
+Execute: echo "Task completed"
+     ↓
+Print: Task completed
+     ↓
+Command finishes
+     ↓
+Pod becomes Completed
+     ↓
+Job finishes
+
+What is sh?
+sh is a shell inside the container.
+
+It can execute commands such as:
+echo hello
+ls
+mkdir test
+What is -c?
+
+-c means:  "Execute the command that comes after me as a shell command."
+So:  sh -c 'echo "Task completed"'
+
+means:
+sh
+ ↓
+-c
+ ↓
+echo "Task completed"
+
+What is echo?
+echo simply prints text:  echo "Task completed"
+Output:  Task completed
+
+
+Example: Create a backup file
+
+Suppose we want a Kubernetes Job to create a backup file.
+
+Complete Job
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: backup-job
+
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: backup
+          image: busybox
+
+          command:
+            - sh
+            - -c
+            - |
+              echo "Starting backup..."
+              mkdir -p /backup
+              echo "User data backup" > /backup/data.txt
+              echo "Backup completed"
+
+
+- |
+
+This YAML | means:
+
+"The following multiple lines are one block of text/command."
+
+So:
+
+- |
+  command1
+  command2
+  command3
+
+is treated as multiple shell commands.
+
+
+mkdir -p /backup/data
+-p means create the parent directories if they don't already exist.
+Example:  /backup/data
+If /backup doesn't exist:  mkdir -p /backup/data
+
+creates both:
+/backup
+└── data
+
+It also doesn't give an error if the directory already exists.
+So remember: mkdir -p = create missing parent directories + don't complain if they already exist.
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+6. CronJob
+
+CronJob is basically:  Run a Job according to a schedule.
+For example:
+Every day at 1 AM
+Run a backup.
+You don't want to manually create a Job every day.
+
+CronJob does it.
+CronJob
+   │
+   ├── Job → Monday
+   ├── Job → Tuesday
+   ├── Job → Wednesday
+   └── Job → Thursday
+
+Each Job creates a Pod to perform the task.
+
+
+
+Relationship
+This is very important:
+CronJob
+   ↓
+Job
+   ↓
+Pod
+
+CronJob does not directly perform the task.
+It creates Jobs according to the schedule.
+
+
+
+Example
+apiVersion: batch/v1
+kind: CronJob
+
+metadata:
+  name: database-backup
+
+spec:
+  schedule: "0 1 * * *"
+
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+
+          containers:
+            - name: backup
+              image: busybox
+              command:
+                - sh
+                - -c
+                - echo "Backup started"
+
+This schedule:
+
+0 1 * * *
+
+means approximately:
+
+Every day at 1:00 AM
+
+So:
+
+1 AM Monday
+     ↓
+Job
+     ↓
+Pod
+     ↓
+Backup
+
+1 AM Tuesday
+     ↓
+Job
+     ↓
+Pod
+     ↓
+Backup
+Common uses
+Daily backups
+Cleanup jobs
+Reports
+Scheduled data processing
+Periodic maintenance
+Interview answer
+
+CronJob creates Jobs on a defined schedule. For example, it can run a database backup every day at 1 AM.
+
+restartPolicy: Never
+means:  If that Pod's container fails, don't restart that same container inside that Pod.
+
+But the Job can still create another Pod for retry, depending on the Job's retry settings.
+
+
+
+
+
+
+All 6 together
+
+Now look at the difference:
+
+                         Kubernetes Workloads
+                                │
+        ┌───────────────────────┼────────────────────────┐
+        │                       │                        │
+   Long-running             Node-based              Task-based
+        │                       │                        │
+        ├── Deployment          └── DaemonSet           ├── Job
+        │                                                │
+        ├── ReplicaSet                                   └── CronJob
+        │
+        └── StatefulSet
+
+But there is an even easier way to remember them.
+
+
+
+
+
+
+
+Simple real-world examples
+Deployment
+"I need 3 copies of my web application running."
+
+Deployment
+   ↓
+3 Pods
+ReplicaSet
+"I always want 3 Pods."
+
+ReplicaSet
+   ↓
+Maintains 3 Pods
+StatefulSet
+"I need database Pods with stable identity/storage."
+
+StatefulSet
+   ↓
+mysql-0
+mysql-1
+mysql-2
+DaemonSet
+"I need one agent on every node."
+
+DaemonSet
+   ↓
+Node 1 → Agent
+Node 2 → Agent
+Node 3 → Agent
+Job
+"I need to run this task once."
+
+Job
+   ↓
+Pod
+   ↓
+Task completes
+CronJob
+"I need to run this task every day."
+
+CronJob
+   ↓
+Job
+   ↓
+Pod
+   ↓
+Task completes
+Most important relationship to remember
+
+This is probably the most important part for an interview:
+
+Deployment
+    ↓
+ReplicaSet
+    ↓
+Pod
+StatefulSet
+    ↓
+Pod
+DaemonSet
+    ↓
+Pod
+Job
+    ↓
+Pod
+CronJob
+    ↓
+Job
+    ↓
+Pod
+
+And remember:
+
+Deployment   → stateless application
+StatefulSet  → stateful application
+DaemonSet    → one Pod per matching node
+Job          → task runs and finishes
+CronJob      → scheduled Job
+ReplicaSet   → maintains Pod count
+
+One key correction: ReplicaSet is usually not something you choose instead of Deployment. In normal application deployments,
+you create a Deployment, and the Deployment creates/manages the ReplicaSet for you.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
