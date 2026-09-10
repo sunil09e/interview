@@ -2126,8 +2126,8 @@ MySQL Pod
 So there are 2 different IPs
 
 Service IP:  10.96.50.20
-
 The application uses this IP.
+
 Pod IP:  10.244.1.15
 
 The Service uses this to forward traffic to the MySQL Pod.
@@ -2144,6 +2144,175 @@ mysql-service
 
 the application still only uses:  mysql-service:3306
 The Service handles which Pod receives the traffic.
+
+
+
+Yes. Let's make it complete and simple, with the application explicitly configured to call mysql-service:3306.
+
+We will use:
+
+app-pod
+   ↓
+mysql-service:3306
+   ↓
+mysql-pod
+1. app-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: myapp
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+
+    spec:
+      containers:
+        - name: app
+          image: myapp:latest
+
+          env:
+            - name: DB_HOST
+              value: "mysql-service"
+
+            - name: DB_PORT
+              value: "3306"
+
+Here is the important part:
+
+env:
+  - name: DB_HOST
+    value: "mysql-service"
+
+  - name: DB_PORT
+    value: "3306"
+
+This tells the application:  My MySQL server is available at mysql-service:3306.
+
+
+
+
+You have a MySQL container:  MySQL container
+When MySQL starts, it needs a password for the root user.
+
+So we tell the MySQL container:
+env:
+  - name: MYSQL_ROOT_PASSWORD
+    value: "root123"
+
+Read it as a sentence:  MySQL, your root user's password is root123.
+That's all.
+
+Why do we write MYSQL_ROOT_PASSWORD?
+Because the MySQL Docker image is designed to understand that particular name.
+
+MYSQL_ROOT_PASSWORD
+        ↓
+MySQL understands this
+        ↓
+root password = root123
+It is separate from your Service
+
+You have:
+Application Pod
+      ↓
+mysql-service:3306
+      ↓
+MySQL Pod
+
+Here:  mysql-service:3306
+
+means where to find MySQL.
+
+While:  root / root123
+means how to log in to MySQL.
+
+So remember just this:  mysql-service:3306 = address
+root123 = password
+
+
+
+If you mean can we change MYSQL_ROOT_PASSWORD to any other name?
+For the MySQL image, no, not for this initialization setting.
+
+This:
+env:
+  - name: MYSQL_ROOT_PASSWORD
+    value: "root123"
+
+is a special name that the MySQL image recognizes.
+
+If you change it:
+env:
+  - name: MY_PASSWORD
+    value: "root123"
+
+MySQL's official image will not treat MY_PASSWORD as the root password setting.
+
+
+
+
+you are using the MySQL Docker image. That image is programmed to look for certain environment variables, including:
+
+MYSQL_ROOT_PASSWORD
+MYSQL_DATABASE
+MYSQL_USER
+MYSQL_PASSWORD
+
+
+
+
+
+Yes. If MySQL is being created for the first time, this is where we give the initial root password:
+
+env:
+  - name: MYSQL_ROOT_PASSWORD
+    value: "root123"
+
+Think of the first startup:
+
+MySQL container starts
+        ↓
+Reads MYSQL_ROOT_PASSWORD
+        ↓
+Creates/initializes MySQL
+        ↓
+root password = root123
+
+Then your application can use:
+
+username = root
+password = root123
+host     = mysql-service
+port     = 3306
+But important
+
+If MySQL is using existing persistent data (for example, a PVC), the database has already been initialized.
+
+In that case, changing:
+
+MYSQL_ROOT_PASSWORD: "newpassword"
+
+does not normally change the existing root password. The existing database keeps its configured credentials.
+
+So:
+
+First time / empty database → this variable initializes the password.
+
+Existing database / existing data → the old password remains.
+
+
+
+
+
+
 
 
 
