@@ -449,9 +449,50 @@ Full picture
 One key correction to keep in mind: the Scheduler chooses the node, while the kubelet on that node actually makes the Pod run.
 The Controller Manager keeps checking/reconciling the desired state.
 
------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------
+Kubernetes cluster state means:
+
+Information about what Kubernetes currently has and what it is supposed to have.
+
+For example, you create:  replicas: 3
+
+Kubernetes stores information like:
+Deployment: nginx
+Desired Pods: 3
+
+Pod 1: Running
+Pod 2: Running
+Pod 3: Running
+
+Service: nginx-service
+Service IP: 10.96.10.20
+
+This is called the cluster state.
 
 
+Desired state vs actual state
+You say:
+"I want 3 nginx Pods"
+        ↓
+Desired State = 3
+
+Currently:
+
+Pod 1 → Running
+Pod 2 → Running
+Pod 3 → Running
+
+Actual State = 3
+
+Everything is correct.
+
+If Pod 2 crashes:
+
+Desired State = 3
+Actual State  = 2
+
+Kubernetes controllers notice the difference and work to create another Pod.
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 
