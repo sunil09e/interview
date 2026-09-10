@@ -61,6 +61,413 @@ Server                      │
       ┌──────┼────────┐
       │      │        │
    CoreDNS Metrics   CNI
+----------------------------------------------
+Important Kubernetes Ports
+
+These are the ports you should know for interviews.
+
+Control Plane ports
+Port            	Component	           Purpose
+6443/TCP	      kube-apiserver	    Kubernetes API
+2379/TCP	          etcd	          etcd client connections
+2380/TCP          	etcd        	     etcd server-to-server communication
+10257/TCP  	kube-controller-manager	    Controller Manager HTTPS
+10259/TCP       	kube-scheduler	        Scheduler HTTPS
+
+Worker Node ports
+Port                     	Component            	Purpose
+10250/TCP	                 kubelet	          API server ↔ kubelet communication
+10256/TCP                 	kube-proxy	        kube-proxy health check
+30000–32767/TCP/UDP       	NodePort	        External access to Services
+
+
+-------------------------------------
+
+
+Absolutely. Let's take one complete example and understand what each Control Plane component does.
+
+Suppose you want to run an Nginx application with 3 Pods.
+
+                    Kubernetes Cluster
+                           |
+                  ┌────────┴────────┐
+                  │  CONTROL PLANE  │
+                  │                 │
+                  │ API Server      │
+                  │ etcd            │
+                  │ Scheduler       │
+                  │ Controller Mgr  │
+                  └────────┬────────┘
+                           |
+                    Worker Nodes
+                 ┌─────────┼─────────┐
+                 ↓         ↓         ↓
+               Node 1    Node 2    Node 3
+                 |         |         |
+               Pod       Pod       Pod
+              nginx     nginx     nginx
+
+1. API Server
+The API Server is the main entry point into Kubernetes.
+if you want to create a pod want to talk tonode or check something
+kubectl is cmd line  were we communicate with cluster
+
+For example, you run:  kubectl create deployment nginx --image=nginx --replicas=3
+Your kubectl does not directly talk to the Scheduler, etcd, or Worker Node.
+
+It first talks to the API Server.
+You
+ |
+ | kubectl
+ ↓
+API Server
+
+Usually the Kubernetes API Server listens on:  6443
+
+So conceptually:
+kubectl
+   |
+   | HTTPS :6443
+   ↓
+API Server
+
+The API Server authenticates and validates the request and handles the Kubernetes API operations.
+
+What does API Server do?
+Think:  "I am the front door of Kubernetes."
+Almost all Kubernetes control operations go through the API Server.
+
+---------------------------------
+2. etcd
+Now the API Server needs to keep the cluster information somewhere.
+have information about cluster status,what deployment happend, what are configuration setup, what secrets you having, 
+if your etcd dies means cluster do no anything about this so cluster forgot everything
+
+That is where etcd comes in.
+etcd is the database/key-value store for Kubernetes cluster state.
+
+For example, Kubernetes needs to know things such as:
+Deployment nginx
+Replicas = 3
+
+Pod nginx-abc
+Status = Running
+
+Pod nginx-def
+Status = Running
+
+Pod nginx-xyz
+Status = Pending
+
+This information is stored in etcd.
+
+Simplified:
+kubectl
+   |
+   ↓
+API Server
+   |
+   ↓
+etcd
+   |
+   ├── Deployment information
+   ├── Pod information
+   ├── Service information
+   ├── ConfigMap information
+   └── Secret information
+Important
+etcd does not run your application.
+
+It stores Kubernetes cluster state/data.
+Think:  etcd = Kubernetes database
+
+
+stores logs also
+-------------
+No. etcd does not normally store application/container logs.
+
+Think of it this way:
+etcd
+ ↓
+Kubernetes cluster STATE
+
+It stores things like:
+Pod definitions
+Deployment configuration
+Service configuration
+ConfigMaps
+Secrets
+Pod desired/current state
+Node information
+
+What about logs?
+
+If your application prints:
+User login successful
+Database connection failed
+Request received
+
+Those are container/application logs, and they are normally handled by the container runtime/node logging system and,
+in production, often sent to a logging system such as Elasticsearch/OpenSearch, Loki, Splunk, CloudWatch, etc.
+
+For example:
+Application
+    ↓
+Container
+    ↓
+stdout / stderr
+    ↓
+Node logging
+    ↓
+Central logging system
+
+When you run:  kubectl logs mypod
+Kubernetes retrieves the available container logs; it is not reading them from etcd.
+
+Easy interview answer
+etcd stores Kubernetes cluster state and configuration, not application logs. Application logs are handled separately 
+through the container/node logging system or a centralized logging solution.
+
+
+-----------------------
+3. Scheduler
+We will decide where to run a pod. Example, node 1 is free, suddenly to  increase the pod & container because node 2 is full.
+Like where resource available. So it use the node. How they know? Because it have the information. So it is the designerof that area.
+Now comes the Scheduler.
+
+Suppose you requested:  replicas: 3
+You want:  3 nginx Pods
+
+But suppose you have:
+Worker Node 1
+Worker Node 2
+Worker Node 3
+
+Kubernetes needs to decide:  "Which node should each Pod run on?"
+
+That is the Scheduler's job.
+
+For example:
+Scheduler decides:
+nginx-pod-1 → Node 1
+nginx-pod-2 → Node 2
+nginx-pod-3 → Node 3
+
+So:
+                 Scheduler
+                     |
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+       Node 1      Node 2     Node 3
+          |          |          |
+        nginx      nginx      nginx
+
+Does Scheduler create the container?
+No.
+
+Scheduler mainly decides:  Which node should run this Pod?
+It does not itself start the container.
+
+------------------------------------------------
+4. Controller Manager
+
+This one is very important.
+The Controller Manager continuously checks whether the actual cluster matches what you requested.
+
+Suppose you requested:  replicas = 3
+You want:  3 Pods
+
+Initially:
+Pod 1 → Running
+Pod 2 → Running
+Pod 3 → Running
+
+Everything is good.
+
+Now imagine:  Pod 2 → crashes/deleted
+
+You now have:
+Pod 1 → Running
+Pod 2 → ❌
+Pod 3 → Running
+
+But your desired state is:  3 Pods
+The Controller Manager notices:
+Desired = 3
+Actual  = 2
+
+So it takes action to get back to:
+Desired = 3
+Actual  = 3
+
+It causes the appropriate controller, such as the Deployment/ReplicaSet controllers, to create a replacement Pod.
+
+
+Complete Example
+Let's put everything together.
+
+You run:  kubectl create deployment nginx --image=nginx --replicas=3
+
+Step 1 — kubectl → API Server
+kubectl
+   |
+   | HTTPS :6443
+   ↓
+API Server
+
+API Server receives your request.
+
+Step 2 — API Server → etcd
+The cluster state is recorded through the API Server.
+
+Conceptually:
+API Server
+    |
+    ↓
+  etcd
+
+Deployment nginx
+replicas = 3
+
+Now Kubernetes knows:  "The user wants 3 nginx Pods."
+
+Step 3 — Controller Manager
+The Deployment/ReplicaSet controllers see that the desired state requires Pods.
+
+Desired:
+3 nginx Pods
+
+Actual:
+0 nginx Pods
+
+So the controllers work toward creating the required Pod objects.
+
+Step 4 — Scheduler
+The Pods need nodes.
+
+Scheduler sees unscheduled Pods:
+nginx-pod-1 → no node
+nginx-pod-2 → no node
+nginx-pod-3 → no node
+
+It chooses suitable nodes:
+nginx-pod-1 → Node 1
+nginx-pod-2 → Node 2
+nginx-pod-3 → Node 3
+
+Step 5 — Worker Node
+Now the selected Worker Nodes have to actually run the Pods.
+The kubelet on each selected node communicates with the API Server and makes sure the assigned Pod is running.
+API Server
+    |
+    | Pod assignment
+    ↓
+kubelet on Node 1
+    |
+    ↓
+Container Runtime
+    |
+    ↓
+nginx container
+
+Same thing on Node 2 and Node 3.
+
+Finally:
+Node 1        Node 2        Node 3
+  |             |             |
+ nginx         nginx         nginx
+ Pod 1         Pod 2         Pod 3
+Now imagine Pod 2 dies
+
+This is where the architecture becomes easier to understand.
+Node 1          Node 2          Node 3
+  |               |               |
+ Pod 1          ❌ Pod 2         Pod 3
+
+Controller sees:
+Desired = 3
+Actual  = 2
+
+It wants:
+Desired = 3
+Actual  = 3
+
+So a replacement Pod is created.
+Scheduler can then select an appropriate node for that replacement Pod.
+
+Node 1          Node 2          Node 3
+  |               |               |
+ Pod 1         New Pod           Pod 3
+The easiest way to remember all 4
+
+Think of Kubernetes like a company:
+
+API Server
+   ↓
+"Front desk"
+Receives requests
+etcd
+   ↓
+"Database"
+Stores cluster information
+Scheduler
+   ↓
+"Placement manager"
+Decides which Worker Node gets a Pod
+Controller Manager
+   ↓
+"Supervisor"
+Continuously works toward the desired state
+Full picture
+                    USER
+                     |
+                     | kubectl
+                     ↓
+              ┌───────────────┐
+              │   API SERVER  │ :6443
+              └───────┬───────┘
+                      |
+             ┌────────┴─────────┐
+             ↓                  ↓
+           etcd             Controllers
+        (database)          (desired state)
+                                |
+                                ↓
+                           Scheduler
+                       (choose Worker Node)
+                                |
+              ┌─────────────────┼─────────────────┐
+              ↓                 ↓                 ↓
+           Worker 1          Worker 2          Worker 3
+              |                 |                 |
+           kubelet           kubelet           kubelet
+              |                 |                 |
+             Pod               Pod               Pod
+              |                 |                 |
+          Container         Container         Container
+
+One key correction to keep in mind: the Scheduler chooses the node, while the kubelet on that node actually makes the Pod run.
+The Controller Manager keeps checking/reconciling the desired state.
+
+-----------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             Server
 
 Important: Not every component you see is a separate YAML file you create yourself. Some are installed automatically when the cluster is created, while others are installed separately depending on your Kubernetes setup.
