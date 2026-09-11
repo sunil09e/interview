@@ -2308,10 +2308,513 @@ First time / empty database → this variable initializes the password.
 
 Existing database / existing data → the old password remains.
 
+-------------------------------------------------------------------------
+
+1. Direct Pod-to-Pod communication
+
+Cause 1: MySQL Pod is not running
+Cause 2: MySQL isn't listening on port 3306     The Pod may be Running, but the MySQL process may not be listening.
+Cause 3: NetworkPolicy blocks traffic         
+Cause 4: Kubernetes networking/CNI problem     If Pods on the same node communicate but Pods on different nodes cannot:
 
 
 
 
+Here the Application Pod directly contacts the MySQL Pod IP.
+Application Pod
+10.244.1.10
+     |
+     | 10.244.2.15:3306
+     ↓
+MySQL Pod
+10.244.2.15
+
+For example, from the Application Pod:  kubectl exec -it application-pod -- curl 10.244.2.15:3306
+
+Or for MySQL:
+kubectl exec -it application-pod -- nc -zv 10.244.2.15 3306
+
+If it works:
+Application Pod ───────────────> MySQL Pod
+             10.244.2.15:3306
+
+If it fails:
+Application Pod ───────X───────> MySQL Pod
+             10.244.2.15:3306
+
+That is direct Pod-to-Pod communication failure.
+Causes and fixes
+Cause 1: MySQL Pod is not running
+Check:  kubectl get pods -o wide
+
+Example:
+NAME              READY   STATUS
+application-pod   1/1     Running
+mysql-pod         0/1     CrashLoopBackOff
+
+The MySQL Pod isn't available.
+
+Fix
+
+Check:
+kubectl describe pod mysql-pod
+kubectl logs mysql-pod
+
+Fix whatever is causing MySQL to crash.
+
+Cause 2: MySQL isn't listening on port 3306
+
+The Pod may be Running, but the MySQL process may not be listening.
+Check inside MySQL Pod:  kubectl exec -it mysql-pod -- ss -lntp
+
+You should see something like:
+LISTEN  0  80  0.0.0.0:3306
+If MySQL is listening only on the wrong address/port, fix the MySQL configuration.
+
+Cause 3: NetworkPolicy blocks traffic
+
+Example:
+Application Pod
+      |
+      |  X
+      ↓
+MySQL Pod
+
+Check:  kubectl get networkpolicy
+If a NetworkPolicy allows only certain Pods, make sure the Application Pod is allowed to reach MySQL.
+Example policy:
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-to-mysql
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: application
+      ports:
+        - protocol: TCP
+          port: 3306
+
+This means:
+application Pod
+       |
+       | TCP 3306 ✅
+       ↓
+mysql Pod
+
+Cause 4: Kubernetes networking/CNI problem
+If Pods on the same node communicate but Pods on different nodes cannot:
+Node 1                         Node 2
+┌─────────────┐                ┌─────────────┐
+│ Application │                │ MySQL       │
+│ Pod         │───────X───────│ Pod         │
+└─────────────┘                └─────────────┘
+
+The CNI/network layer may have a problem.
+
+Check:  kubectl get pods -n kube-system
+Look for your CNI Pods, such as Calico, Cilium, or Flannel.
+Also:  kubectl describe node <node-name>
+
+------------------------
+2. Pod → Service → Pod communication
+
+Cause 1: Service doesn't exist
+Cause 2: Service selector is wrong
+Cause 3: MySQL Pod is not Ready
+Cause 4: Service port/targetPort is wrong
+Cause 5: NetworkPolicy blocks the Service traffic
+Cause 6: DNS problem
+
+
+This is what you showed earlier.
+
+Application Pod
+      |
+      | mysql-service:3306
+      ↓
+MySQL Service
+10.96.50.20:3306
+      |
+      ↓
+MySQL Pod
+10.244.2.15:3306
+
+The Application Pod normally uses:  mysql-service:3306
+It does not directly use: 10.244.2.15:3306
+The Service provides a stable way to reach the MySQL Pods.
+
+Example
+Suppose your MySQL Service is:
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+
+And your MySQL Pod has:
+labels:
+  app: mysql
+
+Then:
+Application Pod
+      |
+      | mysql-service:3306
+      ↓
+Service
+10.96.50.20:3306
+      |
+      | endpoint
+      ↓
+MySQL Pod
+10.244.2.15:3306
+
+Causes of Service communication failure
+Cause 1: Service doesn't exist
+
+Application tries:  mysql-service:3306
+
+Check:  kubectl get svc
+Maybe you have:  mysql-svc
+
+instead of:  mysql-service
+
+Fix
+Use the correct Service name:  mysql-svc:3306
+or create/rename the Service correctly.
+
+Cause 2: Service selector is wrong
+This is very common.
+Service:
+selector:
+  app: mysql
+
+But MySQL Pod:
+labels:
+  app: database
+
+They don't match.
+
+Therefore:
+Service
+   |
+   | selector says app=mysql
+   |
+   X
+MySQL Pod
+   app=database
+
+The Service finds zero Pods.
+Check:  kubectl get endpoints mysql-service
+
+You might see:
+NAME            ENDPOINTS
+mysql-service   <none>
+
+Fix
+Make the labels match:
+# MySQL Pod
+labels:
+  app: mysql
+
+and:
+# Service
+selector:
+  app: mysql
+
+Then check:  kubectl get endpoints mysql-service
+You should see:  10.244.2.15:3306
+
+Cause 3: MySQL Pod is not Ready
+Suppose:
+MySQL Pod
+Running ❌ Ready
+
+A Service generally sends traffic only to eligible Ready endpoints.
+
+Check:  kubectl get pods
+
+Example:  mysql-pod   0/1   Running
+Check why:  kubectl describe pod mysql-pod
+
+Look at:
+Readiness probe
+Events
+Conditions
+Fix
+
+Fix the readiness problem.
+For example, if the readiness probe checks the wrong port:
+
+readinessProbe:
+  tcpSocket:
+    port: 3306
+
+Make sure MySQL is actually listening on 3306.
+
+Cause 4: Service port/targetPort is wrong
+
+For example:
+ports:
+  - port: 3306
+    targetPort: 3307
+
+But MySQL is actually listening on:  3306
+
+Then:
+Application
+    |
+    | :3306
+    ↓
+Service
+    |
+    | sends to :3307 ❌
+    ↓
+MySQL
+    | :3306
+Fix
+
+Use:
+ports:
+  - port: 3306
+    targetPort: 3306
+
+Remember:
+port       = Service port
+targetPort = Pod/container port
+
+Cause 5: NetworkPolicy blocks the Service traffic
+
+Example:
+Application Pod
+      |
+      | mysql-service:3306
+      ↓
+Service
+      |
+      X
+      ↓
+MySQL Pod
+
+Check:  kubectl get networkpolicy
+
+Make sure the NetworkPolicy allows:
+Application → MySQL :3306
+
+Cause 6: DNS problem
+
+Application uses:  mysql-service:3306
+But Kubernetes needs to resolve:
+mysql-service
+       ↓
+Service IP
+10.96.50.20
+
+Test from Application Pod:  kubectl exec -it application-pod -- nslookup mysql-service
+
+If DNS works, you'll get the Service address.
+If it fails:  nslookup: can't resolve 'mysql-service'
+
+Check CoreDNS:  kubectl get pods -n kube-system
+and:
+kubectl get svc -n kube-system
+Look for CoreDNS problems.
+
+
+How to troubleshoot in the correct order
+Suppose the application says:  Can't connect to mysql-service:3306
+
+Don't immediately assume the network is broken.
+
+Follow this order:
+Step 1 — Does the Service exist?    kubectl get svc mysql-service
+Step 2 — Does DNS work?      kubectl exec -it application-pod -- nslookup mysql-service
+Step 3 — Does the Service have endpoints?   kubectl get endpoints mysql-service
+
+Expected:  10.244.2.15:3306
+If:  <none>
+→ investigate selector / labels / readiness.
+
+Step 4 — Is MySQL Pod running?    kubectl get pods -o wide
+Step 5 — Can Application reach MySQL Pod directly?    kubectl exec -it application-pod -- nc -zv 10.244.2.15 3306
+
+This is very useful.
+Step 6 — Check NetworkPolicy   kubectl get networkpolicy
+Step 7 — Check CNI/networking    
+If everything above looks correct but Pod-to-Pod traffic still fails:   kubectl get pods -n kube-system
+Investigate the CNI/network plugin.
+
+Easy interview way to remember
+DIRECT POD-TO-POD
+────────────────────────
+
+Application Pod
+      |
+      | Pod IP
+      | 10.244.2.15:3306
+      ↓
+MySQL Pod
+
+Problem areas:
+
+Pod
+ ↓
+NetworkPolicy
+ ↓
+CNI/network
+ ↓
+MySQL Pod
+ ↓
+MySQL port
+
+POD → SERVICE → POD
+────────────────────────
+Application Pod
+      |
+      | mysql-service:3306
+      ↓
+MySQL Service
+      |
+      | selector
+      ↓
+Endpoints
+      |
+      ↓
+MySQL Pod
+
+Problem areas:
+DNS
+ ↓
+Service
+ ↓
+Selector
+ ↓
+Endpoints
+ ↓
+Pod readiness
+ ↓
+NetworkPolicy
+ ↓
+CNI/network
+ ↓
+MySQL port
+
+The biggest difference:
+
+Pod-to-Pod = you directly use the Pod IP.
+Pod-to-Service = you use the Service name/IP, and Kubernetes uses the Service's endpoints to reach the Pod.
+
+
+
+
+CNI/network plugin means the Kubernetes component responsible for creating and managing the network for Pods.
+
+For example:
+
+Application Pod
+10.244.1.10
+      |
+      | CNI network
+      ↓
+MySQL Pod
+10.244.2.15
+
+The CNI makes sure that:
+
+Each Pod gets a Pod IP
+Pods can communicate with other Pods
+Pods on different Nodes can communicate
+Network traffic reaches the correct Pod
+
+Examples of CNI plugins:
+
+Calico
+Cilium
+Flannel
+Simple example
+
+You create:
+
+Node 1
+  └── Application Pod
+       10.244.1.10
+
+Node 2
+  └── MySQL Pod
+       10.244.2.15
+
+The CNI creates the networking that allows:
+
+10.244.1.10  ───────────>  10.244.2.15
+Application                 MySQL
+
+If the CNI has a problem:
+
+Application Pod
+10.244.1.10
+      |
+      | ❌
+      ↓
+MySQL Pod
+10.244.2.15
+
+So, CNI = the Pod networking system/plugin in Kubernetes.
+
+For an interview, you can say:
+
+“CNI (Container Network Interface) is responsible for providing network connectivity to Kubernetes Pods and enabling Pod-to-Pod communication.”
+
+
+Step 1 — Check CNI Pods    kubectl get pods -n kube-system -o wide
+Step 2 — Check Nodes    kubectl get nodes 
+If a node is NotReady:  kubectl describe node node2
+Look for network-related errors.
+Step 3 — Check Pod IPs   kubectl get pods -o wide
+Example:
+application-pod   10.244.1.10   node1
+mysql-pod         10.244.2.15   node2
+
+Test the MySQL Pod directly:  kubectl exec -it application-pod -- nc -zv 10.244.2.15 3306
+If this fails, continue investigating networking.
+
+Step 4 — Check NetworkPolicy   kubectl get networkpolicy -A
+If a policy blocks Application → MySQL, modify the policy to allow TCP 3306.
+
+
+Step 5 — Check the CNI logs
+For example, with Calico:  kubectl logs -n kube-system <calico-node-pod>
+
+With Cilium:  kubectl logs -n kube-system <cilium-pod>
+
+Look for errors involving:
+routing
+iptables
+BPF
+interface
+CNI
+connection
+
+
+
+Step 6 — If the CNI Pod is broken
+After identifying the actual problem, fix the CNI configuration or restart the affected CNI Pod.
+
+For example:  kubectl delete pod <cni-pod> -n kube-system
+If it is managed by a DaemonSet, Kubernetes will normally create a replacement automatically.
+Don't blindly restart/delete CNI Pods in production—first check the logs and configuration because doing so can temporarily disrupt Pod networking.
 
 
 
