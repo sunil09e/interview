@@ -1,0 +1,210 @@
+What is Helm in Kubernetes?
+
+Helm is the package manager for Kubernetes. It simplifies deploying, managing, and upgrading Kubernetes applications by packaging all the required Kubernetes YAML files into a single reusable package called a Chart.
+
+Think of it like:
+
+APT for Ubuntu
+YUM/DNF for RHEL
+npm for Node.js
+Helm for Kubernetes
+
+Instead of manually applying multiple YAML files, you can install an application with a single Helm command.
+
+Why use Helm?
+
+Without Helm, deploying an application might require:
+
+Deployment YAML
+Service YAML
+ConfigMap YAML
+Secret YAML
+Ingress YAML
+Persistent Volume YAML
+
+You would apply each file individually:
+
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f ingress.yaml
+...
+
+With Helm, everything is packaged into a chart:
+
+helm install myapp ./mychart
+Helm Architecture
+             Helm CLI
+                 |
+                 |
+        Kubernetes API Server
+                 |
+           Kubernetes Cluster
+
+Helm 3 does not require a server-side component (Helm 2 used Tiller, which has been removed).
+
+Helm Chart
+
+A Chart is a collection of Kubernetes manifests organized into a directory structure.
+
+Example:
+
+mychart/
+│
+├── Chart.yaml
+├── values.yaml
+├── templates/
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── ingress.yaml
+│   └── configmap.yaml
+└── charts/
+Important Files
+1. Chart.yaml
+
+Contains metadata.
+
+Example:
+
+apiVersion: v2
+name: myapp
+version: 1.0.0
+description: Sample Helm Chart
+2. values.yaml
+
+Stores configurable values.
+
+Example:
+
+replicaCount: 2
+
+image:
+  repository: nginx
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 80
+3. templates/
+
+Contains Kubernetes YAML templates.
+
+Example:
+
+apiVersion: apps/v1
+kind: Deployment
+
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+{{ }} is Helm's template syntax.
+
+Helm Workflow
+values.yaml
+      |
+      ↓
+Templates + Values
+      |
+      ↓
+Rendered Kubernetes YAML
+      |
+      ↓
+kubectl applies to cluster
+Common Helm Commands
+Add a Repository
+helm repo add bitnami https://charts.bitnami.com/bitnami
+Update Repositories
+helm repo update
+Search Charts
+helm search repo nginx
+Install a Chart
+helm install my-nginx bitnami/nginx
+List Installed Releases
+helm list
+Upgrade a Release
+helm upgrade my-nginx bitnami/nginx
+Uninstall a Release
+helm uninstall my-nginx
+Roll Back to a Previous Version
+helm rollback my-nginx 1
+Helm Release
+
+A Release is a running instance of a Helm chart.
+
+Example:
+
+Chart: nginx
+
+Release 1 → dev-nginx
+
+Release 2 → test-nginx
+
+Release 3 → prod-nginx
+
+The same chart can be installed multiple times with different release names and configurations.
+
+Overriding Values
+
+You can override default values during installation.
+
+Example:
+
+helm install my-nginx bitnami/nginx \
+  --set replicaCount=3
+
+Or use a custom values file:
+
+helm install my-nginx bitnami/nginx \
+-f production-values.yaml
+Creating Your Own Chart
+
+Create a new chart:
+
+helm create myapp
+
+This generates a starter chart with the standard directory structure.
+
+Helm Template
+
+Render templates locally without installing:
+
+helm template myapp .
+
+This helps verify the generated Kubernetes manifests before deployment.
+
+Helm Lint
+
+Check your chart for errors:
+
+helm lint .
+Advantages of Helm
+Simplifies Kubernetes application deployment.
+Supports reusable, versioned application packages (Charts).
+Enables environment-specific configurations using values.yaml.
+Supports easy upgrades and rollbacks.
+Reduces duplication through templates.
+Widely used by the Kubernetes ecosystem.
+Example: Installing NGINX
+# Add repository
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# Update repository
+helm repo update
+
+# Install NGINX
+helm install my-nginx bitnami/nginx
+
+# Verify
+kubectl get pods
+kubectl get svc
+Helm vs kubectl
+Feature	kubectl	Helm
+Deploy resources	Yes	Yes
+Package applications	No	Yes
+Templating	No	Yes
+Version management	Limited	Yes
+Rollback	Manual	Built-in
+Reusable deployments	No	Yes
+Configuration management	Manual	values.yaml
+Summary
+
+Helm is the standard package manager for Kubernetes. It packages Kubernetes manifests into Charts, uses templates and values to make deployments configurable, and provides built-in support for installing, upgrading, rolling back, and managing application releases. It is especially useful for deploying complex applications with multiple Kubernetes resources across different environments.
