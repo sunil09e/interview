@@ -1,0 +1,54 @@
+Jenkins is an automation tool mainly used for CI/CD (Continuous Integration / Continuous Delivery).
+In simple words:   Jenkins automatically takes your code → builds it → tests it → creates a Docker image → deploys it to Kubernetes.
+"Jenkins is an open-source automation server used to automate CI/CD processes such as building, testing, and deploying applications."
+
+
+Example
+Suppose you have a developer:
+
+Developer
+   |
+   | git push
+   ↓
+GitHub
+   |
+   ↓
+Jenkins
+   |
+   ├── 1. Get latest code
+   ├── 2. Build application
+   ├── 3. Run tests
+   ├── 4. Build Docker image
+   ├── 5. Push image to Docker Hub/ECR
+   └── 6. Deploy to Kubernetes
+             |
+             ↓
+          EKS Cluster
+             |
+             ↓
+           Pods
+Why do we use Jenkins?
+
+Without Jenkins, you might manually do:
+git pull
+mvn package
+docker build
+docker push
+kubectl apply
+
+Every time the developer changes code.
+
+With Jenkins, you can automate these steps:
+Developer pushes code
+        ↓
+Jenkins automatically starts
+        ↓
+Build
+        ↓
+Test
+        ↓
+Docker image
+        ↓
+Push to registry
+        ↓
+Deploy to EKS
