@@ -1,0 +1,156 @@
+Namespace, Pod, Deployment, Service, and Ingress, many Kubernetes resources can also be created without manually writing a YAML file.
+
+Common ones
+Resource	               Can create with kubectl directly?	                 Example
+Namespace	                           ✅	                        kubectl create namespace dev
+Pod	                                 ✅                      	kubectl run nginx --image=nginx
+Deployment	                         ✅                      	kubectl create deployment app --image=nginx
+Service	                             ✅                         	kubectl expose deployment app --port=80
+Ingress                             	✅                     kubectl create ingress nginx-ingress --rule="example.com/=nginx:80"
+ConfigMap	                           ✅	                      kubectl create configmap app-config --from-literal=env=dev
+Secret	                           ✅	                           kubectl create secret generic db-secret --from-literal=password=123
+ServiceAccount                      	✅	                          kubectl create serviceaccount app-sa
+Job	                                 ✅	                          kubectl create job test --image=busybox -- echo hello
+CronJob	                         ✅                              	kubectl create cronjob backup --image=busybox --schedule="0 2 * * *" -- echo backup
+Role	                      ✅	                               kubectl create role pod-reader --verb=get,list --resource=pods
+RoleBinding	                    ✅	              kubectl create rolebinding pod-reader-binding --role=pod-reader --serviceaccount=dev:app-sa   -n dev
+ClusterRole	                       ✅           	kubectl create clusterrole pod-reader --verb=get,list,watch  --resource=pods
+ClusterRoleBinding	                      ✅	       kubectl create clusterrolebinding pod-reader-binding  --clusterrole=pod-reader --serviceaccount=dev:app-sa
+
+But some resources are usually created with YAML
+For example:
+NetworkPolicy
+StatefulSet
+DaemonSet
+PersistentVolume
+PersistentVolumeClaim
+StorageClass
+HorizontalPodAutoscaler
+Custom Resources
+
+Some of these can be generated or created through commands, but YAML is much more practical because their configuration can become complex.
+
+Easy way to remember
+Simple resource
+      ↓
+kubectl command is convenient
+
+Complex configuration
+      ↓
+YAML is preferred
+
+For example:
+
+# Quick testing
+kubectl run nginx --image=nginx
+-------------------------------------------------
+scale
+-----
+
+eksctl scale nodegroup \                        decrease or increase
+  --cluster my-eks-cluster \
+  --name ng-1 \
+  --nodes 2 \
+  --region ap-south-1
+eksctl scale nodegroup --nodes 2
+kubectl scale deployment <deployment-name> --replicas=<number> -n <namespace>     
+       Node Group (Worker Nodes)         	✅ Yes	eksctl scale nodegroup --nodes 2
+       Deployment                        	✅ Yes	kubectl scale deployment app --replicas=5
+       ReplicaSet                        	✅ Yes	kubectl scale replicaset app-rs --replicas=5
+      StatefulSet                         ✅ Yes	kubectl scale statefulset mysql --replicas=3
+      DaemonSet	                          ❌ No (not by replicas)	Runs one pod per node automatically
+
+
+1. Deployment — manual scaling      kubectl scale deployment app --replicas=5
+2. ReplicaSet — manual scaling      kubectl scale replicaset app-rs --replicas=5
+3. StatefulSet — manual scaling     kubectl scale statefulset mysql --replicas=3
+Example:
+
+mysql
+ ├── mysql-0
+ ├── mysql-1
+ └── mysql-2
+
+4. DaemonSet — cannot use kubectl scale
+A DaemonSet automatically creates one Pod per eligible Node.
+
+Node 1 → Pod
+Node 2 → Pod
+Node 3 → Pod
+
+To increase the number of DaemonSet Pods, you normally add eligible Nodes or change its node-selection rules.
+
+5. Job — cannot normally scale like a Deployment
+
+You can specify parallelism when creating a Job:
+kubectl create job my-job \
+  --image=busybox \
+  -- /bin/sh -c "echo hello"
+
+For an existing Job, you can change parallelism:  kubectl scale job my-job --replicas=5
+
+6. Horizontal Pod Autoscaler (HPA)
+This automatically changes the number of Pods based on CPU/memory metrics.
+
+kubectl autoscale deployment app \
+  --min=2 \
+  --max=10 \
+  --cpu-percent=70
+
+Meaning:
+
+CPU low
+  ↓
+2 Pods
+
+CPU increases
+  ↓
+3 → 4 → 5 Pods
+
+CPU very high
+  ↓
+up to 10 Pods
+
+Check:
+
+kubectl get hpa
+Most important commands
+# Deployment
+kubectl scale deployment app --replicas=5
+
+# StatefulSet
+kubectl scale statefulset mysql --replicas=3
+
+# ReplicaSet
+kubectl scale replicaset app-rs --replicas=5
+
+# Automatic scaling
+kubectl autoscale deployment app --min=2 --max=10 --cpu-percent=70
+
+Note: kubectl scale changes the live Kubernetes object. If you later manage the same resource with YAML/GitOps, that declared configuration can overwrite the manual change.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Production
+kubectl apply -f deployment.yaml
+
+So you don't need a YAML file for every Kubernetes resource. YAML is mainly used when you want to define and maintain the complete configuration.
