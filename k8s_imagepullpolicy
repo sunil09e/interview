@@ -1,0 +1,204 @@
+In Kubernetes, imagePullPolicy tells Kubernetes when it should pull the container image from the container registry.
+
+Example
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp
+spec:
+  containers:
+    - name: app
+      image: nginx:1.25
+      imagePullPolicy: IfNotPresent
+
+There are 3 values:
+
+imagePullPolicy	     What Kubernetes does
+Always            	Pull/check the image from registry every time the container starts
+IfNotPresent      	Pull only if the image is not already on the node
+Never	               Never pull; image must already exist on the node
+
+1. IfNotPresent
+Suppose Node 1 already has:  nginx:1.25
+
+Pod starts:
+Pod
+ ↓
+Node 1
+ ↓
+nginx:1.25 already exists
+ ↓
+Use existing image
+
+No download is needed.
+
+If the image doesn't exist:
+Pod
+ ↓
+Node 1
+ ↓
+nginx:1.25 NOT present
+ ↓
+Pull from Docker Hub/registry
+ ↓
+Start container
+
+
+
+2. Always
+image: nginx:latest
+imagePullPolicy: Always
+
+When the container starts, Kubernetes checks the registry for the image.
+
+Pod starts
+   ↓
+Check registry
+   ↓
+Pull/check image
+   ↓
+Start container
+
+This is commonly useful with latest when you want Kubernetes to check for a newer image.
+
+
+
+3. Never
+image: nginx:1.25
+imagePullPolicy: Never
+
+Kubernetes says:  "Don't download anything. If the image isn't already on this node, the container cannot start."
+So if the image is missing, you can get an image-related failure such as:
+
+ErrImageNeverPull
+Important interview point
+imagePullPolicy applies to the node where the Pod is running.
+
+For example:
+Node 1
+ └── nginx:1.25 exists
+
+Node 2
+ └── nginx:1.25 does NOT exist
+
+If your Pod gets scheduled to Node 2 and policy is IfNotPresent, Kubernetes pulls the image on Node 2.
+
+Simple meaning:imagePullPolicy = "Should Kubernetes download the container image, or use the image already available on the node?"
+
+
+
+If you change the image tag, for example from 1 to 2, Kubernetes treats them as different images.
+
+Example:
+
+image: nginx:1
+imagePullPolicy: IfNotPresent
+
+Suppose Node already has:
+
+nginx:1
+
+Kubernetes uses it.
+
+Now you change to:
+
+image: nginx:2
+
+The node has:
+
+nginx:1   ✅
+nginx:2   ❌
+
+Because nginx:2 is not present, Kubernetes pulls nginx:2 from the registry.
+
+Pod
+ ↓
+image: nginx:2
+ ↓
+Does Node have nginx:2?
+ ↓
+NO
+ ↓
+Pull nginx:2 from registry
+ ↓
+Start container
+
+So:
+
+nginx:1 → nginx:2 = different image tag → Kubernetes needs nginx:2 available on that node.
+
+If you use IfNotPresent, it will pull 2 only if 2 is not already on the node.
+
+Same tag, but the code inside the image is different can happen.
+
+For example, you build your application:
+
+First build
+myapp:v1
+    ↓
+Code: "Hello World"
+
+Push it to the registry.
+
+Later you change the code:
+
+myapp:v1
+    ↓
+Code: "Hello Kubernetes"
+
+and push again using the same tag v1.
+
+Now the tag is still:
+
+myapp:v1
+
+but the actual image content is different.
+
+What happens depends on imagePullPolicy
+
+IfNotPresent:
+
+Node already has myapp:v1
+        ↓
+Use existing myapp:v1
+        ↓
+❌ New code may NOT be downloaded
+
+Always:
+
+Pod starts
+   ↓
+Check registry for myapp:v1
+   ↓
+Find current image
+   ↓
+Pull/use the current image
+   ↓
+✅ New code
+
+That's why using mutable tags such as latest can be confusing.
+
+Better practice
+
+Instead of:
+
+myapp:v1
+
+and replacing its code, use a new tag for every build:
+
+myapp:v1
+myapp:v2
+myapp:v3
+
+Then Kubernetes clearly knows:
+
+v1 = old code
+v2 = new code
+v3 = newer code
+
+Key point: A tag like v1 is just a name. The actual image content can change if you push a new image with the same tag.
+
+
+
+
+imagePullPolicy = "Should Kubernetes download the container image, or use the image already available on the node?"
