@@ -187,3 +187,390 @@ v2  v2  v2
    Rollback
      ↓
 v1  v1  v1
+---------------------------------------------------------------------------------------------------------------------------------
+
+
+Here is a complete Deployment example.
+
+1. Initial Deployment — v1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app: myapp
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: myapp
+          image: myapp:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+
+Initially:
+
+Deployment
+    |
+    +---- Pod 1 → myapp:v1
+    +---- Pod 2 → myapp:v1
+    +---- Pod 3 → myapp:v1
+
+
+2. Rolling Update — v1 → v2
+
+You change only the image:
+
+image: myapp:v2
+
+For example:
+
+kubectl set image deployment/myapp myapp=myapp:v2
+
+Kubernetes doesn't delete all 3 old Pods at once.
+
+Instead, it gradually replaces them:
+
+Old:
+Pod 1 → v1
+Pod 2 → v1
+Pod 3 → v1
+
+Then:
+
+Pod 1 → v2    NEW
+Pod 2 → v1
+Pod 3 → v1
+
+Then:
+
+Pod 1 → v2
+Pod 2 → v2    NEW
+Pod 3 → v1
+
+Finally:
+
+Pod 1 → v2
+Pod 2 → v2
+Pod 3 → v2
+
+This is a rolling update.
+
+
+
+3. Rollback — v2 → v1
+
+Suppose v2 has a problem.
+You can check Deployment history:  kubectl rollout history deployment/myapp
+Then rollback:  kubectl rollout undo deployment/myapp
+
+Kubernetes changes it back:
+
+Before rollback:
+Pod 1 → v2
+Pod 2 → v2
+Pod 3 → v2
+
+Rollback starts:
+
+Pod 1 → v1    NEW
+Pod 2 → v2
+Pod 3 → v2
+
+Then:
+
+Pod 1 → v1
+Pod 2 → v1    NEW
+Pod 3 → v2
+
+Finally:
+
+Pod 1 → v1
+Pod 2 → v1
+Pod 3 → v1
+
+So:
+
+v1
+ ↓
+Rolling Update
+ ↓
+v2
+ ↓
+Problem
+ ↓
+Rollback
+ ↓
+v1
+Important
+
+The Deployment YAML doesn't normally contain a separate rollback: true setting.
+
+The Deployment's:
+
+strategy:
+  type: RollingUpdate
+
+controls how updates happen.
+
+Rollback is performed using the Kubernetes command:  kubectl rollout undo deployment/myapp
+
+And you can see the current rollout with:  kubectl rollout status deployment/myapp
+Simple interview answer:
+Rolling update gradually replaces old Pods with new Pods during a Deployment update. Rollback returns the Deployment to a previous revision when the new version has a problem.
+
+
+Even if you don't write strategy: in the Deployment YAML, changing the image will still normally perform a rolling update.
+Why? Because RollingUpdate is the default Deployment strategy.
+
+
+Later you change:  image: myapp:v2
+Kubernetes sees that the Pod template changed, creates a new ReplicaSet, and performs a rolling update.
+
+v1 ReplicaSet
+   ↓
+Pod 1 → v1
+Pod 2 → v1
+Pod 3 → v1
+
+        ↓ change image to v2
+
+v2 ReplicaSet
+   ↓
+Pod 1 → v2
+Pod 2 → v2
+Pod 3 → v2
+Then why do we write this?
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+Because you want to control the rolling update behavior.
+For example:  maxUnavailable: 1
+
+means Kubernetes can have at most 1 fewer available Pod than the desired number.
+
+maxSurge: 1
+means Kubernetes can temporarily create 1 extra Pod above the desired number.
+
+So with:
+replicas: 3
+maxUnavailable: 1
+maxSurge: 1
+
+you can temporarily have:
+4 Pods
+during the update.
+
+Very important
+If you don't specify the strategy:
+
+strategy:
+  type: RollingUpdate
+
+Kubernetes uses RollingUpdate by default, with its default values for maxUnavailable and maxSurge.
+So you don't need to write strategy just to get a rolling update. You write it when you want to customize the update behavior.
+
+
+---------------------------------------------------
+The easiest way is to see two possible strategies.
+
+maxSurge: 1
+
+Kubernetes creates the new Pod first.
+
+You have 3 Pods:
+
+v1  v1  v1
+
+Create one extra v2:
+
+v1  v1  v1  v2
+
+Now v2 is ready:
+
+v1  v1  v2
+
+So maxSurge answers:
+
+"How many EXTRA Pods can I create?"
+
+maxUnavailable: 1
+
+Instead, Kubernetes can remove an old Pod first.
+
+Start:
+
+v1  v1  v1
+
+Remove one:
+
+v1  v1  ❌
+
+Now only 2 Pods are available.
+
+Then create v2:
+
+v1  v1  v2
+
+So maxUnavailable answers:
+
+"How many Pods am I allowed to temporarily lose while updating?"
+
+Why have both?
+
+Because Kubernetes needs flexibility.
+
+maxSurge: 1
+     ↓
+Can temporarily ADD 1 Pod
+
+maxUnavailable: 1
+     ↓
+Can temporarily REMOVE/lose 1 Pod
+
+For example, with:
+
+replicas: 3
+maxSurge: 1
+maxUnavailable: 1
+
+Kubernetes can operate between roughly:
+
+Minimum available: 2
+Maximum Pods:      4
+
+So:
+
+          3 desired
+             |
+      ┌──────┴──────┐
+      ↓             ↓
+   -1 Pod         +1 Pod
+      ↓             ↓
+maxUnavailable   maxSurge
+
+Important: maxSurge does not mean "replace the Pod." It only says how many additional Pods can exist temporarily. maxUnavailable says how many can be unavailable while the replacement happens.
+
+
+----------------------------
+Let's use exactly your example.
+
+You have:
+
+3 Pods
+
+A(v1)  B(v1)  C(v1)
+
+You set:
+
+maxSurge: 1
+
+Kubernetes can create one extra Pod:
+
+A(v1)  B(v1)  C(v1)  D(v2)
+
+Now there are 4 Pods.
+
+But your Deployment says:
+
+replicas: 3
+
+You don't want 4 Pods permanently.
+
+So Kubernetes must eventually remove an old v1 Pod:
+
+A(v1)  B(v1)  D(v2)
+
+Now there are 3.
+
+Then:
+
+A(v1)  D(v2)  E(v2)
+
+Then:
+
+D(v2)  E(v2)  F(v2)
+
+Finally all 3 are v2.
+
+
+now your question is specifically: why do we need maxUnavailable at all if maxSurge can handle the update?
+
+We need maxUnavailable because sometimes we don't want to create extra Pods.
+
+Case 1: maxSurge: 1
+
+You have 3 Pods:
+
+v1  v1  v1
+
+Kubernetes can create an extra Pod:
+
+v1  v1  v1  v2
+
+Then remove an old one:
+
+v1  v1  v2
+
+✅ No need to make a Pod unavailable.
+
+Case 2: maxSurge: 0
+
+Now suppose you cannot create an extra Pod.
+
+maxSurge: 0
+maxUnavailable: 1
+
+You have:
+
+v1  v1  v1
+
+Kubernetes must first remove one old Pod:
+
+v1  v1  ❌
+
+Then create the new one:
+
+v1  v1  v2
+
+So for this method, you need:
+
+maxUnavailable: 1
+
+because Kubernetes is allowed to temporarily have one less available Pod.
+
+So the real reason
+
+There are two choices:
+
+              Update Pods
+                  |
+       ┌──────────┴──────────┐
+       ↓                     ↓
+ Create extra Pod       Remove old Pod first
+       ↓                     ↓
+ maxSurge: 1          maxUnavailable: 1
+
+maxSurge = "I have room/resources for an extra Pod."
+
+maxUnavailable = "I don't have/want extra Pods, so I allow one Pod to be temporarily unavailable."
+
+
+
