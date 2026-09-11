@@ -1,0 +1,340 @@
+If you mean AWS Terraform and you give a key pair in the Terraform file, it depends on what you are giving.
+
+Example
+resource "aws_instance" "web" {
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t2.micro"
+  key_name      = "my-key"
+}
+
+Here:
+
+key_name = "my-key"
+
+does NOT create a new key.
+
+It means Terraform will use the existing AWS EC2 Key Pair named my-key.
+
+So:
+
+Terraform
+   |
+   | key_name = "my-key"
+   ↓
+AWS
+   |
+   └── Looks for existing Key Pair: my-key
+
+If my-key already exists → EC2 uses it.
+
+If it does not exist → EC2 creation will fail.
+
+If you want Terraform to create the key pair
+
+You can create an AWS key pair resource:
+
+resource "aws_key_pair" "mykey" {
+  key_name   = "my-key"
+  public_key = file("my-key.pub")
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-xxxxxxxx"
+  instance_type = "t2.micro"
+  key_name      = aws_key_pair.mykey.key_name
+}
+
+Here Terraform creates/registers the AWS key pair using your public key.
+
+
+
+
+
+
+
+key_name = aws_key_pair.mykey.key_name
+
+the last .key_name means the attribute/property of the aws_key_pair resource.
+
+Think of it as:
+
+aws_key_pair.mykey.key_name
+      │        │       │
+      │        │       └── attribute
+      │        └────────── resource name
+      └────────────────── resource type
+
+For example:
+
+resource "aws_key_pair" "mykey" {
+  key_name   = "my-key"
+  public_key = file("my-key.pub")
+}
+
+Terraform understands:
+
+aws_key_pair.mykey.key_name
+
+as:
+
+"Go to the mykey key-pair resource and get its key_name value."
+
+So the result is:
+
+aws_key_pair.mykey.key_name
+              ↓
+            "my-key"
+
+Then EC2 gets:
+
+key_name = "my-key"
+What about .id?
+
+If you write:
+
+aws_key_pair.mykey.id
+
+then .id means:
+
+Get the ID of that resource.
+
+For example:
+
+aws_key_pair.mykey.id
+          ↓
+     key pair ID
+
+So .id is not always the same as .key_name. .id is the resource's ID; .key_name is the key-pair name.
+
+We commonly use .id when a different resource needs to refer to the first resource.
+------------------------------------------------------------------------
+
+Redis
+
+Redis is an in-memory NoSQL data store. It stores data mainly in RAM, so it is extremely fast.
+It can be used as a cache, database, message broker, and streaming engine.
+
+Simple example
+
+Suppose your application has:
+
+User
+  ↓
+Application Pod
+  ↓
+Redis
+  ↓
+MySQL
+
+Imagine a user logs in.
+
+Without Redis:
+
+Application → MySQL
+              ↓
+         Get user data
+
+Every request may repeatedly query MySQL.
+
+With Redis:
+
+Application
+     ↓
+   Redis
+     ↓
+  User data
+
+Redis can keep frequently used data in memory, so the application can retrieve it much faster.
+
+Example
+
+Store:
+
+SET username Siva
+
+Retrieve:
+
+GET username
+
+Result:
+
+Siva
+
+Redis uses key → value storage:
+
+username → Siva
+user:101 → {name: "Siva", age: 25}
+
+The default Redis port is:
+
+6379
+
+Redis vs MySQL
+MySQL	Redis
+Relational database	NoSQL data store
+Tables/rows/columns	Key/value and rich data structures
+Mainly disk-based	Mainly memory-based
+Good for permanent application data	Excellent for fast/temporary data
+SQL queries	Redis commands
+Port 3306	Port 6379
+In Kubernetes
+
+You could have:
+
+Application Pod
+      |
+      | redis-service:6379
+      ↓
+Redis Pod
+
+The application does not normally use the Redis Pod IP directly.
+
+Instead:
+
+Application Pod
+      |
+      ↓
+redis-service
+      |
+      ↓
+Redis Pod
+
+For example:
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+Then the application can connect using:
+
+redis-service:6379
+
+So, just like your earlier MySQL example:
+
+Application Pod
+      |
+      ↓
+mysql-service:3306
+      |
+      ↓
+MySQL Pod
+
+Redis would be:
+
+Application Pod
+      |
+      ↓
+redis-service:6379
+      |
+      ↓
+Redis Pod
+
+Redis also supports data structures such as strings, hashes, lists, sets, sorted sets, and streams, which makes it useful for 
+caching, sessions, queues, leaderboards, rate limiting, and real-time applications.
+
+
+Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: application
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: application
+  template:
+    metadata:
+      labels:
+        app: application
+    spec:
+      containers:
+        - name: application
+          image: my-application:1.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: REDIS_HOST
+              value: "redis-service"
+            - name: REDIS_PORT
+              value: "6379"
+
+
+Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7
+          ports:
+
+Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+The Service selector:
+
+selector:
+  app: redis
+
+finds the Redis Pod because the Redis Pod has:
+
+labels:
+  app: redis
+
+Overall communication
+┌─────────────────────────┐
+│    Application Pod      │
+│                         │
+│  Application            │
+│  REDIS_HOST=            │
+│  redis-service          │
+└────────────┬────────────┘
+             │
+             │ redis-service:6379
+             ↓
+┌─────────────────────────┐
+│     Redis Service       │
+│                         │
+│     port: 6379          │
+│     selector:           │
+│       app: redis        │
+└────────────┬────────────┘
+             │
+             ↓
+┌─────────────────────────┐
+│       Redis Pod         │
+│                         │
+│  label: app=redis       │
+│  Redis listening :6379  │
+└─────────────────────────┘
+
+So the Application Pod doesn't need to know the Redis Pod IP.
+
