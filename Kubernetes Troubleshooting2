@@ -2820,7 +2820,75 @@ Don't blindly restart/delete CNI Pods in production—first check the logs and c
 
 
 
+mostly whaty we use when aplicatopn pod to mysql pod or application pod to service then mysql pod
 
+In a real Kubernetes application, mostly we use:
+
+Application Pod
+      |
+      | mysql-service:3306
+      ↓
+MySQL Service
+      |
+      ↓
+MySQL Pod
+Why?
+
+We normally do not use the MySQL Pod IP directly:
+
+Application Pod
+      |
+      | 10.244.2.15:3306  ❌
+      ↓
+MySQL Pod
+
+Because Pod IPs are not stable. If the MySQL Pod is deleted and recreated, it can get a different IP.
+
+Instead, we create a Service:
+
+mysql-service
+      ↓
+MySQL Pod
+10.244.2.15
+
+If the Pod is recreated:
+
+mysql-service
+      ↓
+New MySQL Pod
+10.244.3.20
+
+The application still uses:
+
+mysql-service:3306
+
+So the application doesn't need to know the Pod's changing IP.
+
+Therefore, remember
+
+Normal application communication:
+
+Application Pod
+       ↓
+   Service
+       ↓
+  Database Pod
+
+Direct Pod-to-Pod communication is mainly useful for testing/troubleshooting or special networking cases.
+
+For your example, the normal setup is:
+
+Application
+     ↓
+mysql-service:3306
+     ↓
+Service ClusterIP
+10.96.50.20:3306
+     ↓
+MySQL Pod
+10.244.x.x:3306
+
+So if your application says "I cannot connect to MySQL", you should first troubleshoot the Service → Endpoint → MySQL Pod path, rather than assuming the Pod IP itself is being used.
 
 
 
