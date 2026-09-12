@@ -1148,6 +1148,247 @@ Scheduler chooses the Worker Node → kubelet manages the Pod → Container Runt
 
 
 
+EKS architecture
+
+Suppose you have an application running in EKS:
+
+                AWS
+                 |
+              EKS Cluster
+                 |
+       ┌─────────┼─────────┐
+       |         |         |
+    VPC CNI   CoreDNS   EBS CSI Driver
+       |         |         |
+   Networking    DNS     Storage
+       |         |         |
+    Pod IPs    Service    EBS Volume
+1. VPC CNI — Networking
+
+VPC CNI gives IP addresses to Kubernetes Pods from the AWS VPC.
+
+Example:
+
+Node
+10.0.1.10
+
+Application Pod
+10.0.1.25
+
+MySQL Pod
+10.0.1.30
+
+The Pod gets an IP from the AWS VPC subnet.
+
+So:
+
+Application Pod
+      |
+      | network
+      ↓
+MySQL Pod
+
+VPC CNI is responsible for making this Pod networking work.
+
+Interview answer:
+
+AWS VPC CNI is the Kubernetes networking plugin used in EKS. It assigns VPC IP addresses to Pods and allows Pods to communicate using the AWS VPC network.
+
+2. CoreDNS — DNS
+
+CoreDNS helps Pods find other Kubernetes services by name instead of IP address.
+
+For example:
+
+Application Pod
+      |
+      | mysql-service
+      ↓
+MySQL Service
+      |
+      ↓
+MySQL Pod
+
+The application doesn't need to remember:
+
+10.0.1.30
+
+It can use:
+
+mysql-service
+
+CoreDNS converts:
+
+mysql-service
+      ↓
+Service IP
+      ↓
+MySQL Pod
+
+Interview answer:
+
+CoreDNS provides DNS-based service discovery inside the Kubernetes cluster.
+
+3. EBS CSI Driver — Storage
+
+Suppose MySQL needs permanent storage.
+
+MySQL Pod
+    |
+    | PersistentVolumeClaim
+    ↓
+EBS CSI Driver
+    |
+    ↓
+AWS EBS Volume
+
+The EBS CSI Driver allows Kubernetes to create and attach AWS EBS volumes to Pods.
+
+For example:
+
+MySQL Pod
+   |
+   ↓
+PVC
+   |
+   ↓
+PV
+   |
+   ↓
+EBS Volume
+
+If the MySQL Pod is deleted:
+
+Old MySQL Pod ❌
+       |
+       | data remains
+       ↓
+   EBS Volume
+       |
+       ↓
+New MySQL Pod
+
+The new Pod can mount the same persistent storage, depending on the PVC/PV configuration.
+
+Interview answer:
+
+The AWS EBS CSI Driver allows Kubernetes to provision and attach Amazon EBS volumes for persistent Pod storage.
+
+Easy way to remember
+Add-on	Main job	Think of
+VPC CNI	Pod networking	IP/network
+CoreDNS	Service discovery	Name → IP
+EBS CSI Driver	Persistent storage	Disk/volume
+Real application
+                    EKS
+                     |
+       ┌─────────────┼─────────────┐
+       |             |             |
+    VPC CNI       CoreDNS      EBS CSI
+       |             |             |
+       ↓             ↓             ↓
+    Pod IPs      Find services   EBS storage
+       |             |             |
+       └─────────────┼─────────────┘
+                     ↓
+              Application
+                     |
+                     ↓
+                   MySQL
+                     |
+                     ↓
+                EBS Volume
+
+In one line:
+
+VPC CNI = networking, CoreDNS = DNS/service discovery, EBS CSI = storage.
+------------------------------------------------------------------------
+
+1. CNI = Networking
+
+CNI (Container Network Interface) is responsible for giving a Pod network connectivity.
+
+In EKS, AWS VPC CNI gives the Pod an IP address from the VPC.
+
+Node
+10.0.1.10
+   |
+   ├── App Pod
+   |    10.0.1.20
+   |
+   └── MySQL Pod
+        10.0.1.30
+
+So CNI handles:
+
+Pod → Pod
+Pod → Service/network
+Pod → Internet/AWS resources
+
+Think:
+
+CNI = "How does the Pod communicate?"
+
+2. CoreDNS = Name Resolution
+
+CoreDNS allows you to use a name instead of an IP address.
+
+Suppose MySQL has a Service:
+
+mysql-service
+      |
+      ↓
+10.96.20.10
+      |
+      ↓
+MySQL Pod
+
+Your application can simply say:
+
+mysql-service
+
+CoreDNS resolves:
+
+mysql-service
+      ↓
+10.96.20.10
+
+Then Kubernetes Service sends the traffic to the MySQL Pod.
+
+Think:
+
+CoreDNS = "What IP/address does this name refer to?"
+
+How they work together
+Application Pod
+      |
+      | 1. "I want mysql-service"
+      ↓
+   CoreDNS
+      |
+      | 2. "mysql-service = 10.96.20.10"
+      ↓
+Application Pod
+      |
+      | 3. Send network traffic
+      ↓
+    CNI
+      |
+      ↓
+ Kubernetes Service
+      |
+      ↓
+  MySQL Pod
+
+So remember:
+
+CNI     → gives networking/IP connectivity
+CoreDNS → resolves names to IP addresses
+
+Interview answer:
+
+CNI is responsible for Pod networking and connectivity, while CoreDNS provides DNS-based service discovery so Pods can communicate with Services using names instead of IP addresses.
+
 
 
 
