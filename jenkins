@@ -526,6 +526,7 @@ Jenkins Plugins
 Plugins extend Jenkins functionality.
 Jenkins needs Git-related functionality to get code from GitHub.
 So we install/configure the required Git-related plugin.
+you have plugins for your build job, plugin for your maven, docker, k8s, slack not only for vcs we have foe this also
 
 For example, plugins can provide integration with:
 
@@ -1037,18 +1038,102 @@ Pods
 Manifest in Kubernetes means a YAML file that tells Kubernetes what you want to create or configure.
 -------------------------------------
 
+1. Continuous Delivery
+
+Code goes through the pipeline and becomes ready to deploy, but a person decides when to deploy to production.
+For example, Jenkins says:  "The application passed all tests. It is ready. Do you want to deploy it to production?"
+
+If the manager says yes, deployment happens.
+So:  Continuous Delivery = Automatically prepare → Human approves → Deploy
+
+ stage('Push to ECR') {
+            steps {
+                sh 'docker push myapp:v1'
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                input message: 'Deploy to Production?'
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                sh 'kubectl apply -f deployment.yaml'
+            }
+What happens?
+
+Jenkins starts:
+Build
+  ↓
+Test
+  ↓
+Docker build
+  ↓
+Push to ECR
+
+Then it reaches:
+
+Approval
+   ↓
+⏸️ WAIT
+
+Jenkins displays something like:
+
+Deploy to Production?
+Proceed / Abort
+
+A person clicks Proceed.
+
+Then:
+Proceed
+   ↓
+Deploy to EKS
+
+If they click Abort:
+
+Abort
+   ↓
+Pipeline stops
+   ↓
+No production deployment
 
 
+Compare with Continuous Deployment
 
+If you remove the approval:
+Build
+ ↓
+Test
+ ↓
+Docker
+ ↓
+ECR
+ ↓
+Deploy to EKS automatically
 
+That becomes Continuous Deployment.
 
+So the main configuration difference is:
+Continuous Delivery:
+             ↓
+       input/approval
+             ↓
+          Deploy
 
+Continuous Deployment:
+             ↓
+       Deploy directly
 
+------------------------------------------------
 
+2. Continuous Deployment
 
+Here, there is no manual approval.
+Once the code passes all required checks, Jenkins automatically deploys it to production.
 
-
-
+ 
 
 
 
