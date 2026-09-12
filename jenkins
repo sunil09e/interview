@@ -52,3 +52,372 @@ Docker image
 Push to registry
         ↓
 Deploy to EKS
+
+----------------------------------------------------------------
+Jenkins Basics
+----------------------------
+2. Why do we use Jenkins?
+To automate tasks such as:  Code → Build → Test → Docker Image → Push → Deploy
+
+3. What is CI?
+Continuous Integration means developers frequently merge code into a shared repository, and Jenkins automatically builds and tests it.
+
+4. What is CD?
+Continuous Delivery/Deployment means automatically delivering or deploying the tested application to an environment.
+
+5. What is a Jenkins job?
+A job is a task configured in Jenkins.
+Example:
+Build application
+Run tests
+Create Docker image
+Deploy to Kubernetes
+
+
+6. What is a Jenkins pipeline?
+A pipeline defines the complete CI/CD workflow as code.
+Example:
+Checkout
+   ↓
+Build
+   ↓
+Test
+   ↓
+Docker Build
+   ↓
+Docker Push
+   ↓
+Kubernetes Deploy
+
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Jenkins Architecture
+---------------------------------
+7. What is Jenkins Controller?
+The Controller is the main Jenkins server.
+It manages:
+Jobs
+Pipelines
+Credentials
+Plugins
+Agents
+Scheduling
+
+
+8. What is a Jenkins Agent?
+An Agent is a machine/container that actually executes the build steps.
+Jenkins Controller
+       |
+       | assigns job
+       ↓
+Jenkins Agent
+       |
+       └── executes build
+
+9. Why do we use Jenkins agents?
+Instead of running every build on the controller, we can distribute workloads across multiple agents.
+Example:
+Controller
+   |
+   ├── Linux Agent
+   ├── Windows Agent
+   └── Docker Agent
+
+
+10. Controller vs Agent?
+Controller	      Agent
+Manages Jenkins	Executes jobs
+Schedules builds	Runs build commands
+Stores configuration       	Performs workload
+Manages agents      	Reports results
+-------------------------------------------------------
+Jenkinsfile
+--------------------------------
+11. What is Jenkinsfile?
+A Jenkinsfile contains the pipeline definition as code.
+A Jenkinsfile is a file where we write the instructions for Jenkins.
+
+For example, we want Jenkins to do:
+
+1. Get code from GitHub
+2. Build the code
+3. Test the code
+4. Create Docker image
+5. Push image to ECR
+6. Deploy to EKS
+
+We write these instructions in a Jenkinsfile.
+GitHub Repository
+       |
+       ├── application code
+       ├── Dockerfile
+       └── Jenkinsfile  ← Jenkins instructions
+
+
+12. Why do we use Jenkinsfile?
+
+Because the pipeline configuration can be stored in Git along with the application code.
+
+Benefits:
+
+Version control
+Review changes
+Reuse
+Audit history
+
+
+Imagine you tell Jenkins manually:  "First build the application, then test it, then build Docker image, then push it, then deploy."
+You would have to configure these steps in Jenkins.
+Instead, we put the instructions in the Jenkinsfile:
+The biggest reason
+
+The Jenkinsfile can be stored in GitHub along with your application code.
+If another Jenkins server is used, you don't have to manually recreate all the pipeline steps. Jenkins can use the Jenkinsfile from the repository.
+
+Interview answer
+
+If interviewer asks:  "Why do we use Jenkinsfile?"
+
+Say:
+"We use Jenkinsfile to define the CI/CD pipeline as code. It contains the instructions for Jenkins,
+such as build, test, Docker image creation, and deployment. We can store it in Git along with the application code, so the pipeline is version controlled."
+Simple memory trick:
+Jenkins = worker
+Jenkinsfile = instructions given to the worker.
+
+
+
+13. Declarative vs Scripted Pipeline?
+Declarative means we write the pipeline in a structured, predefined format.
+Think of it like giving Jenkins a fixed plan:
+pipeline
+   ↓
+stages
+   ↓
+Build
+   ↓
+Test
+
+The structure is clear and easier to understand.
+
+Scripted Pipeline gives you more programming flexibility.
+Example:
+node {
+
+    stage('Build') {
+        sh 'mvn package'
+    }
+
+    stage('Test') {
+        sh 'mvn test'
+    }
+}
+
+Here you have more freedom to use Groovy programming logic.
+For example:
+node {
+
+    if (env.BRANCH_NAME == 'main') {
+        stage('Deploy') {
+            sh 'kubectl apply -f deployment.yaml'
+        }
+    }
+}
+
+Meaning:
+If branch = main
+       ↓
+   Deploy
+Main difference
+
+Think about it this way:  Declarative
+You say:  "Jenkins, follow this standard structure."
+
+pipeline
+ ├── stage 1
+ ├── stage 2
+ └── stage 3
+Scripted
+
+You say:  "Jenkins, here is some program logic. Decide what to do based on my code."
+if this happens
+    do this
+else
+    do something else
+
+--------------------------------------------------------------------------------------------------------------------------------------
+Jenkins Triggers
+------------------------------------
+14. How can Jenkins start a build?
+
+Common methods:
+Manual
+Webhook
+Poll SCM
+Scheduled trigger
+Upstream job
+
+1. Webhook
+Webhook means GitHub tells Jenkins: "New code was pushed."
+
+Example:
+
+Developer
+   |
+   | git push
+   ↓
+GitHub
+   |
+   | "New code arrived!"
+   | webhook
+   ↓
+Jenkins
+   |
+   ↓
+Build starts
+Example
+
+You push code at 10:00 AM.
+
+GitHub immediately sends a webhook to Jenkins.
+
+Jenkins starts the pipeline:
+
+10:00 → Developer pushes
+10:00 → GitHub sends webhook
+10:00 → Jenkins starts
+
+Simple meaning:  Webhook = GitHub tells Jenkins.
+
+2. Poll SCM
+
+Poll SCM means Jenkins repeatedly checks GitHub to see whether new code is available.
+
+Example:
+
+Jenkins
+   |
+   | Check GitHub
+   ↓
+No new code
+
+After some time...
+
+Jenkins
+   |
+   | Check GitHub
+   ↓
+New code found!
+   |
+   ↓
+Build starts
+
+For example, you configure Jenkins to check every 5 minutes:
+
+10:00 → Check GitHub → No change
+10:05 → Check GitHub → No change
+10:10 → Check GitHub → New code → Build
+
+Simple meaning:
+
+Poll SCM = Jenkins asks GitHub.
+
+Webhook vs Poll SCM
+Webhook:
+GitHub → Jenkins
+"Hey! New code."
+
+Poll SCM:
+Jenkins → GitHub
+"Do you have new code?"
+
+Webhook is generally preferred when available because Jenkins doesn't need to keep checking.
+
+3. Scheduled Trigger
+This means:  Run the Jenkins job at a particular time or interval, regardless of whether code changed.
+Example:  You want your job to run every day at 10 PM.
+
+10 PM
+ ↓
+Jenkins
+ ↓
+Run job
+
+Or you could schedule something periodically.
+
+Example:
+Every day
+     ↓
+Jenkins job
+
+This is useful for things like:
+Nightly builds
+Regular testing
+Cleanup jobs
+Scheduled reports
+
+Simple meaning:  Scheduled trigger = Jenkins runs according to a clock/schedule.
+
+
+4. Upstream Job
+This means:  One Jenkins job finishes, and then another Jenkins job starts.
+
+
+Suppose you have two jobs:
+Job A = Build
+Job B = Deploy
+
+You configure Job B to start after Job A succeeds.
+Job A
+Build
+  ↓
+Success
+  ↓
+Job B
+Deploy
+
+If Job A fails, then normally Job B will not start when Job B is configured to run only after Job A succeeds.
+Example:
+Build Application
+       ↓
+       ↓
+Test Application
+       ↓
+       ↓
+Deploy Application
+
+Here:
+
+Build job = upstream
+Deploy job = downstream
+
+So:
+Upstream Job
+     ↓
+Downstream Job
+Simple meaning:  Upstream = previous Jenkins job triggers the next Jenkins job.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
