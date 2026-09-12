@@ -396,6 +396,546 @@ Upstream Job
 Downstream Job
 Simple meaning:  Upstream = previous Jenkins job triggers the next Jenkins job.
 
+------------------------------------------------------------------------------------------------------
+5. Jenkins + Git
+---------------------------------------
+17. How does Jenkins get source code?
+
+Usually from Git repositories such as:
+
+GitHub
+GitLab
+Bitbucket
+
+Example:
+
+stage('Checkout') {
+    steps {
+        git 'https://github.com/example/app.git'
+    }
+}
+18. What happens when Jenkins checks out code?
+
+Jenkins downloads the required source code from the Git repository into the workspace of the agent.
+
+
+----------------------------------------------
+6. Jenkins + Docker
+-------------------------
+19. How do you build a Docker image using Jenkins?
+
+Example:
+
+docker build -t myapp:v1 .
+
+Then:
+
+docker push myapp:v1
+
+Pipeline:
+
+Jenkins
+   ↓
+Docker build
+   ↓
+Docker image
+   ↓
+Docker Registry
+20. Where can Jenkins push Docker images?
+
+For example:
+
+Docker Hub
+Amazon ECR
+Harbor
+GitLab Container Registry
+
+-----------------------------------
+Jenkins + Kubernetes
+-------------------------------
+21. How does Jenkins deploy an application to Kubernetes?
+
+A common approach is:
+
+Developer
+   ↓
+GitHub
+   ↓
+Jenkins
+   ↓
+Build
+   ↓
+Docker Image
+   ↓
+ECR
+   ↓
+kubectl
+   ↓
+EKS
+
+Example:
+
+kubectl apply -f deployment.yaml
+22. What is kubectl doing in Jenkins?
+
+Jenkins uses kubectl to communicate with the Kubernetes API server.
+
+Jenkins
+   |
+   | kubectl
+   ↓
+Kubernetes API Server
+   ↓
+Deployment
+   ↓
+Pods
+23. How does Jenkins authenticate to Kubernetes?
+
+Commonly using:
+
+kubeconfig
+Kubernetes service account
+IAM authentication when working with EKS
+Jenkins credentials/secrets
+
+-----------------------------------------
+Jenkins Credentials
+----------------------------
+24. What are Jenkins credentials?
+
+Credentials securely store sensitive information such as:
+Username/password
+SSH keys
+API tokens
+Cloud credentials
+Registry credentials
+
+Instead of writing:  password123
+inside a Jenkinsfile, Jenkins retrieves the credential securely.
+
+25. Why shouldn't we put passwords directly in Jenkinsfile?
+
+Because the Jenkinsfile may be stored in Git.
+Anyone with access to the repository could potentially see the secret.
+
+-----------------------------------------------------------
+Jenkins Plugins
+-----------------------
+26. What is a Jenkins plugin?
+
+Plugins extend Jenkins functionality.
+Jenkins needs Git-related functionality to get code from GitHub.
+So we install/configure the required Git-related plugin.
+
+For example, plugins can provide integration with:
+
+GitHub
+Docker
+Kubernetes
+AWS
+Slack
+Maven
+
+27. What happens if a required plugin is missing?
+The corresponding Jenkins functionality may not be available, and pipeline steps depending on that plugin can fail.
+
+
+Integration means connecting Jenkins with another tool so they can work together.
+For example:  Jenkins  ↔  GitHub
+Jenkins can get code from GitHub.
+Or:
+Jenkins  ↔  Docker
+Jenkins can build a Docker image.
+
+What is a Jenkins Plugin?
+A plugin is an additional component that gives Jenkins a new capability.
+
+Think of Jenkins as a basic mobile phone:
+
+Jenkins
+   |
+   | Plugin
+   ↓
+New capability
+
+For example, Jenkins by itself doesn't automatically know how to work with every external tool. Plugins provide that integration.
+
+Example: GitHub
+
+You have:
+Developer
+   ↓
+GitHub
+   ↓
+Jenkins
+
+Jenkins needs Git-related functionality to get code from GitHub.
+So we install/configure the required Git-related plugin.
+
+Then Jenkins can do:
+Jenkins
+   ↓
+Connect to GitHub
+   ↓
+Download source code
+Example: Docker
+
+Suppose your pipeline needs Docker:
+
+Jenkins
+   ↓
+docker build
+   ↓
+Docker image
+
+Docker-related Jenkins functionality can be provided through plugins/integrations.
+
+Example: Kubernetes
+
+Suppose Jenkins needs to work with Kubernetes:
+Jenkins
+   ↓
+Kubernetes
+   ↓
+EKS
+   ↓
+Pods
+
+Kubernetes-related plugins can provide Jenkins integration with Kubernetes.
+So remember this:  Plugin = adds extra functionality to Jenkins.
+
+Examples:
+Git plugin          → Git integration
+GitHub integration  → GitHub integration
+Docker integration  → Docker-related functionality
+Kubernetes plugin   → Kubernetes integration
+Slack integration   → Slack notifications
+Interview answer
+
+If interviewer asks:
+"What is a Jenkins plugin?"
+
+You can say:   "A Jenkins plugin is an extension that adds additional functionality or integration to Jenkins. 
+For example, plugins can help Jenkins integrate with GitHub, Kubernetes, Docker, Slack, and other tools."
+
+The important point is: Jenkins is the main tool; plugins extend what Jenkins can do.
+
+
+---------------------------------------------------------------------------------------------------------
+Jenkins Workspace
+--------------------------
+28. What is Jenkins workspace?
+The workspace is the directory on the Jenkins agent where Jenkins performs the build.
+
+For example:
+
+Agent
+ |
+ └── Workspace
+      |
+      ├── source code
+      ├── build files
+      └── generated artifacts
+29. What happens to workspace after a build?
+It can remain for reuse or be cleaned depending on the Jenkins configuration/pipeline.
+
+
+Workspace means the folder where Jenkins does the actual work.
+If you download a project and work on it, you need a folder:
+My Computer
+   ↓
+project folder
+   ↓
+application files
+
+Jenkins also needs a folder to work on your application. That folder is called the workspace.
+
+
+Example
+
+Suppose your GitHub repository contains:
+
+my-app
+├── index.html
+├── Dockerfile
+└── Jenkinsfile
+
+Developer pushes the code:
+
+GitHub
+   ↓
+Jenkins
+
+Jenkins gets the code and puts it in its workspace:
+
+Jenkins Agent
+     |
+     └── Workspace
+          |
+          └── my-app
+               ├── index.html
+               ├── Dockerfile
+               └── Jenkinsfile
+
+Now Jenkins can work with those files.
+
+For example:
+
+Workspace
+   ↓
+mvn package
+   ↓
+Build application
+
+Then:
+
+Workspace
+   ↓
+docker build .
+   ↓
+Create Docker image
+What happens during a pipeline?
+
+Suppose your Jenkinsfile says:
+
+stage('Build') {
+    steps {
+        sh 'mvn package'
+    }
+}
+
+Jenkins does roughly:
+
+1. Create/use workspace
+        ↓
+2. Download code from GitHub
+        ↓
+3. Put code in workspace
+        ↓
+4. Run mvn package
+        ↓
+5. Build is created
+Where is the workspace?
+
+Usually it is on the Jenkins agent that is running the job.
+
+For example:
+
+Jenkins Controller
+       |
+       | gives job
+       ↓
+Jenkins Agent
+       |
+       └── Workspace
+              |
+              └── Your project
+Important point
+
+Workspace is not the GitHub repository.
+
+GitHub:  Stores your source code permanently.
+Workspace:  Temporary/working copy where Jenkins performs the build.
+
+So remember:
+GitHub = storage
+Workspace = working area
+Jenkins = performs the work
+
+-------------------------------------------
+Job = what Jenkins is supposed to do
+Workspace = where Jenkins does it
+
+Example
+
+Suppose you create a Jenkins job called:
+
+Build-My-App
+
+The job contains instructions/configuration:
+
+Build-My-App
+   |
+   ├── Git repository
+   ├── Branch
+   ├── Build command
+   ├── Credentials
+   └── Pipeline/Jenkinsfile
+
+When Jenkins runs this job, it needs a place to actually work.
+
+That place is the workspace:
+
+Jenkins Job
+     |
+     | runs on
+     ↓
+Jenkins Agent
+     |
+     └── Workspace
+          |
+          ├── application code
+          ├── Dockerfile
+          ├── dependencies
+          └── build files
+Real-life example
+
+Think of a restaurant:
+
+Job = the order: "Make a pizza"
+Workspace = the kitchen where the pizza is made
+Jenkins = the manager coordinating the work
+
+So:
+
+JOB
+"What should I do?"
+        ↓
+WORKSPACE
+"Where should I do it?"
+Very important
+
+A job can run multiple times.
+
+For example:
+
+Build-My-App
+   ↓
+Build #1
+   ↓
+Build #2
+   ↓
+Build #3
+
+Each build uses a workspace on the agent to perform the work.
+
+Interview answer
+
+"A Jenkins job defines the task or pipeline that Jenkins needs to execute, while a workspace is the directory on the agent where Jenkins checks out the source code and performs the build steps."
+----------------------------------------------
+
+Simple idea
+Jenkins Controller
+       |
+       | assigns Job
+       ↓
+Jenkins Agent
+       |
+       | uses
+       ↓
+Workspace
+       |
+       | contains code
+       ↓
+Build / Test / Docker
+1. Controller = Manager
+
+The Controller is the main Jenkins server.
+
+It decides:
+
+"Which job should run, and which agent should run it?"
+
+Example:
+
+Controller
+    |
+    | "Run Build-Application job"
+    ↓
+Agent 1
+2. Job = Task
+
+A Job tells Jenkins what needs to be done.
+
+Example:
+
+Job: Build-Application
+
+Steps:
+1. Get code
+2. Build
+3. Test
+4. Create Docker image
+
+So:
+
+Job = work to be performed
+
+3. Agent = Worker
+
+The Agent is the machine/container that actually performs the job.
+
+Controller says:
+
+"Agent 1, run this job."
+
+Agent executes:
+
+mvn package
+mvn test
+docker build
+
+So:
+
+Agent = machine that performs the work
+
+4. Workspace = Working folder
+
+The agent needs a folder to work in.
+
+That folder is the workspace.
+
+Example:
+
+Agent 1
+   |
+   └── Workspace
+         |
+         ├── application code
+         ├── pom.xml
+         ├── Dockerfile
+         └── build files
+
+So:
+
+Workspace = folder where the agent performs the job
+
+Complete example
+
+Suppose a developer pushes code:
+
+Developer
+    ↓
+GitHub
+
+Jenkins receives the trigger.
+
+Jenkins Controller
+       |
+       | Job: Build-Application
+       ↓
+Jenkins Agent
+       |
+       ↓
+Workspace
+       |
+       ├── Get code from GitHub
+       ├── Build
+       ├── Test
+       └── Docker build
+Remember this sentence
+
+Controller manages, Job defines the work, Agent performs the work, and Workspace is where the work happens.
+
+Jenkins component	Simple meaning
+Controller	Manager
+Job	Task
+Agent	Worker
+Workspace	Work area/folder
+
+One important correction: A Job does not "belong inside" the Agent. The Controller assigns the Job to an Agent, and that Agent uses its Workspace to execute it.
+
+
 
 
 
