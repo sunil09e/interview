@@ -935,7 +935,107 @@ Workspace	Work area/folder
 
 One important correction: A Job does not "belong inside" the Agent. The Controller assigns the Job to an Agent, and that Agent uses its Workspace to execute it.
 
+---------------------------------------------------------------------------------------
 
+Important Scenario Questions
+
+These are very common interview questions.
+
+30. Jenkins build is failing. How do you troubleshoot?
+
+I would check:
+
+1. Jenkins console output
+2. Build logs
+3. Git checkout
+4. Credentials
+5. Environment variables
+6. Dependencies
+7. Agent availability
+8. Docker errors
+9. Kubernetes errors
+10. Network connectivity
+31. Jenkins cannot pull code from GitHub. What could be wrong?
+
+Possible causes:
+
+Wrong repository URL
+Wrong credentials
+SSH key issue
+Network issue
+Branch doesn't exist
+Git plugin issue
+Permission problem
+32. Docker build works manually but fails in Jenkins. Why?
+
+Possible reasons:
+
+Docker not installed on agent
+Jenkins user doesn't have Docker permission
+Wrong working directory
+Missing files
+Environment variables missing
+Different Docker version/configuration
+33. Jenkins successfully builds the Docker image but cannot push it. Why?
+
+Check:
+
+Registry credentials
+Docker login
+Repository name
+Image tag
+Network connectivity
+Registry permissions
+34. Jenkins deployment succeeded but Kubernetes pods are failing. What do you check?
+kubectl get pods
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+
+Then check:
+
+ImagePullBackOff
+CrashLoopBackOff
+Configuration
+Secrets
+Environment variables
+Resources
+Probes
+Service/networking
+12. Very Important Interview Scenario
+35. Explain your Jenkins CI/CD pipeline.
+
+A good answer:
+
+"When a developer pushes code to GitHub, a webhook triggers Jenkins. Jenkins checks out the code, builds the application, runs unit tests, and creates a Docker image. The image is pushed to Amazon ECR. Jenkins then deploys the new image to the EKS cluster using Kubernetes manifests or Helm. Kubernetes performs the rollout and manages the application pods."
+
+Developer
+    ↓
+Git Push
+    ↓
+GitHub
+    ↓
+Webhook
+    ↓
+Jenkins
+    ↓
+Checkout
+    ↓
+Build
+    ↓
+Test
+    ↓
+Docker Build
+    ↓
+Amazon ECR
+    ↓
+EKS
+    ↓
+Deployment
+    ↓
+Pods
+
+Manifest in Kubernetes means a YAML file that tells Kubernetes what you want to create or configure.
+-------------------------------------
 
 
 
