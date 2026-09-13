@@ -1979,4 +1979,124 @@ docker-cred   → withDockerRegistry
 dockerhub     → withCredentials
 
 They could contain the same Docker Hub username/token, but Jenkins treats them as two separate credentials entries unless you configured them that way.
+----------------------------------------------------------
 
+In Jenkins Pipeline, we use script {} when we need to write normal Groovy code or logic inside a Declarative Pipeline.
+
+Without script
+
+Simple Jenkins steps can be written directly:
+
+stage('Build') {
+    steps {
+        sh 'mvn package'
+    }
+}
+
+No script needed.
+
+With script
+
+Suppose you want to use Groovy logic:
+
+stage('Build') {
+    steps {
+        script {
+            def version = "1.0"
+            echo "Building version ${version}"
+        }
+    }
+}
+
+Here def version = ... is Groovy code, so script {} allows it.
+
+Easy rule
+Declarative Pipeline
+       |
+       ├── Jenkins steps → no script needed
+       |
+       └── Groovy logic → use script {}
+
+For example, Groovy logic:
+
+script {
+    if (env.BRANCH_NAME == 'main') {
+        echo 'Deploying'
+    }
+}
+
+So script {} doesn't mean "run the script". It means:
+
+"Jenkins, allow me to use imperative Groovy code here."
+
+
+
+
+
+If you mean what kinds of Groovy logic require script {} in a Jenkins Declarative Pipeline, these are the main ones.
+
+1. if / else
+script {
+    if (env.BRANCH_NAME == 'main') {
+        echo 'Deploy'
+    } else {
+        echo 'Do not deploy'
+    }
+}
+2. Variables with def
+script {
+    def version = "1.0"
+    echo "Version is ${version}"
+}
+3. Loops
+script {
+    for (int i = 1; i <= 3; i++) {
+        echo "Number: ${i}"
+    }
+}
+4. Calculations / expressions
+script {
+    def a = 10
+    def b = 20
+    def total = a + b
+
+    echo "Total = ${total}"
+}
+5. switch
+script {
+    switch(env.BRANCH_NAME) {
+        case 'main':
+            echo 'Production'
+            break
+        case 'develop':
+            echo 'Development'
+            break
+        default:
+            echo 'Feature branch'
+    }
+}
+6. Dynamic values
+
+For example, dynamically create a Docker tag:
+
+script {
+    def tag = "${env.BUILD_NUMBER}"
+    
+    sh "docker build -t myapp:${tag} ."
+}
+
+The tag changes:
+
+Build 1 → myapp:1
+Build 2 → myapp:2
+Build 3 → myapp:3
+7. Combining multiple pieces of logic
+script {
+    def image = "myapp"
+    def tag = env.BUILD_NUMBER
+
+    if (env.BRANCH_NAME == 'main') {
+        sh "docker build -t ${image}:${tag} ."
+        sh "docker push ${image}:${tag}"
+    }
+}
