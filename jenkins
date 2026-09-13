@@ -1,6 +1,100 @@
 Jenkins is an automation tool mainly used for CI/CD (Continuous Integration / Continuous Delivery).
 In simple words:   Jenkins automatically takes your code → builds it → tests it → creates a Docker image → deploys it to Kubernetes.
 "Jenkins is an open-source automation server used to automate CI/CD processes such as building, testing, and deploying applications."
+
+8080 is the default Jenkins HTTP port
+50000 is the default internal port number of jk so we can bring communication b/w master/slave
+In Jenkins, port 50000 is used for agent (slave) communication.
+What does port 50000 do?
+Yes. 50000 is for Jenkins agent communication, not specifically "master/slave."
+Example:
+
+             Jenkins Master
+            (Controller)
+                 |
+                 |  :50000
+                 |  Agent communication
+                 ↓
+           Jenkins Slave
+             (Agent)
+What does port 50000 do?
+When Jenkins has an agent, the controller needs to communicate with that agent.
+For example:
+
+                Jenkins Controller
+                :8080 → Web UI
+                   |
+                   | :50000
+                   ↓
+             Jenkins Agent
+                   |
+                   ↓
+              Runs builds
+
+The terminology is now:
+
+Master → Controller
+Slave → Agent
+
+So you can say:
+
+Port 50000 is the traditional TCP port used for Jenkins controller-to-agent communication when using inbound agents.
+
+Example:
+
+Jenkins Controller
+       |
+       | TCP :50000
+       ↓
+Jenkins Agent
+
+But 50000 is not the port for the Jenkins web UI.
+
+8080  → Jenkins Web UI
+50000 → Traditional inbound Agent communication
+
+Important
+
+Having one EC2 does not mean you must use port 50000.
+
+Think of it like this:
+1 EC2
+  ↓
+Controller + build executor
+  ↓
+8080 is enough for normal web access
+
+2 EC2
+  ↓
+Controller + separate Agent
+  ↓
+Agent communication may use 50000
+Also, modern Jenkins can use WebSocket, in which case a separate 50000 port may not be needed.
+
+If you have a Jenkins master/slave setup (now called controller/agent), then the 50000 port may be used for communication between them.
+
+
+
+
+
+
+When Jenkins has an agent, the controller needs to communicate with that agent.
+
+For example:
+
+                Jenkins Controller
+                :8080 → Web UI
+                   |
+                   | :50000
+                   ↓
+             Jenkins Agent
+                   |
+                   ↓
+              Runs builds
+
+So, for an interview:
+8080 is the default Jenkins HTTP port, while 50000 is traditionally the inbound agent communication port.
+
 why jenkins bcz jk is a only toll with 2000+ plugins
 
 Example
@@ -1133,16 +1227,756 @@ Continuous Deployment:
 Here, there is no manual approval.
 Once the code passes all required checks, Jenkins automatically deploys it to production.
 
- 
+---------------------------------
+
+1. Freestyle Project
+A Freestyle project is the simplest Jenkins job.
+
+You configure everything through the Jenkins UI.
+Example:
+
+Developer pushes code
+        ↓
+Jenkins Freestyle Job
+        ↓
+Build
+        ↓
+Test
+        ↓
+Deploy
+
+You might configure:
+
+Git repository
+Build commands
+Environment variables
+Post-build actions
+
+Example:
+You manually enter:  mvn clean package
+in the Jenkins configuration.
+👉 Good for simple jobs, but configuration is mostly stored in Jenkins.
+
+2. Pipeline
+A Pipeline allows you to define the CI/CD process as code, usually in a file called:  Jenkinsfile
+Why Pipeline?
+Because the CI/CD process is written as code, so it can be version-controlled.
+
+
+3. Multibranch Pipeline
+This is basically a Pipeline that automatically creates/manages a separate pipeline for each Git branch.
+
+Suppose your Git repository has:
+main
+develop
+feature/login
+feature/payment
+
+Multibranch Pipeline can discover them:
+
+Jenkins
+  |
+  └── My Application
+       |
+       ├── main
+       ├── develop
+       ├── feature/login
+       └── feature/payment
+
+Each branch can have its own Jenkinsfile.
+For example:
+feature/login
+     |
+     └── Jenkinsfile
+            ↓
+       Pipeline runs
+
+When you create a new branch:  feature/cart
+Jenkins can automatically discover it and create a pipeline for that branch.
+
+Simple interview difference
+Type	Main idea
+Freestyle	Configure job mainly through Jenkins UI
+Pipeline	Define CI/CD process using Jenkinsfile
+Multibranch Pipeline	Automatically create/run pipelines for multiple Git branches
+-------------------------------------------------------------
+job ordering in Jenkins, it means controlling the order in which Jenkins jobs/pipelines run.
+
+For example:
+
+Job 1: Build
+      ↓
+Job 2: Test
+      ↓
+Job 3: Deploy
+In Jenkins Pipeline
+
+You normally control the order using stages:
+
+pipeline {
+    stages {
+
+        stage('Build') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh './deploy.sh'
+            }
+        }
+    }
+}
+
+Jenkins runs them in this order:
+
+Build
+  ↓
+Test
+  ↓
+Deploy
+
+The next stage starts after the previous stage completes successfully.
+
+If you have separate Jenkins jobs
+
+You can also make one job trigger another:
+
+Job A
+Build
+  ↓
+Job B
+Test
+  ↓
+Job C
+Deploy
+
+For example:  Build Job → Test Job → Deploy Job
+So, job ordering = deciding which Jenkins job should run first, second, third, etc.
+
+
+So the upstream/downstream relationship is one way to create job ordering.
+
+Important difference
+Job ordering is the general idea:  "Run these jobs in this order."
+
+Upstream/downstream describes the relationship between those jobs:   "Job B is triggered by Job A, so A is upstream and B is downstream."
+----------------------------------------------------
+What is Remote Trigger?
+
+A remote trigger means starting a Jenkins job from outside Jenkins, usually using an HTTP/API request.
+
+Example:
+
+Developer / Application
+        |
+        | HTTP request
+        ↓
+     Jenkins
+        |
+        ↓
+    Build Job
+
+For example, another server can send a request to Jenkins:
+
+Trigger Jenkins Job → Jenkins starts Build
+Interview answer
+Remote trigger in Jenkins allows a job to be triggered externally using a URL/API request, rather
+than manually starting it or waiting for another Jenkins job.
+ ---------------------------------------------------------------------------------------------
+1. Go to Jenkins
+Jenkins
+  ↓
+Manage Jenkins
+  ↓
+Nodes
+  ↓
+New Node
+
+Create your second EC2 as an agent.
+
+2. Give the agent a name
+For example:  Name: ec2-agent-1
+Then in the agent configuration, you can specify a label such as:  linux-agent
+
+So the configuration looks conceptually like:
+Agent name: ec2-agent-1
+Labels:     linux-agent
+
+3. Use that label in Jenkinsfile
+
+For example:
+
+pipeline {
+    agent none
+
+    stages {
+
+        stage('Build') {
+            agent { label 'linux-agent' }
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Deploy') {
+            agent { label 'deploy-agent' }
+            steps {
+                sh './deploy.sh'
+            }
+        }
+    }
+}
+
+The important point is:
+
+linux-agent
+    ↓
+mvn clean package
+    ↓
+JAR/WAR created
+
+Then Jenkins moves to:
+
+deploy-agent
+    ↓
+./deploy.sh
+But does the JAR automatically go from one EC2 to the other?
+
+No.
+
+Each agent can have its own workspace.
+
+EC2-1: linux-agent
+workspace/
+└── target/
+    └── app.jar
+
+
+EC2-2: deploy-agent
+workspace/
+└── ??? 
+
+The app.jar created on linux-agent is not automatically available on deploy-agent.
+
+You need to transfer the artifact.
+
+A common Jenkins way is:
+
+stage('Build') {
+    agent { label 'linux-agent' }
+
+    steps {
+        sh 'mvn clean package'
+        stash name: 'app', includes: 'target/*.jar'
+    }
+}
+
+stage('Deploy') {
+    agent { label 'deploy-agent' }
+
+    steps {
+        unstash 'app'
+        sh './deploy.sh'
+    }
+}
+
+Now the flow is:
+
+linux-agent EC2
+      |
+      | mvn clean package
+      ↓
+    app.jar
+      |
+      | stash
+      ↓
+    Jenkins
+      |
+      | unstash
+      ↓
+deploy-agent EC2
+      |
+      ↓
+  ./deploy.sh
+
+So the correct interview answer is:
+
+A later stage can run on a different agent, but files created on the first agent are not automatically
+available there. We must transfer the artifact, for example using stash/unstash, an artifact repository, or another file-transfer mechanism.
+
+
+With stash/unstash
+
+In the Build stage:
+
+stage('Build') {
+    agent { label 'linux-agent' }
+
+    steps {
+        sh 'mvn package'
+        stash name: 'app', includes: 'target/*.jar'
+    }
+}
+
+After mvn package creates app.jar, this:
+
+stash name: 'app'
+
+takes the file from the linux-agent workspace and stores it with Jenkins.
+
+Then Deploy stage:
+
+stage('Deploy') {
+    agent { label 'deploy-agent' }
+
+    steps {
+        unstash 'app'
+        sh './deploy.sh'
+    }
+}
+
+unstash 'app' takes the stored file and puts it into the deploy-agent workspace.
+So:
+
+EC2-1
+linux-agent
+   |
+   | app.jar
+   ↓
+stash
+   |
+   ↓
+Jenkins
+   |
+   | unstash
+   ↓
+EC2-2
+deploy-agent
+   |
+   ↓
+app.jar
 
 
 
+One important point
+Jenkins Controller is not necessarily the place where the build runs.
+The Controller manages the pipeline. The stash data is handled by Jenkins, and unstash makes it available in the workspace of the next agent.
+So you can remember:  Build agent creates the file → stash stores it → deploy agent gets it with unstash.
+
+---------------------------------------------------------------
+
+mvn clean removes the previous Maven build output, usually the target/ directory.
+deleteDir() is a Jenkins Pipeline step that deletes everything inside the current workspace directory.
+
+Example
+stage('Cleanup') {
+    steps {
+        deleteDir()
+    }
+}
+
+Suppose the Jenkins workspace contains:
+
+workspace/
+├── pom.xml
+├── src/
+├── target/
+├── test-results/
+└── old-file.txt
+
+After:
+
+deleteDir()
+
+the workspace becomes empty:
+
+workspace/
+└── (empty)
 
 
+mvn clean vs deleteDir
+They are not the same.
+
+Command	What it cleans
+mvn clean	Maven build output, mainly target/
+deleteDir()	Everything in the current Jenkins workspace
+cleanWs()	Jenkins workspace cleanup; commonly used for workspace cleanup in post
+
+------------------------
+In your code:
+
+stage('Build') {           
+    steps {    
+        dir("java_hello") {         
+            sh 'mvn package'         
+        }  
+    }
+}
+What does dir("java_hello") mean?
+
+dir() means change the current working directory for the steps inside it.
+
+So:
+dir("java_hello") {
+    sh 'mvn package'
+}
+
+means:  Go inside the java_hello directory, then run mvn package there.
+Example
+Suppose Jenkins workspace is:
+
+workspace/
+└── java_hello/
+    ├── pom.xml
+    └── src/
+
+Normally Jenkins is here:  workspace/
+But:
+dir("java_hello") {
+    sh 'mvn package'
+}
+
+changes the working location to:  workspace/java_hello/
+
+Then Maven runs there:
+workspace/java_hello/
+        |
+        └── pom.xml
+              ↓
+        mvn package
+Why use dir()?
+
+Usually because your project is inside a subdirectory of the Jenkins workspace.
+
+For example:
+
+workspace/
+├── README.md
+├── java_hello/
+│   ├── pom.xml
+│   └── src/
+└── other-project/
+
+You want Maven to use:  java_hello/pom.xml
+So you write:
+dir("java_hello") {
+    sh 'mvn package'
+}
+Very important
+
+dir() does not move the files to another EC2/agent.
+It only changes the directory where the command runs.
+
+dir("java_hello")
+       ↓
+change folder
+
+stash / unstash
+       ↓
+transfer files between agent workspaces
+
+So:  dir() = go into a particular folder in the current workspace.
+
+If your workspace is:
+workspace/
+├── README.md
+├── java_hello/
+│   ├── pom.xml
+│   └── src/
+└── other-project/
+
+and you run:
+
+sh 'mvn package'
+
+Jenkins runs it from:
+
+workspace/
+
+Maven looks for:  workspace/pom.xml
+
+It doesn't automatically go into:
+
+workspace/java_hello/pom.xml
+
+So you need either:
+
+Option 1 — dir()
+dir('java_hello') {
+    sh 'mvn package'
+}
+Option 2 — Tell Maven where the POM is
+sh 'mvn -f java_hello/pom.xml package'
+If pom.xml is directly in workspace
+
+Then no dir() is needed:
+
+workspace/
+├── pom.xml
+└── src/
+sh 'mvn package'
+
+So remember: Jenkins starts commands in the workspace root by default. It doesn't automatically search subdirectories.
+------------------------------------------------
+What is Jenkins Shared Library?
+
+A Shared Library is a place where you keep common Jenkins Pipeline code so that multiple Jenkinsfiles can reuse it.
+What is Jenkins Shared Library?
+
+Imagine you have 3 projects:
+
+Project A
+Project B
+Project C
+
+All 3 Jenkins pipelines need the same Docker build code.
+
+Without Shared Library:
+
+Project A Jenkinsfile
+    ↓
+docker build ...
+
+Project B Jenkinsfile
+    ↓
+docker build ...
+
+Project C Jenkinsfile
+    ↓
+docker build ...
+
+You write the same code 3 times.
+
+With a Shared Library:
+
+             Shared Library
+             dockerBuild()
+                   ↑
+          ┌────────┼────────┐
+          │        │        │
+       Project A Project B Project C
+       Jenkinsfile Jenkinsfile Jenkinsfile
+
+You write the common code once.
+
+Full example
+
+Suppose your Git repository looks like this:
+
+jenkins-shared-library
+│
+└── vars
+    └── dockerBuild.groovy
+dockerBuild.groovy
+def call(String imageName) {
+    sh "docker build -t ${imageName}:latest ."
+}
+
+This means:
+
+Create a function called dockerBuild.
+
+Now your project Jenkinsfile
+@Library('my-shared-library') _
+
+pipeline {
+
+    agent any
+
+    stages {
+
+        stage('Build') {
+            steps {
+                dockerBuild('myapp')
+            }
+        }
+
+    }
+}
+
+Look carefully:
+
+dockerBuild('myapp')
+
+You did not write the Docker command here.
+
+Instead, Jenkins goes to the Shared Library:
+
+dockerBuild('myapp')
+       ↓
+vars/dockerBuild.groovy
+       ↓
+def call(String imageName)
+       ↓
+docker build -t myapp:latest .
+
+So Jenkins finally executes:
+
+docker build -t myapp:latest .
+Why is it called "Shared"?
+
+Because many Jenkins projects can use the same library.
+
+For example:
+
+Shared Library
+     │
+     ├── dockerBuild()
+     ├── dockerPush()
+     ├── dockerLogin()
+     └── deployToKubernetes()
+            ↑
+            │
+    ┌───────┼────────┐
+    ↓       ↓        ↓
+Project A Project B Project C
+
+If 20 projects need dockerBuild(), all 20 can use the same function.
+
+One important point
+
+Shared Library is NOT the Jenkinsfile.
+
+They are separate.
+
+Git Repository 1
+└── Jenkinsfile
+        ↓
+        uses
+        ↓
+Git Repository 2
+└── Jenkins Shared Library
+    └── vars
+        └── dockerBuild.groovy
+
+The Jenkinsfile says what the pipeline should do.
+
+The Shared Library contains reusable code that the Jenkinsfile can call.
+
+Very simple interview answer
+
+Jenkins Shared Library is a centralized place where we store reusable Jenkins pipeline code, so multiple Jenkins projects can use the same code instead of duplicating it in every Jenkinsfile.
 
 
+Why do we use it?
 
+Main purpose: Reusability + Centralized management
 
+For example, if you change the Docker build process:
 
+Without Shared Library:
 
+Change 10 Jenkinsfiles manually.
+
+With Shared Library:
+
+Change the common code once.
+Projects using that library can use the updated logic.
+Where is it stored?
+
+Usually the Shared Library code is stored in a Git repository:
+
+Git Repository
+   |
+   └── Jenkins Shared Library
+           |
+           ├── vars/
+           ├── src/
+           └── resources/
+Interview answer
+Jenkins Shared Library is a centralized repository of reusable Pipeline code that can be shared across multiple Jenkins projects.
+It helps avoid duplicate Jenkinsfile code and makes pipeline maintenance easier.
+----------------------------------------------------------------------
+1. withDockerRegistry()
+withDockerRegistry(credentialsId: 'docker-cred') {
+    sh "docker build -t crazy1/task-master-pro:latest ."
+}
+
+withDockerRegistry() is a Jenkins Docker Pipeline feature.
+
+It uses the Jenkins credential:
+
+docker-cred
+
+and handles Docker registry authentication for the commands inside the block.
+
+Conceptually:
+
+Jenkins
+  ↓
+docker-cred
+  ↓
+Docker Registry login
+  ↓
+commands inside block
+
+Typically you'd use it around Docker commands that need registry authentication, especially docker push.
+
+For example:
+
+withDockerRegistry(credentialsId: 'docker-cred') {
+    sh 'docker build -t crazy1/task-master-pro:latest .'
+    sh 'docker push crazy1/task-master-pro:latest'
+}
+2. withCredentials()
+withCredentials([usernamePassword(
+    credentialsId: 'dockerhub',
+    usernameVariable: 'USER',
+    passwordVariable: 'PASS'
+)]) {
+    sh "echo $PASS | docker login -u $USER --password-stdin"
+}
+
+Here Jenkins takes the username/password stored in:
+
+dockerhub
+
+and temporarily makes them available as environment variables:
+
+USER = Docker username
+PASS = Docker password/token
+
+Then you manually execute:
+
+docker login
+
+So:
+
+Jenkins credential
+      ↓
+USER + PASS
+      ↓
+docker login
+      ↓
+Docker authenticated
+Main difference
+withDockerRegistry()	withCredentials()
+Docker-specific Jenkins helper	Generic Jenkins credential binding
+Handles registry authentication for you	Gives you credentials as variables
+You don't normally write docker login yourself	You write docker login yourself
+Specifically designed for Docker registries	Can be used for many types of credentials
+Easy way to remember
+withDockerRegistry
+       ↓
+"I want Jenkins to handle Docker Registry authentication."
+
+withCredentials
+       ↓
+"Give me the credentials, and I'll decide how to use them."
+
+Also, your two snippets use different credential IDs:
+
+docker-cred   → withDockerRegistry
+dockerhub     → withCredentials
+
+They could contain the same Docker Hub username/token, but Jenkins treats them as two separate credentials entries unless you configured them that way.
 
