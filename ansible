@@ -1,1 +1,177 @@
+Ansible
+Ansible is an automation tool used to manage servers and applications.
+is configuration tool & agent less tool means only install ansible in master not in slave all the machine python is mandatory bcz anisble is going to communicate via python
+is belong to redhat product
+when comes to chef and puppet you want to learn 1 scripting language eg:Groovy/Ruby
+ansible simple linux cmd is enough & you are going to write a script in yaml 
+ansible doesnt have any daeman(bachend process)
+ansible is running on python language you dont want to learn or script in python communicate using python language  bcz written in python language
+when comes to master&slave you need to call    master-control node slave-managed node
+in ansible we cant switch our self as  a root user you need to run everything on default path
+
+In simple words:  Instead of manually logging into 100 servers and doing the same work, Ansible lets you do it from one machine.
+
+Example
+Suppose you have 3 servers:
+
+              Ansible Control Node
+                     |
+          -----------------------
+          |          |          |
+       Server 1   Server 2   Server 3
+
+You want to install Nginx on all 3 servers.
+
+Without Ansible
+You manually:
+SSH → Server 1 → install nginx
+SSH → Server 2 → install nginx
+SSH → Server 3 → install nginx
+--------------------------------------------- 
+Ansible architecture
+                 Ansible
+              Control Node
+                   |
+        -----------------------
+        |          |          |
+       SSH        SSH        SSH
+        |          |          |
+     Server1    Server2    Server3
+
+Ansible is generally agentless.
+That means you normally don't install an Ansible agent on every managed Linux server only control node
+------------------------------------
+
+when comes to this cm tool we are having popular tools
+ANSIBLE  -80% OF THE COMPANY USing this
+CHEF
+PUPPET
+SALTS STACK
+----------------------------------------
+when comes to cm tool there are 2 machanism
+-pull
+-push
+
+ansible is running on push machanism wich means you are going to configure all the slave information in master& you are going to push the code from master to slave
+chef and puppet work on pull machanism os the setup itself complecated slave pull the task from master there is machanism like every 5min they check for the task in master 
+ we can change to 10min based on configuration
+
+so in ansible we are give all the slave machine private ip to the master machine
+---------------------------------------
+there are 2 files when comes to ansible
+-inventory file       going to configure all slave machine private ip   we can give any name slaves.txt
+-configuration file  always standard name       ansible.cfg     we cant change name
+
+----------------------------
+pip install ansible is a valid way to install Ansible, but being a Red Hat project does not mean you must use pip.
+Ansible can be installed using different methods depending on the OS.
+
+Recommended: dnf
+For a normal RHEL installation, use:  sudo dnf install ansible-core -y
+dnf is the Linux package manager for RHEL.   RHEL means Red Hat Enterprise Linux.
+
+pip
+You can also install Ansible through Python:  python3 -m pip install ansible
+pip is the Python package manager, not the RHEL package manager.
+----------------
+if you want to go inside the machine you need keypair
+your machine do no about other machine information now putty is telling i am having the feature called pagent
+
+use pagent addkey 
+now master going to communicate to slave by touching this pagent only not by going through with the keypair
+pagent is going to chech the key pair it is going to bring the communication
+
+just by renaming the master it will not become master or just giving slave machine ip  address
+
+------------------------
+ansible all -i slaves.txt --lists-hosts   in order to check whether it is connecting or not  
+
+ansible all       i am telling were you can find the inventry file bcz you can rename the file so there is no standard name    
+all    currently calling the slave machine
+-i    stand for invertory file
+slaves.txt    name of the file
+--lists-hosts     it tells how many host it in the inventory file
+
+ansible all -i slaves.txt -m ping    to check the communication  -m means module
+
+uname -a   is a direct linux cmd  to check the OS
+if you are going to pass this kind of direct linux cmd we call that as a argument it doesnt delong to ansible
+when ever you are passing an argument or an action it needs to be within "  "
+for module you dont to bring in " "
+
+ansible all -i slaves.txt -a "uname -a"      to check the slave machine os
+ansible all -i slaves.txt -a "uptime"        how long machine is runnuing
+
+-----------------------------------------------------------------------------------------
+manager saying 2 server for nginx other 2 for httpd
+then we use grouping
+always allocating a group name within a []  for single machine we can do it by calling by ip address
+
+inside slaves.txt
+[appache]
+15.12.34.12
+192.12.32.14
+
+ansible appache -i slaves.txt -m ping     to ping only the machine belong to appache group
+ansible appache -i slaves.txt -m yum -a "name=httpd state=present"
+     yum  it comes under module bcz it just not doing one activite it will do multiple activite mostly 
+     if a certain things can do multiple activite means it comes under module
+  Inside this module we are going to do one activity We are going to install Apache inside yum only  you are doing this activity
+  So whenever you are doing anything inside module, that becomes an action "  ". So action or arguments within "  "
+
+if you want to install anything in ansible you need to call them as present/latest
+ansible cant understand the word install bcz ansible do they hane their own convension
+if you want to uminstall means absent
+-----
+to install present/latest
+to uminstall means absent
+to start started
+to stop stopped
+to restart   restarted
+give in state=
+----
+
+ansible appache -i slaves.txt -m yum -a "name=httpd state=present"
+this will error now bcz when ever tru to run here with apache we known very clearly you need to be a root user 
+normally we known default user(ec2-user@ip) doesnt have enough permission to work on with this package and other things
+
+not switching to root user instead of use sudo
+sudo ansible appache -i slaves.txt -m yum -a "name=httpd state=present"
+now also error 
+
+remember
+when ever using any tools  always remember if you are using git docker any kind of tools the cmd need to start with that tool name
+so here doesnt start with tool name iam starting here with sudo so it was not able to identify & not able to do anything here
+
+so switch here to root user
+sudo su - 
+ansible apache -i .. ....
+now it telling  i cant find the file bcz the file is in the another location
+Ansible or any of the configuration, many tools we need to execute in the default path only. We cannot create inventory file.
+you cant bring configuration file inside this root location. By default, even via automatic installation, we are trying to install
+na the inventory file, and Ansible is going to come in EC2 user path, not in the root path, because that is the working location, 
+the default location. It's a working directory or working location when it comes to Ansible.
+
+ansible appache -i slaves.txt -m yum -a "name=httpd state=present" -b
+-b means become    become with the privilage or run this with the privilage
+Now whatever it needs to be done by calling sudo, everything can be executed by using this become word in Ansible.
+this is only for Ansible. Ansible is telling, do not bring this b anywhere in front of the command. Always need to start with Ansible.
+At the end of the command give -b. So some kind of privilege activity that needs to be executed
+
+
+now copy pasting ip address in the browser it will not show  bcz we not start the service httpd is present but notb started 
+ansible appache -i slaves.txt -m yum -a "name=httpd state=started" -b
+error
+here yum only do this activity install , we need to start here so service is going to start the apache
+so service comes under module or action that what we need to be clear
+ansible appache -i slaves.txt -m service -a "name=httpd state=started" -b
+
+
+
+
+
+
+
+
+
 
