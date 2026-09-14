@@ -102,6 +102,17 @@ for module you dont to bring in " "
 ansible all -i slaves.txt -a "uname -a"      to check the slave machine os
 ansible all -i slaves.txt -a "uptime"        how long machine is runnuing
 
+-a means argument
+It tells Ansible:  “This is the command/argument that I want to execute on the target machines.”
+Argument means a value/information that you give to a command, function, or program so it knows what to work with.
+Simple example
+mkdir test
+Here:
+mkdir → command
+test → argument
+
+You are telling mkdir: “Create a directory with the name test.”
+
 -----------------------------------------------------------------------------------------
 manager saying 2 server for nginx other 2 for httpd
 then we use grouping
