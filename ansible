@@ -266,8 +266,9 @@ In Ansible, playbooks are written in YAML.
      
     - name: Copy nginx configuration
       copy:
-        src: nginx.conf
-        dest: /etc/nginx/nginx.conf
+        src: nginx.conf                       file coming from control machine
+        dest: /etc/nginx/nginx.conf               where file is placed on EC2
+        mode: '0644'                       premission   In 0755, the first 0 is not a permission.    It tells Linux that 755 is written in octal (base-8) notation.
       notify: Restart nginx                  "If the above task actually changes something, call the handler named Restart nginx." It does not mean restart nginx every time.
 
     - name: Start nginx                 This task uses the service module.
