@@ -114,6 +114,34 @@ test → argument
 You are telling mkdir: “Create a directory with the name test.”
 
 -----------------------------------------------------------------------------------------
+Ansible Ad Hoc Commands
+Ansible ad hoc commands are a powerful feature that allows you to run simple commands or tasks directly on managed 
+nodes without needing to write a full playbook. This can be useful for quick checks, debugging, or performing one-off tasks.
+ad hoc means one task at a time 
+
+Basic Syntax for Ansible Ad Hoc Commands
+The general syntax for running an ad hoc command is:
+$ansible [Hostgroup,ip,hostname] -m [module] -a "[command]"
+
+Where:
+[group,ip,Hostname] is the host or group of hosts on which you want to run the command.
+-m [module] specifies the Ansible module to use (e.g., command, shell, ping).
+-a "[command]" specifies the arguments for the module.
+
+Common Examples of Ansible Ad Hoc Commands
+ansible all -m ping = Use the ping module to check connectivity to the hosts.
+ansible all -m shell -a "df -h" = Use the shell module to execute a command. For example, to check the disk usage on all hosts.
+ansible all -m shell -a "uptime" = To check the uptime of all hosts.
+ansible all -m copy -a "src=/path/to/file.txt dest=/tmp/file.txt" = Use the copy module to copy a file from the control node to the managed nodes. For example, to copy file.txt to /tmp on all nodes.
+ansible all -m apt -a "name=vim state=present" = Use the apt module (for Debian-based systems) to install a package.
+ansible all -m service -a "name=nginx state=restarted" = Use the service module to start, stop, or restart services. For example, to restart the nginx service on all hosts.
+ansible all -m apt -a "name=vim state=absent" --become = Use the apt module to remove software packages. For example, to uninstall vim.
+ansible all -m command -a "systemctl status nginx" = Check Status of a Service.
+ansible all -m command -a "ip a" = Get Network Interfaces.
+ansible all -m file -a "path=/tmp/newdir state=directory" --become = Create a Directory.
+
+
+
 manager saying 2 server for nginx other 2 for httpd
 then we use grouping
 always allocating a group name within a []  for single machine we can do it by calling by ip address
@@ -176,13 +204,246 @@ error
 here yum only do this activity install , we need to start here so service is going to start the apache
 so service comes under module or action that what we need to be clear
 ansible appache -i slaves.txt -m service -a "name=httpd state=started" -b
+--------------------------------------------------
+to conform that in the slave machine is present or not so you dont want to login via putty one sec again slave machine ,do ssh from this master itself
+ssb ec2-user@172.23.4.5(private ip)
+We switch here one machine to another machine. As we all know, via pagent. The key pair has been taken care.
+If it is not pagent means we need to give key pair permission, then SSH. But currently in pagent, by giving key pair just by doing normal SSH.
+
+----------------------------------------------------
+multi-master
+Currently I am doing everything on my master only. My master is currently controlling all my slave machine.
+What if my master goes down? Who's going to control? How I am going to execute? That is where in real time we will do this multi-master setup.
+
+In that configuration file, you're going to tell them who is going primary master, their IP address and secondary IP address.
+
+On background, this master is actually keep on connecting with the slave machine. They have their own communication.
+We are not doing anything special, or we are not doing anything extra by default. They are having their own communication.
+If the communication is not happening, just think in the same way load balancer we are having. Right? Load balancer, 
+they are going to always check for the EC2 machine. If it is not going to respond to them automatically, it is going to 
+consider that EC2 machine is not a healthy machine. So it is not going to recreate the traffic. How it is happening automatically,
+we have told them. Same way here, the moment you set up the multi-master, everything will be done by the primary machine.
+But if the primary master machine becomes inactive, if it is not responding means immediately the second is going to take primary position,
+and we are not going to do anything. We just going to tell them who is primary machine and who is secondary machine. So by informing this 
+itself on the background, there comes a communication automatically. Primary is going to try communication along with the slave machine. 
+If the primary is not responding means immediately secondary is going to take primary position. Once a cannot control another slave.
+It is not like that. It is going to become a master. No, never you can do one, but never be. In real time we are always multi-master setup.
+
+-----------------------------------------------------------------------
+
+ad hoc  onetask at a time
+playbook  multiple task ata time
+
+What is an Ansible Playbook?
+An Ansible playbook is a YAML file that defines a set of tasks to be executed on remote systems.
+It’s a way to automate tasks like software installation, configuration changes, and system management. Think of it as a recipe for your infrastructure! 📜🍽️
+
+Key Components of a Playbook
+Play: A play defines a set of tasks to be executed on a group of hosts. It’s like a chapter in your book of automation. 📖
+Tasks: Tasks are the individual actions within a play. Each task uses an Ansible module to perform an action. 🛠️
+Modules: Modules are the building blocks of tasks. They are predefined functions that Ansible uses to perform actions like installing packages, copying files, and more. 🔑
+Variables: Variables store data that can be reused in playbooks. They make your playbooks flexible and dynamic.
+Handlers: Handlers are special tasks that only run when notified by other tasks. They are great for managing services and performing actions only when changes occur.
+
+YAML stands for YAML Ain't Markup Language.
+It is a human-readable format used to write configuration and data.
+In Ansible, playbooks are written in YAML.
+
+
+- name: Install and start nginx              This is the name of the Play.    It describes the overall work that this play will do.
+  hosts: webservers                          we can give  all,single machine means give ip address,or a particular group
+  become: yes                                This tells Ansible to perform tasks with sudo/root privileges.certain task required some privilage access
+
+  vars:                                        Later we can use it as:  "{{ package_name }}"
+    package_name: nginx                       So instead of writing nginx everywhere, we use the variable.
+
+  tasks:                                      This is the main section where we tell Ansible what actions to perform.
+
+    - name: Install nginx                             This is the name of the Task.   It describes one particular action inside the play.
+      apt:                                            apt is the Ansible module.
+        name: "{{ package_name }}"                     Install nginx
+        state: present                           to install
+     
+    - name: Copy nginx configuration
+      copy:
+        src: nginx.conf
+        dest: /etc/nginx/nginx.conf
+      notify: Restart nginx                  "If the above task actually changes something, call the handler named Restart nginx." It does not mean restart nginx every time.
+
+    - name: Start nginx                 This task uses the service module.
+      service:
+        name: "{{ package_name }}"
+        state: started                 to start the nginx.  Make sure nginx is running.
+        enabled: yes            Start nginx automatically when the server boots.
+
+  handlers:                         "When I am notified, restart nginx."   Handlers are special tasks.  They normally don't run just because they are written in the playbook.
+                                They run when another task notifies them.
+    - name: Restart nginx
+      service:
+        name: nginx                    
+        state: restarted                Restart the nginx service.  But it happens only when the task that notified it reports a change.
+
+-------------------------------------------------------
+The - means "this is one item" in a list.
+
+The - means:
+
+Start one Play.
+
+Then inside that Play:
+
+tasks:
+  - name: Install nginx
+    apt:
+      name: nginx
+
+  - name: Start nginx
+    service:
+      name: nginx
+
+Here there are two tasks.
+
+tasks
+  |
+  ├── Task 1: Install nginx
+  |
+  └── Task 2: Start nginx
+
+So each - means a new item.
+
+The reason there is a - before the Play is that a playbook can contain multiple Plays.
+- name: Configure web servers
+  hosts: webservers
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+
+- name: Configure database servers
+  hosts: databases
+  tasks:
+    - name: Install mysql
+      apt:
+        name: mysql-server
+-------------------------------------------------
+For just installing nginx, you normally don't need to restart it. So that notify was unnecessary
+
+Why do we use notify with the configuration?
+
+This makes sense:
+- name: Copy nginx configuration
+  copy:
+    src: nginx.conf
+    dest: /etc/nginx/nginx.conf
+  notify: Restart nginx
+
+Because:
+Configuration changed
+        ↓
+Nginx needs to reload/restart
+        ↓
+notify
+        ↓
+Restart nginx
+
+If the configuration did not change:
+
+Configuration already same
+        ↓
+No change
+        ↓
+No notify
+        ↓
+No restart
+So the rule is:  Use notify when a task's change requires another action afterward.
 
 
 
+src = source (control machine)
+dest = destination (managed server)
+
+If nginx.conf is in another directory, you can give its path:
+
+src: /home/ansible/nginx.conf
+dest: /etc/nginx/nginx.conf
+
+For example, suppose your control machine has:
+
+/home/ansible/
+├── nginx.yml
+└── nginx.conf
+
+Your playbook:
+
+- name: Copy nginx configuration
+  copy:
+    src: nginx.conf
+    dest: /etc/nginx/nginx.conf
+
+means:
+
+Control machine
+      |
+      | nginx.conf
+      ↓
+Managed EC2
+/etc/nginx/nginx.conf
+--------------------------
+Why do we use this?  notify
+
+Imagine you change nginx configuration:
+
+- name: Copy nginx configuration
+  copy:
+    src: nginx.conf
+    dest: /etc/nginx/nginx.conf
+  notify: Restart nginx
+
+If the configuration changes:
+Configuration changed
+        ↓
+Notify
+        ↓
+Restart nginx
+
+If the configuration is already the same:
+
+No change
+   ↓
+No restart
 
 
+Example 1: Nginx is NOT installed
 
+You run:
 
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+  notify: Restart nginx
 
+Ansible checks:
 
+Is nginx installed?
+       ↓
+     NO ❌
+       ↓
+Install nginx
+       ↓
+CHANGE HAPPENED ✅
+       ↓
+notify → Restart nginx
 
+Example 2: Nginx is ALREADY installed
+Is nginx installed?
+       ↓
+     YES ✅
+       ↓
+Nothing to do
+       ↓
+NO CHANGE ❌
+       ↓
+Handler doesn't run
+
+So change does not mean you manually changed something.
