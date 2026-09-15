@@ -1216,8 +1216,102 @@ Template file (.j2)
 Final file on server
 
 The .j2 is commonly used to identify a Jinja2 template file.
+--------------------------------------------------------------------------
+
+1. Create a directory
+
+Run on the Master:   ansible all -m file -a "path=/tmp/mydir state=directory"
+
+2. Create a file
+ansible all -m file -a "path=/tmp/mydir/test.txt state=touch"
+
+3. Check the result
+
+You can run:  ansible all -m command -a "ls -l /tmp/mydir"
+You don't need to SSH into each slave manually. You run the ad-hoc command on the Master, and Ansible connects to the slaves and performs the operation.
+
+------------------------------------------------------
+Yes. If you want Ansible to continue to the next task even when the current task fails, use:
+
+ignore_errors: yes
+Example
+- name: Test playbook
+  hosts: all
+
+  tasks:
+
+    - name: Install wrong package
+      apt:
+        name: xyzabc
+        state: present
+      ignore_errors: yes
+
+    - name: Create a file
+      file:
+        path: /tmp/test.txt
+        state: touch
+--------------------------------------------
+Simple definition
+
+Role = a structured way of organizing Ansible tasks, variables, templates, handlers, and files.
+
+1. Create the role
+
+On the Master/Control Node:
+
+ansible-galaxy init nginx
+
+This creates:
+
+nginx/
+├── tasks/
+│   └── main.yml
+├── handlers/ main.yml
+├── templates/
+├── files/
+├── vars/
+├── defaults/
+└── meta/
+
+The most important one initially is:
+
+tasks/main.yml
 
 
+Call the role from a playbook
 
+Create:
 
+site.yml
+- name: Configure web servers
+  hosts: webservers
+  become: yes
+
+  roles:
+    - nginx
+
+Here:
+
+roles:
+  - nginx
+
+means:
+
+Run the nginx role.
+
+4. Run the playbook
+ansible-playbook site.yml  if you have custom inventory file means -i slave.txt site.yml
+--------------------------------------------------------
+
+Vault:
+1. If my playbook contains some sensitive information, hence I want to encrypt this file; so that I can protect my file from others.
+ Give command (ansible-vault encrypt tomcat.yaml) - it will ask you to provide the password (greens123) - confirm the password again (greens123) - show the output by giving (cat tomcat.yaml)
+[*** Interview Question:
+1. Will I be able to execute the tomcat.yaml when it is encrypted?
+	No, You cannot execute an encrypted file.]
+
+2. In order to execute the encrypted file, use this command (ansible-playbook -i slaves.txt tomcat.yaml --ask-vault-pass) - provide the password.
+3. To view the file, provide this command (ansible-vault view tomcat.yaml) - provide the password.
+4. In order to change the vault password (ansible-vault rekey tomcat.yaml) - provide the password and create your new password
+5. To Decrypt the file, (ansible-vault decrypt tomcat.yaml) - give the password
 
