@@ -999,22 +999,223 @@ How we are going to identify, how we are going to fix it. Go inside each and eve
 If someone is going to do some kind of mistake, we will not able to track them. No records. We cannot remember everything.
 That is where Ansible Tower is coming.
 
+---------------------------------------
+template
+
+What is the purpose of template module? This module help us to change the parameter. It is sitting inside the configuration file.
+They are going to do changes dynamically. It is not a static change, standard change, no. How dynamically? Because each environment 
+we are changing now: Dev 8060, QA 8050. So it's changing for every environment. It's not a static one. It's a dynamic one.
+
+So the purpose of template module in Ansible, Ansible uses this module in order to change the parameter setting inside the configuration file. 
+How the changes are going to be taken place dynamically under each environment. Even though you use this template module, you are going to do
+changes also. It is not going to work until you are going to complete what was that. You are doing everything properly, but it is not going to work.
+It's restart the service because you are working on with configuration changes. When it going to work only after restarting.
+
+One thing once after doing the changes, you can restart the process. The proper or recommended way is before doing the changes itself,
+stop the process, do the changes, start the process.
+
+Now let us take a backup. Why we trying to take a backup here? See, I know I stopped the process. I am going to do the changes on the configuration file.
+What are the changes I am going to do here is not a right one. Even though 100% sure also it is always good to take a backup. 
+If something went wrong, by using that backup we can bring back. What if we don't have any backup? Again we need to stop the complete
+Tomcat again process with the installation. Too much work.
+
+
+Even it is not a configuration file also. Even it is a small file also, you, if you do any changes or delete means, make sure you always having a backup.
+
+If we are going to process the same file without giving me Jinja2 language, sorry I cannot use this model. For this model,
+I can use only Jinja2 language. It's not a new language, it's a Python internal language only. So we need to learn this language, no.
+Instead of renaming this language, make sure you renaming this file with .j2. Jinja2 file always ends with .j2.
 
 
 
+In Ansible, template is a module used to create a file on the remote server from a template file.
+The important idea is:  Template = copy a file, but allow variables to be replaced with actual values.
+
+Example
+
+On your Master, create:  nginx.conf.j2
+
+Contents:
+server {
+    listen {{ port }};
+    server_name {{ server_name }};
+}
+
+Here:
+{{ port }}
+{{ server_name }}
+
+are variables.
+
+Then your playbook:
+
+- name: Configure nginx
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: Copy nginx configuration
+      ansible.builtin.template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+
+You can have variables such as:
+
+vars:
+  port: 8080
+  server_name: example.com
+
+Then Ansible creates the remote file as:
+
+server {
+    listen 8080;
+    server_name example.com;
+}
 
 
 
+Let's understand template with a very simple example.
+
+Imagine this
+You have 2 servers:
+Master
+  |
+  +---- Server 1
+  |
+  +---- Server 2
+
+You want to create a file on both servers.
+But the value should be different on each server.
+
+For example:
+Server 1 → PORT=8080
+Server 2 → PORT=9090
+This is where template is useful.
+
+
+1. Create a template on Master
+Create:  app.conf.j2
+
+Inside:  PORT={{ port }}
+
+{{ port }} means:  "Put the value of port here."
+
+2. Give each server its own value
+vars:
+  port: 8080
+
+For Server 1:  PORT=8080
+For Server 2:  PORT=9090
+
+on Master
+
+Your files can be:
+
+/home/ec2-user/ansible/
+├── inventory
+├── app.conf.j2
+└── playbook.yml
+
+1. Template file — on Master
+app.conf.j2:
+PORT={{ port }}
+
+2. Give values to servers — also on Master
+The easiest way is in the inventory:
+
+[server1]
+10.0.1.10 port=8080
+
+[server2]
+10.0.1.11 port=9090
+
+Now Ansible knows:
+10.0.1.10 → port = 8080
+10.0.1.11 → port = 9090
+
+3. Playbook — on Master
+- name: Create config
+  hosts: all
+
+  tasks:
+    - name: Create app config
+      template:
+        src: app.conf.j2
+        dest: /tmp/app.conf
+
+Run this from Master:  ansible-playbook -i inventory playbook.yml
+What happens?
+             MASTER
+      app.conf.j2: PORT={{ port }}
+             |
+             | Ansible + SSH
+             |
+       -------------------
+       ↓                 ↓
+   Server 1           Server 2
+   port=8080          port=9090
+       ↓                 ↓
+ /tmp/app.conf       /tmp/app.conf
+
+ PORT=8080            PORT=9090
+
+So all the configuration is written on the Master, and Ansible sends the final file to the Slaves.
+
+3. Use the template module
+- name: Create config
+  hosts: all
+
+  tasks:
+    - name: Create app config
+      template:
+        src: app.conf.j2
+        dest: /tmp/app.conf
+
+Ansible takes:
+
+app.conf.j2
+PORT={{ port }}
+
+and creates the actual file on the server:
+
+/tmp/app.conf
+
+PORT=8080
 
 
 
+Why not copy?
 
+With copy:
 
+PORT={{ port }}
 
+will be copied exactly as it is.
 
+The server would get:
 
+PORT={{ port }}
 
+With template:
 
+PORT={{ port }}
+       ↓
+Ansible replaces variable
+       ↓
+PORT=8080
+Very simple definition
+
+Template = create a file on the server where some values are dynamically replaced.
+
+Template file (.j2)
+       ↓
+ contains {{ variables }}
+       ↓
+ Ansible template module
+       ↓
+Final file on server
+
+The .j2 is commonly used to identify a Jinja2 template file.
 
 
 
