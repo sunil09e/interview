@@ -1026,6 +1026,11 @@ If we are going to process the same file without giving me Jinja2 language, sorr
 I can use only Jinja2 language. It's not a new language, it's a Python internal language only. So we need to learn this language, no.
 Instead of renaming this language, make sure you renaming this file with .j2. Jinja2 file always ends with .j2.
 
+ansible_user is a predefined Ansible variable. You should not change the variable name.
+For example:
+10.0.1.10 ansible_user=ubuntu ansible_port=22
+10.0.1.20 ansible_user=ubuntu
+
 
 
 In Ansible, template is a module used to create a file on the remote server from a template file.
@@ -1216,6 +1221,63 @@ Template file (.j2)
 Final file on server
 
 The .j2 is commonly used to identify a Jinja2 template file.
+
+
+
+
+When you use the template module, Ansible automatically takes the .j2 template, replaces the variables, and creates or updates the configuration file on the slave.
+
+For example, on the Master:
+app.conf.j2
+PORT={{ port }}
+
+Inventory:
+[servers]
+10.0.1.10 port=8080
+10.0.1.11 port=9090
+
+Playbook:
+- name: Configure application
+  hosts: servers
+
+  tasks:
+    - name: Create config file
+      template:
+        src: app.conf.j2
+        dest: /etc/myapp/app.conf
+
+When you run:  ansible-playbook -i slaves.txt site.yml
+
+Ansible automatically does:
+Master
+  |
+  | app.conf.j2
+  | PORT={{ port }}
+  |
+  ↓
+Ansible replaces {{ port }}
+  |
+  ├──→ Server 1 → /etc/myapp/app.conf → PORT=8080
+  |
+  └──→ Server 2 → /etc/myapp/app.conf → PORT=9090
+And yes — it can UPDATE an existing config file
+
+If /etc/myapp/app.conf already exists:
+Old:
+PORT=8080
+
+and you change the inventory:  10.0.1.10 port=9090
+then run the playbook again:  ansible-playbook -i slaves.txt site.yml
+
+Ansible will compare the template with the existing file and update it:
+PORT=8080
+      ↓
+PORT=9090
+
+So you don't have to manually SSH into the slave and edit the configuration file. The template task handles the creation/update.
+
+
+
 --------------------------------------------------------------------------
 
 1. Create a directory
@@ -1354,9 +1416,7 @@ Playbook:
       debug:
         msg: "{{ db_password }}"
 
-Run:
-
-ansible-playbook site.yml --ask-vault-pass
+Run:  ansible-playbook site.yml --ask-vault-pass
 
 Ansible asks: Vault password:
 Then it decrypts the Vault data when needed.
