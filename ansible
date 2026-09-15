@@ -1315,3 +1315,55 @@ Vault:
 4. In order to change the vault password (ansible-vault rekey tomcat.yaml) - provide the password and create your new password
 5. To Decrypt the file, (ansible-vault decrypt tomcat.yaml) - give the password
 
+There are two different passwords in this example, and that's what can be confusing.
+
+When you run:  ansible-vault create secrets.yml
+Ansible asks you for a Vault password.
+
+For example:
+Vault password: ********
+Confirm Vault password: ********
+
+Then the editor opens, and inside the file you put your actual secret:  db_password: MyPassword123
+
+2. View the encrypted file
+ansible-vault view secrets.yml
+
+It asks for the Vault password and then shows the contents.
+
+Encrypting Existing Files
+You can encrypt an existing file using the ansible-vault command.
+ansible-vault encrypt existing-file.yml
+
+3. Edit it
+ansible-vault edit secrets.yml
+4. Use it in a playbook
+
+secrets.yml:  db_password: MyPassword123
+
+vi site.yml
+Playbook:
+- name: Configure server
+  hosts: all
+
+  vars_files:
+    - secrets.yml
+
+  tasks:
+    - name: Show password
+      debug:
+        msg: "{{ db_password }}"
+
+Run:
+
+ansible-playbook site.yml --ask-vault-pass
+
+Ansible asks: Vault password:
+Then it decrypts the Vault data when needed.
+
+
+ansible-playbook site.yml --ask-vault-pass       -i slaves.txt    → use slaves.txt as the inventory
+So:
+site.yml → main playbook; tells Ansible what to do
+secrets.yml → encrypted secrets; contains passwords/API keys/etc.
+--ask-vault-pass → asks for the password needed to unlock secrets.yml
