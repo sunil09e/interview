@@ -41,7 +41,138 @@ Ansible architecture
 Ansible is generally agentless.
 That means you normally don't install an Ansible agent on every managed Linux server only control node
 ------------------------------------
+Configuration Management
 
+Configuration Management: Automate server setups, software installations, and system configurations.
+It is a method through which we automate admin task.
+Configuration Management tool turns your code into Infrastructure.
+So your code would be testable, repeatable and Versionable.
+Infrastructure refers to the composite of -
+Software
+Network
+People
+Process
+
+--------------------------------------------------
+Push Based vs Pull Based
+
+Tools like Puppet and Chef are pull based.
+Agent on the server periodically checks for the configuration information from central server (master).
+
+Ansible is Push Based.
+Central server pushes the configuration information on target servers. You control when the changes are made on the servers.
+
+--------------------------------------------------------
+Inventory File
+
+Ansible's inventory hosts file is used to list and group your servers. Its default location is /etc/ansible/hosts.
+Note: In the inventory host file, we can mention an IP address or Hostname also.
+
+Sample of Inventory file
+
+[webservers]
+web1.example.com
+#web2.example.com
+
+[databases]
+192.168.1.20
+192.168.1.21
+db1.example.com
+-------------------------------------------------------------
+setup
+
+Step 1: Install Ansible
+Install Ansible only on Machine 1.
+sudo dnf install ansible-core -y
+Check:  ansible --version
+
+When you install Ansible:  sudo dnf install ansible-core -y
+Python is normally installed as a dependency if required.
+Check:  python3 --version
+
+
+Slave
+
+Check Python: python3 --version
+If Python isn't installed, install it.
+
+RHEL: sudo dnf install python3 -y
+
+Ubuntu:
+sudo apt update
+sudo apt install python3 -y
+
+
+
+On the master:
+ssh-keygen
+
+Just press Enter for the questions.
+You will get:
+~/.ssh/id_rsa
+~/.ssh/id_rsa.pub
+
+Think of:
+id_rsa     = private key → KEEP SECRET
+id_rsa.pub = public key  → give to servers
+
+
+Step 2 — Give the public key to the slave
+
+From the master, run:  ssh-copy-id user@SLAVE_IP
+Example:   ssh-copy-id ec2-user@10.0.1.10
+For another server:    ssh-copy-id ec2-user@10.0.1.11
+
+ssh-copy-id means:   Copy the master's public SSH key to the slave server so that the master can connect to the slave without entering the password every time.
+
+Now the master can SSH into the slaves.
+Test:  ssh ec2-user@10.0.1.10
+If you get into the server, SSH is working.
+
+It requires:   The master must have a private key that matches a public key authorized for the account on the slave.
+
+
+Step 3 — Create the inventory
+
+On the master:  sudo vi /etc/ansible/hosts
+
+Add:
+[servers]
+10.0.1.10
+10.0.1.11
+
+This simply tells Ansible:  "These are the servers I want to manage."
+Or you can create your own file:
+
+vi slaves.txt
+[webservers]
+10.0.1.10
+10.0.1.11
+If you use slaves.txt, specify it with -i:  ansible all -i slaves.txt -m ping
+
+
+Step 4 — Test Ansible
+
+On the master:  ansible all -m ping
+Ansible will read:  /etc/ansible/hosts
+
+
+Step 5 — Then create a playbook
+
+For example, if the slaves are RHEL:
+
+vi install.yml
+- name: Install nginx
+  hosts: servers
+  become: yes
+
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+
+----------------------------------------------------
 when comes to this cm tool we are having popular tools
 ANSIBLE  -80% OF THE COMPANY USing this
 CHEF
