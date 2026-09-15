@@ -666,6 +666,221 @@ Common module
  yum, apt, file, copy, template, service, systemctl, user, group, shell, Docker, container.
 
 --------------------------------------------------------------------------
+tagging
+
+In Ansible, tags are used to run only specific tasks from a playbook instead of running every task.
+
+Example
+- name: Configure server
+  hosts: all
+  become: yes
+
+  tasks:
+
+    - name: Install nginx
+      package:
+        name: nginx
+        state: present
+      tags:
+        - install
+
+    - name: Start nginx
+      service:
+        name: nginx
+        state: started
+      tags:
+        - service
+
+    - name: Copy configuration
+      copy:
+        src: nginx.conf
+        dest: /etc/nginx/nginx.conf
+      tags:
+        - config
+
+Now you have 3 tags:
+
+install
+service
+config
+
+Run only the install task     ansible-playbook playbook.yml --tags install
+Only this runs:  Install nginx
+
+Run only service        ansible-playbook playbook.yml --tags service
+Only:  Start nginx
+
+
+Run multiple tags
+ansible-playbook playbook.yml --tags "install,service"
+Both tasks run.
+
+Why use tags?
+Imagine your playbook has 20 tasks, but you only want to install packages:
+20 tasks
+   ↓
+--tags install
+   ↓
+Only installation tasks
+
+
+
+Suppose your playbook has 20 tasks and you add a 21st task.
+If you run:  ansible-playbook playbook.yml
+Ansible will check all 21 tasks. It does not automatically skip the first 20 just because they ran before.
+But the important part is:  Ansible checks the current state before changing anything.
+
+
+If you only want to run the new task
+This is where tags are useful.
+
+Give task 21 a tag:
+- name: Install vim
+  package:
+    name: vim
+    state: present
+  tags:
+    - new_task
+
+Then:  ansible-playbook playbook.yml --tags new_task
+Now only the tagged task runs.
+
+
+
+
+
+it checks/runs through the task again, but that does not mean it performs the action again.
+
+First run
+nginx not installed
+       ↓
+Ansible installs nginx
+       ↓
+changed
+Second run
+Ansible checks nginx
+       ↓
+nginx already installed
+       ↓
+nothing to do
+       ↓
+ok
+
+So if you have 20 old tasks + 1 new task, a normal playbook run:  ansible-playbook playbook.yml
+
+will check all 21 tasks.
+
+Task 1  → check → already correct → OK
+Task 2  → check → already correct → OK
+...
+Task 20 → check → already correct → OK
+Task 21 → check → not done → CHANGE
+
+If you want only task 21, use a tag:
+
+
+If you add a 21st task and run the whole playbook, Ansible will go through all 21 tasks.
+It will not automatically run only the new task.
+But for the old 20 tasks, Ansible checks whether their desired state is already achieved.
+
+Example:
+20 tasks already completed
+        +
+1 new task
+        ↓
+Run playbook
+        ↓
+Task 1  → check → already done → no change
+Task 2  → check → already done → no change
+...
+Task 20 → check → already done → no change
+Task 21 → check → not done → execute
+
+So the answer is:  Ansible checks all 21 tasks, but normally only performs a change for the new task (and any old task whose state has changed).
+If you want to skip checking the old 20 completely, use a tag on task 21:  ansible-playbook playbook.yml --tags new_task
+Then only task 21 is selected and executed.
+
+ansible-playbook playbook.yml --skips-tags service   dont run this 
+
+------------------------------------------------------------------------------
+when condition
+
+In Ansible, a when condition means:
+
+Run a task only when a particular condition is true.
+
+Simple example
+- name: Install nginx
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+      when: ansible_os_family == "RedHat"
+
+Here:  when: ansible_os_family == "RedHat"
+means:
+Is this server RedHat?
+       |
+   Yes ↓ No
+       |   \
+    Run    Skip
+
+So if you have:
+
+Server 1 → RHEL
+Server 2 → Ubuntu
+Server 3 → RHEL
+
+Ansible does:
+Server 1 → condition true  → install nginx
+Server 2 → condition false → skip
+Server 3 → condition true  → install nginx
+
+
+Another example
+- name: Start nginx
+  service:
+    name: nginx
+    state: started
+  when: nginx_enabled == true
+
+The task runs only when nginx_enabled is true.
+-------------------------------------------------
+Ansible Tower. This is an automation tool. Consider Ansible is doing a lot of things. So this Tower is going to be control center for Ansible.
+Now this Ansible Tower, it is going to take in command line automation. It is going to make sure all the things are recorded. Earlier we used to call
+this an Ansible Tower. Currently this named as changed. This is called Red Hat Ansible Automation Platform.
+
+
+Here we are having something called inventory. It's a place where we are saving all IP address in Ansible CLI.
+Same way in Tower also we are having something called inventory. In this UI area you are going to see something called inventory. 
+So inventory is a place. If you are going to click, it is going to list all the machines that got involved for this automation. 
+So instead of writing ssh user IP address, going like this inside your server, by coming this inside UI area, Tower already have their inventory file. 
+In background all the machine get registered. Okay. In this UI itself you can even group, there we have test area. If something wrong with the testing area,
+just by going inside testing we can identify the number of servers, 
+
+
+If a company have 100 servers, handling these 100 servers is easy by using Ansible. Your application is actually running something went wrong.
+How we are going to identify, how we are going to fix it. Go inside each and every machine individually is not easy task. 
+If someone is going to do some kind of mistake, we will not able to track them. No records. We cannot remember everything.
+That is where Ansible Tower is coming.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
